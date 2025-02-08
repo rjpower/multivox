@@ -1,0 +1,30 @@
+[project]
+name = "multivox"
+version = "0.1.0"
+description = "Generative dialogue system"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.8",
+    "google-genai>=1.0.0",
+    "litellm>=1.60.7",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.3",
+    "uvicorn>=0.34.0",
+    "websockets>=14.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["multivox"]
+
+[dependency-groups]
+dev = [
+    "hatch>=1.14.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-v --asyncio-mode=auto"

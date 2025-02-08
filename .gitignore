@@ -1,1 +1,31 @@
 .aider*
+dist/
+build/
+
+# Node.js and TypeScript
+node_modules
+.parcel-cache
+.DS_Store
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# General
+.DS_Store
+*.swp
+*.log
+/tmp
+/out
+.idea
+.vscode
+*.env
+secrets.ini
+cache/
