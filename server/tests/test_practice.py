@@ -1,10 +1,28 @@
 import base64
 import json
 import pathlib
+import wave
 
 from fastapi.testclient import TestClient
 from multivox.app import app
-from multivox.types import MessageRole, MessageType, WebSocketMessage
+from multivox.types import MessageRole, MessageType, Scenario, WebSocketMessage
+
+
+def test_scenarios_api():
+    """Test the scenarios API endpoint"""
+    client = TestClient(app)
+    response = client.get("/api/scenarios")
+    
+    assert response.status_code == 200
+    scenarios = response.json()
+    assert isinstance(scenarios, list)
+    assert len(scenarios) > 0
+    
+    # Check scenario structure
+    scenario = scenarios[0]
+    assert "id" in scenario
+    assert "title" in scenario
+    assert "instructions" in scenario
 
 
 def test_practice_session_basic():
@@ -14,10 +32,29 @@ def test_practice_session_basic():
     # Use a known scenario ID from the test data
     scenario_id = "hotel"
 
-    with client.websocket_connect(f"/api/practice/{scenario_id}?lang=ja") as websocket:
-        # We should receive the initial translated instructions
+    with client.websocket_connect("/api/practice?lang=ja") as websocket:
+        # First get the scenario instructions
+        scenarios_response = client.get("/api/scenarios")
+        scenarios = [Scenario.model_validate(m) for m in scenarios_response.json()]
+        scenario = next(s for s in scenarios if s.id == scenario_id)
+
+        # Translate the instructions
+        translate_response = client.post(
+            "/api/translate", json={"text": scenario.instructions, "language": "ja"}
+        )
+        translated_text = translate_response.json()["translation"]
+
+        # Send the translated instructions
+        message = WebSocketMessage(
+            type=MessageType.TEXT,
+            text=translated_text,
+            role=MessageRole.USER
+        )
+        websocket.send_json(message.model_dump())
+
+        # We should receive a response
         response = websocket.receive_text()
-        assert response, "Should receive initial response"
+        assert response, "Should receive response"
         assert len(response) > 0, "Response should not be empty"
 
         # Test sending some audio data
@@ -34,17 +71,41 @@ def test_practice_session_with_audio():
     # Get path to test audio file
     audio_path = pathlib.Path(__file__).parent / "data" / "checkin.wav"
 
-    with client.websocket_connect(f"/api/practice/{scenario_id}?lang=ja") as websocket:
-        # Wait for initial instructions
+    with client.websocket_connect("/api/practice?lang=ja") as websocket:
+        # First get the scenario instructions
+        scenarios_response = client.get("/api/scenarios")
+        scenarios = [Scenario.model_validate(m) for m in scenarios_response.json()]
+        scenario = next(s for s in scenarios if s.id == scenario_id)
+
+        # Translate the instructions
+        translate_response = client.post(
+            "/api/translate", json={"text": scenario.instructions, "language": "ja"}
+        )
+        translated_text = translate_response.json()["translation"]
+
+        # Send the translated instructions
+        message = WebSocketMessage(
+            type=MessageType.TEXT,
+            text=translated_text,
+            role=MessageRole.USER
+        )
+        websocket.send_json(message.model_dump())
+
+        # Wait for response
+        audio_pcm = []
         while True:
             response = json.loads(websocket.receive_text())
             msg = WebSocketMessage.model_validate(response)
-            print("RECEIVED", msg)
             if msg.end_of_turn:
                 break
-            assert msg.text, "Should receive initial instructions"
+            if msg.audio:
+                audio_pcm.append(msg.audio)
 
-        print("FINISHED INITIAL RESPONSE")
+        with wave.open("/tmp/initial_response.wav", "wb") as f:
+            f.setnchannels(1)
+            f.setsampwidth(2)
+            f.setframerate(24000)
+            f.writeframes(b"".join(audio_pcm))
 
         # Read the WAV file directly as raw PCM
         with open(audio_path, "rb") as f:
@@ -54,19 +115,28 @@ def test_practice_session_with_audio():
 
         message = WebSocketMessage(
             type=MessageType.AUDIO,
-            audio=base64.b64encode(raw_audio).decode(),
+            audio=base64.b64encode(raw_audio),
             role=MessageRole.USER,
         )
         print("Sending audio message")
-        websocket.send_json(message.model_dump())
+        websocket.send_text(message.model_dump_json())
 
         # Wait for response to audio
+        second_response = []
         while True:
             response = json.loads(websocket.receive_text())
             msg = WebSocketMessage.model_validate(response)
-            print("READING RESPONSE", msg)
+            print(msg)
+            if msg.audio:
+                second_response.append(msg.audio)
             if msg.end_of_turn:
                 break
+
+        with wave.open("/tmp/second_response.wav", "wb") as f:
+            f.setnchannels(1)
+            f.setsampwidth(2)
+            f.setframerate(24000)
+            f.writeframes(b"".join(second_response))
 
 
 if __name__ == "__main__":

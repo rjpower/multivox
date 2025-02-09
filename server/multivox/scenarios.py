@@ -1,14 +1,9 @@
-from typing import List
+from typing import Sequence
 
-from pydantic import BaseModel
+from multivox.types import Scenario
 
 
-class Scenario(BaseModel):
-    id: str
-    title: str
-    instructions: str
-
-def list_scenarios() -> List[Scenario]:
+def list_scenarios() -> Sequence[Scenario]:
     """Return list of available practice scenarios"""
     return [
         Scenario(

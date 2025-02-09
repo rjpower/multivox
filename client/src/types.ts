@@ -1,3 +1,12 @@
+export interface TranslateRequest {
+  text: string;
+  language: string;
+}
+
+export interface TranslateResponse {
+  translation: string;
+}
+
 export interface Scenario {
   id: string;
   title: string;

@@ -42,4 +42,4 @@ class TypedWebSocket:
 
     async def send_message(self, message: WebSocketMessage):
         """Send a WebSocketMessage"""
-        await self.websocket.send_json(message.model_dump())
+        await self.websocket.send_text(message.model_dump_json())

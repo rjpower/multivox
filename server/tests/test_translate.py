@@ -1,6 +1,24 @@
 import pytest
 from fastapi import HTTPException
-from multivox.app import translate
+from fastapi.testclient import TestClient
+from multivox.app import app, translate
+
+
+def test_translate_api():
+    """Test the translation API endpoint"""
+    client = TestClient(app)
+    
+    response = client.post(
+        "/api/translate",
+        json={"text": "Hello, how are you?", "language": "ja"}
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert "translation" in data
+    assert isinstance(data["translation"], str)
+    assert len(data["translation"]) > 0
+    assert data["translation"] != "Hello, how are you?"
 
 
 def test_translate_basic():

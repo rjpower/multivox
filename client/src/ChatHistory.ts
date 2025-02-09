@@ -36,6 +36,26 @@ export class ChatHistory {
     return new ChatHistory(newMessages);
   }
 
+  addAudioAnnotation(role: MessageRole): ChatHistory {
+    const lastMessage = this.messages[this.messages.length - 1];
+    
+    // If no messages or last message isn't from the same role, add as new
+    if (!lastMessage || lastMessage.role !== role) {
+      return this.addMessage(role, "🔊 Audio message");
+    }
+
+    // Append audio notation to existing message if it doesn't already end with one
+    if (!lastMessage.content.endsWith("🔊")) {
+      const newContent = lastMessage.content + " 🔊";
+      const newMessages = [...this.messages.slice(0, -1),
+        { ...lastMessage, content: newContent }
+      ];
+      return new ChatHistory(newMessages);
+    }
+
+    return this;
+  }
+
   getMessages(): ChatMessage[] {
     return this.messages;
   }
