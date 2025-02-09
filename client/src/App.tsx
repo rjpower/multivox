@@ -1,16 +1,23 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { ScenarioList } from "./ScenarioList";
 import { AudioRecorder } from "./AudioRecorder";
 import { ChatHistory, ChatMessage } from "./ChatHistory";
+import { VocabularyList } from "./VocabularyList";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
-  Link,
   useParams,
   useSearchParams,
   useNavigate,
 } from "react-router-dom";
-import type { Scenario, TranslateRequest, TranslateResponse } from "./types";
+import type {
+  DictionaryEntry,
+  Scenario,
+  TranscribeResponse,
+  TranslateRequest,
+  TranslateResponse,
+} from "./types";
 import { TypedWebSocket } from "./types";
 import { AudioPlayer } from "./AudioPlayer";
 
@@ -48,22 +55,11 @@ const Home = () => {
           </select>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {scenarios.map((scenario) => (
-            <div
-              key={scenario.id}
-              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-            >
-              <h3 className="text-xl font-semibold mb-2">{scenario.title}</h3>
-              <p className="text-gray-600 mb-4">{scenario.instructions}</p>
-              <Link
-                to={`/practice/${scenario.id}?lang=${selectedLanguage}`}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Start Practice
-              </Link>
-            </div>
-          ))}
+        <div className="bg-white rounded-lg shadow-md">
+          <ScenarioList 
+            scenarios={scenarios} 
+            selectedLanguage={selectedLanguage} 
+          />
         </div>
       </div>
     </div>
@@ -86,6 +82,7 @@ const ScenarioInstructions = ({
   const handleStart = async () => {
     setIsLoading(true);
     try {
+      // Then get translation and send as first message
       const request: TranslateRequest = {
         text: scenario.instructions,
         language: language,
@@ -107,7 +104,7 @@ const ScenarioInstructions = ({
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mb-4">
       <h3 className="text-xl font-semibold mb-4">{scenario.title}</h3>
-      <p className="text-gray-600 mb-6">{scenario.instructions}</p>
+      <p className="text-gray-600 mb-6 whitespace-pre-wrap">{scenario.instructions}</p>
       <button
         onClick={handleStart}
         disabled={isLoading}
@@ -115,6 +112,93 @@ const ScenarioInstructions = ({
       >
         {isLoading ? "Translating..." : "Start Practice"}
       </button>
+    </div>
+  );
+};
+
+const TranscriptionChunk = ({
+  term,
+  dictionary,
+}: {
+  term: string;
+  dictionary: Record<string, DictionaryEntry>;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Find the longest matching dictionary key that is contained in this term
+  const match = Object.keys(dictionary)
+    .filter((key) => term.includes(key))
+    .sort((a, b) => b.length - a.length)[0];
+
+  if (!match) {
+    return <span>{term}</span>;
+  }
+
+  const translation = dictionary[match].translation;
+
+  return (
+    <span
+      className={`
+        cursor-pointer 
+        inline-block px-2 py-0.5 mx-0.5 my-0.5
+        rounded-full 
+        ${
+          isOpen
+            ? "bg-indigo-200 shadow-inner"
+            : "bg-indigo-50 hover:bg-indigo-100 hover:shadow-sm"
+        }
+        border border-indigo-200
+        transition-all duration-200
+        relative
+      `}
+      onClick={() => setIsOpen(!isOpen)}
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+    >
+      {term}
+      {isOpen && (
+        <div
+          className="
+          absolute top-full left-1/2 transform -translate-x-1/2 mt-1 z-10
+          px-3 py-2 rounded-lg shadow-lg
+          bg-white border border-gray-200
+          text-sm text-gray-700
+          min-w-[150px]
+        "
+        >
+          <div className="font-medium mb-1">{translation}</div>
+          {/* Add notes if they exist */}
+        </div>
+      )}
+    </span>
+  );
+};
+
+const TranscriptionMessage = ({ data }: { data: TranscribeResponse }) => {
+  const [showTranslation, setShowTranslation] = useState(false);
+
+  return (
+    <div className="space-y-3">
+      <div className="text-sm leading-relaxed">
+        {data.chunked.map((term: string, idx: number) => (
+          <TranscriptionChunk
+            key={idx}
+            term={term}
+            dictionary={data.dictionary}
+          />
+        ))}
+      </div>
+      {data.translation && (
+        <button
+          onClick={() => setShowTranslation(!showTranslation)}
+          className="text-xs text-indigo-600 hover:text-indigo-800"
+        >
+          {showTranslation ? "Hide" : "Show"} Translation
+        </button>
+      )}
+      {showTranslation && data.translation && (
+        <div className="text-sm text-gray-600 italic">{data.translation}</div>
+      )}
     </div>
   );
 };
@@ -130,15 +214,46 @@ const ChatMessages = ({ messages }: { messages: ChatMessage[] }) => {
               msg.role === "assistant" ? "justify-start" : "justify-end"
             }`}
           >
-            <div
-              className={`max-w-[80%] px-4 py-2 rounded-lg ${
-                msg.role === "assistant"
-                  ? "bg-white text-gray-800 shadow"
-                  : "bg-indigo-600 text-white"
-              }`}
-            >
-              {msg.content}
-            </div>
+            {(() => {
+              switch (msg.content.type) {
+                case "transcription":
+                  return (
+                    <div
+                      className={`max-w-[80%] px-4 py-2 ${
+                        msg.role === "assistant"
+                          ? "text-gray-600"
+                          : "text-indigo-300"
+                      }`}
+                    >
+                      <TranscriptionMessage data={msg.content.transcription} />
+                    </div>
+                  );
+                case "audio":
+                  return (
+                    <div
+                      className={`max-w-[80%] px-4 py-2 rounded-lg ${
+                        msg.role === "assistant"
+                          ? "bg-white text-gray-800 shadow"
+                          : "bg-indigo-600 text-white"
+                      }`}
+                    >
+                      {msg.content.placeholder}
+                    </div>
+                  );
+                case "text":
+                  return (
+                    <div
+                      className={`max-w-[80%] px-4 py-2 rounded-lg ${
+                        msg.role === "assistant"
+                          ? "bg-white text-gray-800 shadow"
+                          : "bg-indigo-600 text-white"
+                      }`}
+                    >
+                      {msg.content.text}
+                    </div>
+                  );
+              }
+            })()}
           </div>
         ))}
       </div>
@@ -210,9 +325,18 @@ const ChatInterface = ({
 const usePracticeSession = (language: string) => {
   const [recorder, setRecorder] = useState<AudioRecorder | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [chatHistory, setChatHistory] = useState<ChatHistory>(new ChatHistory());
-  const [isConnected, setIsConnected] = useState(false);
-  const wsRef = useRef<TypedWebSocket | null>(null);
+  const [chatHistory, setChatHistory] = useState<ChatHistory>(
+    new ChatHistory()
+  );
+  const [wsState, setWsState] = useState<{
+    ws: TypedWebSocket | null;
+    isConnected: boolean;
+    isConnecting: boolean;
+  }>({
+    ws: null,
+    isConnected: false,
+    isConnecting: false
+  });
   const audioPlayer = useRef<AudioPlayer>(new AudioPlayer());
 
   const startRecording = async () => {
@@ -220,7 +344,9 @@ const usePracticeSession = (language: string) => {
       if (recorder) {
         await recorder.startRecording();
         setIsRecording(true);
-        setChatHistory((prev: ChatHistory) => prev.addMessage("user", "🎤 Recording..."));
+        setChatHistory((prev: ChatHistory) =>
+          prev.addAudioMessage("user", true)
+        );
       }
     } catch (err) {
       console.error("Failed to start recording:", err);
@@ -231,26 +357,28 @@ const usePracticeSession = (language: string) => {
     if (recorder) {
       recorder.stopRecording();
       setIsRecording(false);
-      setChatHistory((prev: ChatHistory) => prev.addMessage("user", "🎤 Recording stopped"));
+      setChatHistory((prev: ChatHistory) =>
+        prev.addAudioMessage("user", false)
+      );
     }
   };
 
-  const connect = useCallback((initialText: string) => {
+  const connect = useCallback(() => {
+    if (wsState.ws || wsState.isConnecting) return; // Already connected or connecting
+    
+    setWsState(prev => ({ ...prev, isConnecting: true }));
     const ws = new TypedWebSocket(
       `ws://localhost:8000/api/practice?lang=${language}`
     );
 
-    wsRef.current = ws;
-
     ws.onopen = () => {
       console.log("WebSocket connected");
       setRecorder(new AudioRecorder(ws));
-      ws.send({
-        type: "text",
-        text: initialText,
-        role: "user",
+      setWsState({
+        ws,
+        isConnected: true,
+        isConnecting: false
       });
-      setIsConnected(true);
     };
 
     ws.onerror = (error) => {
@@ -259,63 +387,78 @@ const usePracticeSession = (language: string) => {
 
     ws.onclose = (event) => {
       console.log("WebSocket closed:", event.code, event.reason);
-      setIsConnected(false);
-    };
-
-    ws.onmessage = (message) => {
-      switch (message.type) {
-        case "text":
-          if (message.text) {
-            setChatHistory((prev) =>
-              message.role === "assistant"
-                ? prev.updateLastAssistantMessage(
-                    message.text!,
-                    message.mode ?? "append"
-                  )
-                : prev.addMessage(message.role, message.text!)
-            );
-          }
-          break;
-        case "audio":
-          if (message.audio) {
-            audioPlayer.current.resume();
-            audioPlayer.current.addAudioToQueue(message.audio);
-            setChatHistory((prev) =>
-              prev.addAudioAnnotation("assistant")
-            );
-          }
-          break;
-      }
-    };
-
-    return () => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send({ type: "text", text: "disconnect", role: "user" });
-      }
-    };
-  }, [language]);
-
-
-  const sendMessage = (text: string) => {
-    if (wsRef.current) {
-      wsRef.current.send({
-        type: "text",
-        text,
-        role: "user",
+      setWsState({
+        ws: null,
+        isConnected: false,
+        isConnecting: false
       });
-      setChatHistory((prev) => prev.addMessage("user", text));
+    };
+
+      ws.onmessage = (message) => {
+        switch (message.type) {
+          case "text":
+            if (message.text) {
+              setChatHistory((prev) =>
+                message.role === "assistant"
+                  ? prev.updateLastAssistantMessage(
+                      message.text!,
+                      message.mode ?? "append"
+                    )
+                  : prev.addTextMessage(message.role, message.text!)
+              );
+            }
+            break;
+          case "transcription":
+            setChatHistory((prev) =>
+              prev.addTranscriptionMessage(message.role, message.transcription!)
+            );
+            break;
+          case "audio":
+            if (message.audio) {
+              audioPlayer.current.resume();
+              audioPlayer.current.addAudioToQueue(message.audio);
+              setChatHistory((prev) => prev.addAudioMessage(message.role));
+            }
+            break;
+        }
+      };
+
+      return () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send({ type: "text", text: "disconnect", role: "user" });
+        }
+      };
+    },
+    [language]
+  );
+
+  const sendMessage = useCallback((text: string) => {
+    if (!wsState.ws || wsState.ws.readyState !== WebSocket.OPEN) {
+      console.error("WebSocket not connected");
+      return;
     }
-  };
+
+    // Update chat history first
+    setChatHistory((prev) => prev.addTextMessage("user", text));
+
+    // Then send to server
+    wsState.ws.send({
+      type: "text",
+      text,
+      role: "user",
+    });
+  }, [wsState.ws]);
 
   return {
-    isConnected,
+    isConnected: wsState.isConnected,
+    isConnecting: wsState.isConnecting,
     isRecording,
     chatHistory,
     connect,
     startRecording,
     stopRecording,
     sendMessage,
-    wsRef,
+    ws: wsState.ws,
   };
 };
 
@@ -325,16 +468,17 @@ const Practice = () => {
   const [searchParams] = useSearchParams();
   const language = searchParams.get("lang") ?? "ja";
   const [scenario, setScenario] = useState<Scenario | null>(null);
-  const [translatedInstructions, setTranslatedInstructions] = useState<string>("");
-  
+
   const {
     isConnected,
+    isConnecting,
     isRecording,
     chatHistory,
     connect,
     startRecording,
     stopRecording,
     sendMessage,
+    ws,
   } = usePracticeSession(language);
 
   // Fetch scenario
@@ -347,17 +491,19 @@ const Practice = () => {
       });
   }, [scenarioId]);
 
-  // Start session when we have translated instructions
+  // Connect when component mounts
   useEffect(() => {
-    if (translatedInstructions) {
-      connect(translatedInstructions);
-    }
-  }, [translatedInstructions, connect]);
+    connect();
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, [connect]);
 
   const handleStartSession = async (instructions: string) => {
-    setTranslatedInstructions(instructions);
+    sendMessage(instructions);
   };
-
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -369,20 +515,48 @@ const Practice = () => {
           ← Back to scenarios
         </button>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-bold mb-4">Practice Session</h2>
+        <div className="flex gap-6">
+          <div className="flex-1">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-bold mb-4">Practice Session</h2>
 
-          {!isConnected ? (
-            <ScenarioInstructions scenario={scenario} onStart={handleStartSession} />
-          ) : (
-            <ChatInterface
-              isRecording={isRecording}
-              chatHistory={chatHistory}
-              onStartRecording={startRecording}
-              onStopRecording={stopRecording}
-              onSendMessage={sendMessage}
-            />
-          )}
+              <div
+                className={`space-y-4 ${
+                  isConnecting || !isConnected
+                    ? "opacity-50 pointer-events-none"
+                    : ""
+                }`}
+              >
+                {!isConnected ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Connecting...</p>
+                  </div>
+                ) : (
+                  <>
+                    {chatHistory.getMessages().length === 0 ? (
+                      <ScenarioInstructions
+                        scenario={scenario}
+                        onStart={handleStartSession}
+                      />
+                    ) : (
+                      <ChatInterface
+                        isRecording={isRecording}
+                        chatHistory={chatHistory}
+                        onStartRecording={startRecording}
+                        onStopRecording={stopRecording}
+                        onSendMessage={sendMessage}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="w-80 shrink-0">
+            <VocabularyList messages={chatHistory.getMessages()} />
+          </div>
         </div>
       </div>
     </div>

@@ -30,7 +30,7 @@ def test_practice_session_basic():
     client = TestClient(app)
 
     # Use a known scenario ID from the test data
-    scenario_id = "hotel"
+    scenario_id = "ordering-a-coffee"
 
     with client.websocket_connect("/api/practice?lang=ja") as websocket:
         # First get the scenario instructions
@@ -58,7 +58,13 @@ def test_practice_session_basic():
         assert len(response) > 0, "Response should not be empty"
 
         # Test sending some audio data
-        websocket.send_bytes(b"test audio data")
+        websocket.send_text(
+            WebSocketMessage(
+                type=MessageType.AUDIO,
+                audio=base64.b64encode(b"dummy audio"),
+                role=MessageRole.USER,
+            ).model_dump_json()
+        )
         response = websocket.receive_text()
         assert response, "Should receive response to audio input"
 
@@ -66,7 +72,7 @@ def test_practice_session_basic():
 def test_practice_session_with_audio():
     """Test websocket connection with real audio file input"""
     client = TestClient(app)
-    scenario_id = "hotel"
+    scenario_id = "ordering-a-coffee"
 
     # Get path to test audio file
     audio_path = pathlib.Path(__file__).parent / "data" / "checkin.wav"
@@ -126,7 +132,7 @@ def test_practice_session_with_audio():
         print("Sending text message for end of turn")
         websocket.send_text(
             WebSocketMessage(
-                type=MessageType.TEXT, text=".", role=MessageRole.USER
+                type=MessageType.TEXT, text=".", role=MessageRole.USER, end_of_turn=True
             ).model_dump_json()
         )
 
@@ -135,9 +141,17 @@ def test_practice_session_with_audio():
         while True:
             response = json.loads(websocket.receive_text())
             msg = WebSocketMessage.model_validate(response)
-            print(msg)
+            print("Received message:", msg.type)
+            if msg.type == MessageType.TRANSCRIPTION:
+                print("Received transcription message:", msg)
+                continue
+
             if msg.audio:
                 second_response.append(msg.audio)
+
+            if msg.text:
+                print("Received text message:", msg)
+
             if msg.end_of_turn:
                 break
 

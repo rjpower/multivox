@@ -14,7 +14,7 @@
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "autoprefixer": "^10.4.20",
-    "esbuild": "^0.25.0",
+    "esbuild-wasm": "^0.25.0",
     "typescript": "^5.7.3"
   },
   "scripts": {
@@ -23,6 +23,7 @@
     "build:ts:watch": "concurrently \"tsc --noEmit --watch\" \"node build.js --watch\"",
     "build:css": "npx @tailwindcss/cli -i src/main.css -o dist/main.css",
     "build:css:watch": "npx @tailwindcss/cli -i src/main.css -o dist/main.css --watch",
+    "build": "NODE_ENV=\"production\" npm run build:html && npm run build:ts && npm run build:css",
     "typecheck": "tsc --noEmit",
     "server": "cd ../server && uv run uvicorn multivox.app:app --reload --workers 4 --limit-concurrency 1000 --backlog 2048 --timeout-keep-alive 60",
     "dev-server": "npm run build:html && concurrently \"npm run build:ts:watch\" \"npm run build:css:watch\" \"npm run server\""

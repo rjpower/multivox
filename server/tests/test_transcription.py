@@ -36,4 +36,4 @@ def test_transcribe_endpoint(sample_rate):
     assert "transcription" in data
     assert isinstance(data["transcription"], str)
     assert len(data["transcription"]) > 0
-    print(f"Transcription at {sample_rate} Hz: {data['transcription']}")
+    print(f"Transcription at {sample_rate} Hz: {data}")

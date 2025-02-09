@@ -29,6 +29,7 @@ def test_translate_basic():
     assert result != test_text  # Translation should be different from input
     assert len(result) > 0  # Should get non-empty result
     assert isinstance(result, str)  # Should return string
+    assert "こんにちは" in result or "はい" in result  # Should contain Japanese text
 
 
 def test_translate_invalid_language():

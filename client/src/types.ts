@@ -8,8 +8,26 @@ export interface TranslateRequest {
   language: string;
 }
 
+export interface VocabularyEntry {
+  native: string;
+  translation: string;
+  notes?: string;
+}
+
 export interface TranslateResponse {
   translation: string;
+}
+
+export interface DictionaryEntry {
+  translation: string;
+  notes?: string;
+}
+
+export interface TranscribeResponse {
+  transcription: string;
+  chunked: string[];
+  dictionary: Record<string, DictionaryEntry>;
+  translation?: string;
 }
 
 export interface Scenario {
@@ -19,12 +37,33 @@ export interface Scenario {
 }
 
 export type MessageRole = "user" | "assistant";
-export type MessageType = "text" | "audio";
+export type MessageType = "text" | "audio" | "transcription";
 export type TextMode = "append" | "replace";
+
+export type TextMessageContent = {
+  type: "text";
+  text: string;
+};
+
+export type TranscriptionMessageContent = {
+  type: "transcription";
+  transcription: TranscribeResponse;
+};
+
+export type AudioMessageContent = {
+  type: "audio";
+  placeholder: "🔊" | "🎤";  // Different icons for playback vs recording
+};
+
+export type MessageContent = 
+  | TextMessageContent 
+  | TranscriptionMessageContent 
+  | AudioMessageContent;
 
 export interface WebSocketMessage {
   type: MessageType;
   text?: string;
+  transcription?: TranscribeResponse;
   audio?: string; // Base64 encoded audio data
   role: MessageRole;
   mode?: TextMode;
@@ -58,6 +97,10 @@ export class TypedWebSocket {
 
   public set onerror(handler: (event: Event) => void) {
     this.ws.onerror = handler;
+  }
+
+  public close() {
+    this.ws.close();
   }
 
   public set onmessage(handler: (message: WebSocketMessage) => void) {

@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from fastapi import WebSocket
@@ -6,6 +7,7 @@ from pydantic import ValidationError
 
 from .types import WebSocketMessage
 
+logger = logging.getLogger(__name__)
 
 class TypedWebSocket:
     """Wrapper around WebSocket that only allows sending/receiving WebSocketMessage objects"""
@@ -39,6 +41,7 @@ class TypedWebSocket:
     async def receive_message(self) -> WebSocketMessage:
         """Receive and validate a WebSocketMessage"""
         data = await self.websocket.receive_json()
+        logger.info("C->S: %s", data["type"])
         try:
             return WebSocketMessage.model_validate(data)
         except ValidationError as e:
@@ -46,4 +49,5 @@ class TypedWebSocket:
 
     async def send_message(self, message: WebSocketMessage):
         """Send a WebSocketMessage"""
+        logger.info("S->C: %s", message.type)
         await self.websocket.send_text(message.model_dump_json())

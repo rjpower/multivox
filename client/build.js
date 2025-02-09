@@ -1,4 +1,4 @@
-const esbuild = require('esbuild');
+const esbuild = require('esbuild-wasm');
 
 const watch = process.argv.includes('--watch');
 
