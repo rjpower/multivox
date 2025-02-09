@@ -17,7 +17,7 @@ import type {
   TranscribeResponse,
   TranslateRequest,
 } from "./types";
-import { TypedWebSocket } from "./types";
+import { TypedWebSocket } from "./TypedWebSocket";
 import { AudioPlayer } from "./AudioPlayer";
 
 const Home = () => {
@@ -366,7 +366,9 @@ const usePracticeSession = (language: string) => {
     if (wsState.ws || wsState.isConnecting) return; // Already connected or connecting
     
     setWsState(prev => ({ ...prev, isConnecting: true }));
-    const ws = new TypedWebSocket(`ws://api/practice?lang=${language}`);
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    console.log(protocol);
+    const ws = new TypedWebSocket(`${protocol}//${window.location.host}/api/practice?lang=${language}`);
 
     ws.onopen = () => {
       console.log("WebSocket connected");

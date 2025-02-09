@@ -24,6 +24,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from google import genai
 from google.genai import live as genai_live
 from google.genai import types as genai_types
+from pydantic import ValidationError
 
 from multivox.cache import FileCache
 from multivox.message_socket import TypedWebSocket
@@ -241,10 +242,12 @@ def transcribe(
         },
     )
 
-    if not response or not response.text:
-        return TranscribeResponse(transcription="")
-
-    return TranscribeResponse.model_validate_json(response.text)
+    try:
+        return TranscribeResponse.model_validate_json(response.text)
+    except Exception as e:
+        raise ValidationError(
+            f"Failed to parse {response.text} as TranscribeResponse"
+        ) from e
 
 
 @app.post("/api/transcribe", response_model=TranscribeResponse)

@@ -5,7 +5,7 @@ COPY client/package.json client/package-lock.json ./
 RUN npm ci
 
 COPY client/ ./
-RUN mkdir dist
+RUN mkdir -p dist
 RUN npm run build
 
 # Python build stage
@@ -25,4 +25,4 @@ COPY --from=client-builder /app/client/dist /app/client/dist
 EXPOSE 8000
 
 ENV ROOT_DIR=/app
-CMD ["uv", "run", "uvicorn", "multivox.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "multivox.app:app", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*"]
