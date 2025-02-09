@@ -40,6 +40,10 @@ class TextMode(str, Enum):
     APPEND = "append"
     REPLACE = "replace"
 
+# Audio sample rates
+CLIENT_SAMPLE_RATE = 16000
+SERVER_SAMPLE_RATE = 24000
+
 class WebSocketMessage(BaseModel):
     type: MessageType
     text: Optional[str] = None

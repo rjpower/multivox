@@ -1,12 +1,15 @@
+import asyncio
 import base64
 import io
 import logging
 import os
 import wave
+from asyncio import Task
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, Sequence
+from typing import Dict, Optional, Sequence
 
-from fastapi import FastAPI, HTTPException, Request, WebSocket
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from google import genai
@@ -16,6 +19,8 @@ from google.genai import types as genai_types
 from multivox.cache import FileCache
 from multivox.scenarios import list_scenarios
 from multivox.types import (
+    CLIENT_SAMPLE_RATE,
+    SERVER_SAMPLE_RATE,
     MessageRole,
     MessageType,
     Scenario,
@@ -45,44 +50,6 @@ logging.basicConfig(
     format="%(filename)s:%(funcName)s:%(lineno)d:%(asctime)s:%(message)s",
 )
 logger = logging.getLogger(__name__)
-
-
-async def send_client_reply(
-    websocket: TypedWebSocket, response: genai_types.LiveServerMessage
-):
-    is_end = (
-        response.server_content.turn_complete
-        if response.server_content and response.server_content.turn_complete
-        else False
-    )
-
-    if response.text:
-        await websocket.send_message(
-            WebSocketMessage(
-                type=MessageType.TEXT,
-                text=response.text,
-                role=MessageRole.ASSISTANT,
-                end_of_turn=is_end,
-            )
-        )
-    elif response.data:
-        await websocket.send_message(
-            WebSocketMessage(
-                type=MessageType.AUDIO,
-                audio=base64.b64encode(response.data),
-                role=MessageRole.ASSISTANT,
-                end_of_turn=is_end,
-            )
-        )
-    else:
-        await websocket.send_message(
-            WebSocketMessage(
-                type=MessageType.TEXT,
-                text="",
-                role=MessageRole.ASSISTANT,
-                end_of_turn=is_end,
-            )
-        )
 
 
 @app.exception_handler(Exception)
@@ -162,6 +129,23 @@ def extract_sample_rate(mime_type: str) -> int:
             pass
     return 16000  # default sample rate
 
+def save_debug_audio(pcm_data: bytes, sample_rate: int, is_client: bool = True) -> None:
+    """Save PCM audio data to a WAV file for debugging"""
+    filename = "/tmp/client.wav" if is_client else "/tmp/server.wav"
+    
+    # Read existing WAV file if it exists
+    existing_frames = b''
+    if Path(filename).exists():
+        with wave.open(filename, 'rb') as wav_file:
+            existing_frames = wav_file.readframes(wav_file.getnframes())
+    
+    # Write combined audio to new WAV file
+    with wave.open(filename, 'wb') as wav_file:
+        wav_file.setnchannels(1)  # mono
+        wav_file.setsampwidth(2)  # 16-bit
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(existing_frames + pcm_data)
+
 def pcm_to_wav(pcm_data: bytes, mime_type: str) -> bytes:
     """Convert raw PCM data to WAV format using rate from mime type"""
     sample_rate = extract_sample_rate(mime_type)
@@ -213,10 +197,104 @@ def scenarios() -> Sequence[Scenario]:
     return list_scenarios()
 
 
+async def send_client_reply(
+    websocket: TypedWebSocket, response: genai_types.LiveServerMessage
+):
+    is_end = (
+        response.server_content.turn_complete
+        if response.server_content and response.server_content.turn_complete
+        else False
+    )
+
+    if response.text:
+        await websocket.send_message(
+            WebSocketMessage(
+                type=MessageType.TEXT,
+                text=response.text,
+                role=MessageRole.ASSISTANT,
+                end_of_turn=is_end,
+            )
+        )
+    elif response.data:
+        # Save server audio for debugging
+        save_debug_audio(response.data, SERVER_SAMPLE_RATE, is_client=False)
+        await websocket.send_message(
+            WebSocketMessage(
+                type=MessageType.AUDIO,
+                audio=base64.b64encode(response.data),
+                role=MessageRole.ASSISTANT,
+                end_of_turn=is_end,
+            )
+        )
+    else:
+        await websocket.send_message(
+            WebSocketMessage(
+                type=MessageType.TEXT,
+                text="",
+                role=MessageRole.ASSISTANT,
+                end_of_turn=is_end,
+            )
+        )
+
+
+async def handle_input_stream(websocket: TypedWebSocket, session: genai_live.AsyncSession) -> None:
+    """Handle the input stream from the client to Gemini"""
+    while websocket.connected():
+        try:
+            # Receive message from client
+            logger.info("Waiting for client message...")
+            message = await websocket.receive_message()
+            if not message:
+                logger.info("Client disconnected.")
+                break
+
+            logger.info(
+                "Client input: %s. len: %s",
+                message.type,
+                len(message.text) if message.text else len(message.audio),
+            )
+
+            if message.type == MessageType.AUDIO and message.audio:
+                # Save client audio for debugging
+                save_debug_audio(message.audio, CLIENT_SAMPLE_RATE, is_client=True)
+                audio_bytes = genai_types.Blob(
+                    data=message.audio, mime_type=f"audio/pcm;rate={CLIENT_SAMPLE_RATE}"
+                )
+                audio = genai_types.LiveClientRealtimeInput(media_chunks=[audio_bytes])
+                await session.send(input=audio)
+            elif message.type == MessageType.TEXT and message.text:
+                await session.send(input=message.text, end_of_turn=True)
+            else:
+                logger.warning("Unknown message type: %s", message.type)
+        except (WebSocketDisconnect, asyncio.CancelledError):
+            break
+        except Exception as e:
+            logger.error(f"Error in input stream: {e}", exc_info=True)
+            break
+
+async def handle_output_stream(websocket: TypedWebSocket, session: genai_live.AsyncSession) -> None:
+    """Handle the output stream from Gemini to the client"""
+    while websocket.connected():
+        try:
+            async for response in session.receive():
+                logger.info(
+                    "Received server response. Text=%s, Audio=%d, End=%s",
+                    response.text,
+                    len(response.data) if response.data else 0,
+                    (
+                        response.server_content.turn_complete
+                        if response.server_content
+                        else False
+                    ),
+                )
+                await send_client_reply(websocket, response)
+        except Exception as e:
+            logger.error(f"Error in output stream: {e}", exc_info=True)
+            break
+
 async def handle_gemini_session(websocket: TypedWebSocket) -> None:
-    """Handle the async Gemini session interaction"""
+    """Handle the async Gemini session interaction using separate tasks for input/output"""
     config = genai_types.LiveConnectConfig()
-    # you can't currently do text and audio at the same time for responses.
     config.response_modalities = [genai_types.Modality.AUDIO]
     config.speech_config = genai_types.SpeechConfig(
         voice_config=genai_types.VoiceConfig(
@@ -226,41 +304,36 @@ async def handle_gemini_session(websocket: TypedWebSocket) -> None:
 
     logger.info("Connecting to Gemini!")
 
-    async with client.aio.live.connect(model=LIVE_MODEL_ID, config=config) as session:
-        session: genai_live.AsyncSession
-        # Handle ongoing conversation
-        while True:
-            # Receive message from client
-            logger.info("Waiting for client message...")
-            message = await websocket.receive_message()
-            if not message:
-                logger.info("Client disconnected.")
-                break
+    input_task: Optional[Task] = None
+    output_task: Optional[Task] = None
 
-            logger.info(
-                "Client input:  %s. len: %s",
-                message.type,
-                len(message.text) if message.text else len(message.audio),
+    try:
+        async with client.aio.live.connect(model=LIVE_MODEL_ID, config=config) as session:
+            session: genai_live.AsyncSession
+            
+            # Create tasks for input and output streams
+            input_task = asyncio.create_task(handle_input_stream(websocket, session))
+            output_task = asyncio.create_task(handle_output_stream(websocket, session))
+            
+            # Wait for either task to complete
+            done, pending = await asyncio.wait(
+                [input_task, output_task],
+                return_when=asyncio.FIRST_COMPLETED
             )
-
-            if message.type == MessageType.AUDIO and message.audio:
-                audio_bytes = genai_types.Blob(
-                    data=message.audio, mime_type="audio/pcm;rate=16000"
-                )
-                audio = genai_types.LiveClientRealtimeInput(media_chunks=[audio_bytes])
-                await session.send(input=audio)
-                # force end of turn, Gemini isn't inferring this properly from the audio
-                await session.send(input=" ", end_of_turn=True)
-            elif message.type == MessageType.TEXT and message.text:
-                await session.send(input=message.text, end_of_turn=True)
-            else:
-                logger.warning("Unknown message type: %s", message.type)
-
-            # Stream responses back to client
-            logger.info("Waiting for server response...")
-            async for response in session.receive():
-                logger.info("Received server response: %s", str(response)[:100])
-                await send_client_reply(websocket, response)
+            
+            # Cancel the remaining task
+            for task in pending:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+    finally:
+        # Ensure tasks are cleaned up
+        if input_task and not input_task.done():
+            input_task.cancel()
+        if output_task and not output_task.done():
+            output_task.cancel()
 
 
 @app.websocket("/api/practice")

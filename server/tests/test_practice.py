@@ -113,13 +113,22 @@ def test_practice_session_with_audio():
             f.seek(44)
             raw_audio = f.read()
 
-        message = WebSocketMessage(
-            type=MessageType.AUDIO,
-            audio=base64.b64encode(raw_audio),
-            role=MessageRole.USER,
-        )
         print("Sending audio message")
-        websocket.send_text(message.model_dump_json())
+        websocket.send_text(
+            WebSocketMessage(
+                type=MessageType.AUDIO,
+                audio=base64.b64encode(raw_audio),
+                role=MessageRole.USER,
+            ).model_dump_json()
+        )
+
+        # send a text message to force end of turn
+        print("Sending text message for end of turn")
+        websocket.send_text(
+            WebSocketMessage(
+                type=MessageType.TEXT, text=".", role=MessageRole.USER
+            ).model_dump_json()
+        )
 
         # Wait for response to audio
         second_response = []

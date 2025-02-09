@@ -1,3 +1,8 @@
+// Audio sample rates and formats
+export const CLIENT_SAMPLE_RATE = 16000;
+export const SERVER_SAMPLE_RATE = 24000;
+export const BYTES_PER_SAMPLE = 2; // 16-bit = 2 bytes
+
 export interface TranslateRequest {
   text: string;
   language: string;

@@ -20,7 +20,7 @@ def test_transcribe_endpoint(sample_rate):
         f.seek(44)
         raw_audio = f.read()
 
-    audio_b64 = base64.b64encode(raw_audio)
+    audio_b64 = base64.b64encode(raw_audio).decode("utf-8")
 
     response = client.post(
         "/api/transcribe",

@@ -1,6 +1,7 @@
 from typing import Optional
 
 from fastapi import WebSocket
+from fastapi.websockets import WebSocketState
 from pydantic import ValidationError
 
 from .types import WebSocketMessage
@@ -31,6 +32,9 @@ class TypedWebSocket:
     @property
     def url(self):
         return self.websocket.url
+
+    def connected(self):
+        return self.websocket.client_state == WebSocketState.CONNECTED
 
     async def receive_message(self) -> WebSocketMessage:
         """Receive and validate a WebSocketMessage"""
