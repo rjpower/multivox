@@ -16,7 +16,6 @@ import type {
   Scenario,
   TranscribeResponse,
   TranslateRequest,
-  TranslateResponse,
 } from "./types";
 import { TypedWebSocket } from "./types";
 import { AudioPlayer } from "./AudioPlayer";
@@ -92,8 +91,8 @@ const ScenarioInstructions = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(request),
       });
-      const data: TranslateResponse = await response.json();
-      onStart(data.translation);
+      const data: TranscribeResponse = await response.json();
+      onStart(data.translation!);
     } catch (error) {
       console.error("Translation failed:", error);
     } finally {
@@ -367,9 +366,7 @@ const usePracticeSession = (language: string) => {
     if (wsState.ws || wsState.isConnecting) return; // Already connected or connecting
     
     setWsState(prev => ({ ...prev, isConnecting: true }));
-    const ws = new TypedWebSocket(
-      `ws://localhost:8000/api/practice?lang=${language}`
-    );
+    const ws = new TypedWebSocket(`ws://api/practice?lang=${language}`);
 
     ws.onopen = () => {
       console.log("WebSocket connected");

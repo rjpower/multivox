@@ -1,16 +1,12 @@
 from enum import Enum
-from typing import Optional
+from typing import Annotated, Literal, Optional, Union
 
-from pydantic import Base64Bytes, BaseModel
+from pydantic import Base64Bytes, BaseModel, Discriminator, RootModel
 
 
 class TranslateRequest(BaseModel):
     text: str
     language: str
-
-class TranslateResponse(BaseModel):
-    translation: str
-
 
 class TranscribeRequest(BaseModel):
     audio: Base64Bytes
@@ -34,6 +30,7 @@ class TranscribeResponse(BaseModel):
     dictionary: dict[str, DictionaryEntry]  # Mapping of terms to translations
     translation: Optional[str] = None
 
+TranslateResponse = TranscribeResponse
 
 class ScenarioDifficulty(int, Enum):
     BEGINNER = 1
@@ -77,11 +74,34 @@ class TextMode(str, Enum):
 CLIENT_SAMPLE_RATE = 16000
 SERVER_SAMPLE_RATE = 24000
 
-class WebSocketMessage(BaseModel):
-    type: MessageType
-    text: Optional[str] = None
-    transcription: Optional[TranscribeResponse] = None
-    audio: Optional[Base64Bytes] = None
+class BaseWebSocketMessage(BaseModel):
     role: MessageRole
-    mode: Optional[TextMode] = TextMode.APPEND
     end_of_turn: bool = False
+
+class TextWebSocketMessage(BaseWebSocketMessage):
+    type: Literal["text"] = "text"
+    text: str
+    mode: Optional[TextMode] = TextMode.APPEND
+
+class TranscriptionWebSocketMessage(BaseWebSocketMessage):
+    type: Literal["transcription"] = "transcription"
+    transcription: TranscribeResponse
+
+class AudioWebSocketMessage(BaseWebSocketMessage):
+    type: Literal["audio"] = "audio"
+    audio: Base64Bytes
+
+WebSocketMessage = Annotated[
+    Union[TextWebSocketMessage, TranscriptionWebSocketMessage, AudioWebSocketMessage],
+    Discriminator("type"),
+]
+
+WebSocketRoot = RootModel[WebSocketMessage]
+
+
+def parse_websocket_message(data: dict) -> WebSocketMessage:
+    return WebSocketRoot.model_validate(data).root
+
+
+def parse_websocket_message_bytes(data: bytes) -> WebSocketMessage:
+    return WebSocketRoot.model_validate_json(data).root

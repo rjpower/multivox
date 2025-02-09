@@ -5,7 +5,7 @@ from fastapi import WebSocket
 from fastapi.websockets import WebSocketState
 from pydantic import ValidationError
 
-from .types import WebSocketMessage
+from .types import WebSocketMessage, parse_websocket_message
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class TypedWebSocket:
         data = await self.websocket.receive_json()
         logger.info("C->S: %s", data["type"])
         try:
-            return WebSocketMessage.model_validate(data)
+            return parse_websocket_message(data)
         except ValidationError as e:
             raise ValueError(f"Invalid WebSocketMessage: {e} -- {data}")
 

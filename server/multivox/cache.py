@@ -40,7 +40,9 @@ class FileCache:
         def decorator(func: Callable[..., T]) -> Callable[..., T]:
             @functools.wraps(func)
             def wrapper(*args, **kwargs) -> T:
-                cache_key = key_fn(*args, **kwargs)
+                # Include return type annotation in cache key
+                return_type = func.__annotations__.get('return', 'Any')
+                cache_key = f"{key_fn(*args, **kwargs)}:return={return_type}"
                 cache_path = self._get_cache_path(cache_key)
                 hash_key = hashlib.md5(cache_key.encode()).hexdigest()
                 logger.info("Calling %s with cache key %s", func.__name__, hash_key)

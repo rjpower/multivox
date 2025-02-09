@@ -5,7 +5,14 @@ import wave
 
 from fastapi.testclient import TestClient
 from multivox.app import app
-from multivox.types import MessageRole, MessageType, Scenario, WebSocketMessage
+from multivox.types import (
+    AudioWebSocketMessage,
+    MessageRole,
+    MessageType,
+    Scenario,
+    TextWebSocketMessage,
+    TranscriptionWebSocketMessage,
+)
 
 
 def test_scenarios_api():
@@ -42,11 +49,10 @@ def test_practice_session_basic():
         translate_response = client.post(
             "/api/translate", json={"text": scenario.instructions, "language": "ja"}
         )
-        translated_text = translate_response.json()["translation"]
+        translated_text = translate_response.json()["transcription"]
 
         # Send the translated instructions
-        message = WebSocketMessage(
-            type=MessageType.TEXT,
+        message = TextWebSocketMessage(
             text=translated_text,
             role=MessageRole.USER
         )
@@ -59,8 +65,7 @@ def test_practice_session_basic():
 
         # Test sending some audio data
         websocket.send_text(
-            WebSocketMessage(
-                type=MessageType.AUDIO,
+            AudioWebSocketMessage(
                 audio=base64.b64encode(b"dummy audio"),
                 role=MessageRole.USER,
             ).model_dump_json()
@@ -87,11 +92,10 @@ def test_practice_session_with_audio():
         translate_response = client.post(
             "/api/translate", json={"text": scenario.instructions, "language": "ja"}
         )
-        translated_text = translate_response.json()["translation"]
+        translated_text = translate_response.json()["transcription"]
 
         # Send the translated instructions
-        message = WebSocketMessage(
-            type=MessageType.TEXT,
+        message = TextWebSocketMessage(
             text=translated_text,
             role=MessageRole.USER
         )
@@ -101,11 +105,18 @@ def test_practice_session_with_audio():
         audio_pcm = []
         while True:
             response = json.loads(websocket.receive_text())
-            msg = WebSocketMessage.model_validate(response)
+            if response["type"] == "text":
+                msg = TextWebSocketMessage.model_validate(response)
+            elif response["type"] == "audio":
+                msg = AudioWebSocketMessage.model_validate(response)
+                audio_pcm.append(msg.audio)
+            elif response["type"] == "transcription":
+                msg = TranscriptionWebSocketMessage.model_validate(response)
+                continue
+            else:
+                raise ValueError(f"Unknown message type: {response['type']}")
             if msg.end_of_turn:
                 break
-            if msg.audio:
-                audio_pcm.append(msg.audio)
 
         with wave.open("/tmp/initial_response.wav", "wb") as f:
             f.setnchannels(1)
@@ -121,8 +132,7 @@ def test_practice_session_with_audio():
 
         print("Sending audio message")
         websocket.send_text(
-            WebSocketMessage(
-                type=MessageType.AUDIO,
+            AudioWebSocketMessage(
                 audio=base64.b64encode(raw_audio),
                 role=MessageRole.USER,
             ).model_dump_json()
@@ -131,8 +141,10 @@ def test_practice_session_with_audio():
         # send a text message to force end of turn
         print("Sending text message for end of turn")
         websocket.send_text(
-            WebSocketMessage(
-                type=MessageType.TEXT, text=".", role=MessageRole.USER, end_of_turn=True
+            TextWebSocketMessage(
+                text=".", 
+                role=MessageRole.USER, 
+                end_of_turn=True
             ).model_dump_json()
         )
 
@@ -140,17 +152,23 @@ def test_practice_session_with_audio():
         second_response = []
         while True:
             response = json.loads(websocket.receive_text())
-            msg = WebSocketMessage.model_validate(response)
-            print("Received message:", msg.type)
+            print("Received message:", response["type"])
+
+            if response["type"] == "text":
+                msg = TextWebSocketMessage.model_validate(response)
+                print("Received text message:", msg)
+            elif response["type"] == "audio":
+                msg = AudioWebSocketMessage.model_validate(response)
+                second_response.append(msg.audio)
+            elif response["type"] == "transcription":
+                msg = TranscriptionWebSocketMessage.model_validate(response)
+                print("Received transcription message:", msg)
+                continue
+            else:
+                raise ValueError(f"Unknown message type: {response['type']}")
             if msg.type == MessageType.TRANSCRIPTION:
                 print("Received transcription message:", msg)
                 continue
-
-            if msg.audio:
-                second_response.append(msg.audio)
-
-            if msg.text:
-                print("Received text message:", msg)
 
             if msg.end_of_turn:
                 break

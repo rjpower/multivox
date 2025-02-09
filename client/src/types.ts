@@ -14,9 +14,6 @@ export interface VocabularyEntry {
   notes?: string;
 }
 
-export interface TranslateResponse {
-  translation: string;
-}
 
 export interface DictionaryEntry {
   translation: string;
@@ -27,7 +24,7 @@ export interface TranscribeResponse {
   transcription: string;
   chunked: string[];
   dictionary: Record<string, DictionaryEntry>;
-  translation?: string;
+  translation: string;
 }
 
 export interface Scenario {
@@ -60,15 +57,31 @@ export type MessageContent =
   | TranscriptionMessageContent 
   | AudioMessageContent;
 
-export interface WebSocketMessage {
-  type: MessageType;
-  text?: string;
-  transcription?: TranscribeResponse;
-  audio?: string; // Base64 encoded audio data
+interface BaseWebSocketMessage {
   role: MessageRole;
-  mode?: TextMode;
   end_of_turn?: boolean;
 }
+
+interface TextWebSocketMessage extends BaseWebSocketMessage {
+  type: "text";
+  text: string;
+  mode?: TextMode;
+}
+
+interface TranscriptionWebSocketMessage extends BaseWebSocketMessage {
+  type: "transcription";
+  transcription: TranscribeResponse;
+}
+
+interface AudioWebSocketMessage extends BaseWebSocketMessage {
+  type: "audio";
+  audio: string; // Base64 encoded audio data
+}
+
+export type WebSocketMessage = 
+  | TextWebSocketMessage 
+  | TranscriptionWebSocketMessage 
+  | AudioWebSocketMessage;
 
 export class TypedWebSocket {
   private ws: WebSocket;
