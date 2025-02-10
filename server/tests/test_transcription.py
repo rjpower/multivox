@@ -27,7 +27,7 @@ def test_transcribe_endpoint(sample_rate):
         json={
             "audio": audio_b64,
             "mime_type": f"audio/pcm;rate={sample_rate}",
-            "language": "Japanese",
+            "language": "ja",
         },
     )
 

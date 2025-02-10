@@ -49,9 +49,12 @@ export const VocabularyList = ({
       <h3 className="text-lg font-semibold mb-4 text-gray-800">Vocabulary</h3>
       <div className="space-y-3">
         {vocabulary.map(({ term, entry }) => (
-          <div key={term} className="group hover:bg-indigo-50 p-2 rounded-md transition-colors">
+          <div
+            key={term}
+            className="group hover:bg-indigo-50 p-2 rounded-md transition-colors"
+          >
             <div className="text-md font-medium text-gray-900">{term}</div>
-            <div className="text-sm text-gray-600">{entry.translation}</div>
+            <div className="text-sm text-gray-600">{entry.english}</div>
             {entry.notes && (
               <div className="text-xs text-gray-500 italic group-hover:block">
                 {entry.notes}

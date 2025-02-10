@@ -16,7 +16,8 @@ export interface VocabularyEntry {
 
 
 export interface DictionaryEntry {
-  translation: string;
+  english: string;
+  native: string;
   notes?: string;
 }
 
@@ -27,14 +28,19 @@ export interface TranscribeResponse {
   translation: string;
 }
 
+export interface TranslateResponse {
+  translation: string;
+}
+
 export interface Scenario {
   id: string;
   title: string;
+  description: string;
   instructions: string;
 }
 
 export type MessageRole = "user" | "assistant";
-export type MessageType = "text" | "audio" | "transcription";
+export type MessageType = "text" | "audio" | "transcription" | "hint";
 export type TextMode = "append" | "replace";
 
 export type TextMessageContent = {
@@ -49,37 +55,54 @@ export type TranscriptionMessageContent = {
 
 export type AudioMessageContent = {
   type: "audio";
-  placeholder: "🔊" | "🎤";  // Different icons for playback vs recording
+  placeholder: "🔊" | "🎤"; // Different icons for playback vs recording
 };
 
-export type MessageContent = 
-  | TextMessageContent 
-  | TranscriptionMessageContent 
-  | AudioMessageContent;
+export type HintMessageContent = {
+  type: "hint";
+  hints: HintOption[];
+};
+
+export type MessageContent =
+  | TextMessageContent
+  | TranscriptionMessageContent
+  | AudioMessageContent
+  | HintMessageContent;
 
 interface BaseWebSocketMessage {
   role: MessageRole;
   end_of_turn?: boolean;
 }
 
-interface TextWebSocketMessage extends BaseWebSocketMessage {
+export interface HintOption {
+  native: string;
+  translation: string;
+}
+
+export interface HintWebSocketMessage extends BaseWebSocketMessage {
+  type: "hint";
+  hints: HintOption[];
+}
+
+export interface TextWebSocketMessage extends BaseWebSocketMessage {
   type: "text";
   text: string;
   mode?: TextMode;
 }
 
-interface TranscriptionWebSocketMessage extends BaseWebSocketMessage {
+export interface TranscriptionWebSocketMessage extends BaseWebSocketMessage {
   type: "transcription";
   transcription: TranscribeResponse;
 }
 
-interface AudioWebSocketMessage extends BaseWebSocketMessage {
+export interface AudioWebSocketMessage extends BaseWebSocketMessage {
   type: "audio";
   audio: string; // Base64 encoded audio data
 }
 
-export type WebSocketMessage = 
-  | TextWebSocketMessage 
-  | TranscriptionWebSocketMessage 
-  | AudioWebSocketMessage;
+export type WebSocketMessage =
+  | TextWebSocketMessage
+  | TranscriptionWebSocketMessage
+  | AudioWebSocketMessage
+  | HintWebSocketMessage;
 

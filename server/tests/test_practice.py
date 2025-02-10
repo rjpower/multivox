@@ -5,15 +5,18 @@ import wave
 
 from fastapi.testclient import TestClient
 from multivox.app import app
+from multivox.scenarios import list_scenarios
 from multivox.types import (
     AudioWebSocketMessage,
     MessageRole,
     MessageType,
     Scenario,
     TextWebSocketMessage,
-    TranscriptionWebSocketMessage,
+    parse_websocket_message,
 )
 
+# Use a known scenario ID from the test data
+SCENARIO_ID = list_scenarios()[0].id
 
 def test_scenarios_api():
     """Test the scenarios API endpoint"""
@@ -36,14 +39,11 @@ def test_practice_session_basic():
     """Test basic websocket connection and initial response"""
     client = TestClient(app)
 
-    # Use a known scenario ID from the test data
-    scenario_id = "ordering-a-coffee"
-
     with client.websocket_connect("/api/practice?lang=ja") as websocket:
         # First get the scenario instructions
         scenarios_response = client.get("/api/scenarios")
         scenarios = [Scenario.model_validate(m) for m in scenarios_response.json()]
-        scenario = next(s for s in scenarios if s.id == scenario_id)
+        scenario = next(s for s in scenarios if s.id == SCENARIO_ID)
 
         # Translate the instructions
         translate_response = client.post(
@@ -77,8 +77,6 @@ def test_practice_session_basic():
 def test_practice_session_with_audio():
     """Test websocket connection with real audio file input"""
     client = TestClient(app)
-    scenario_id = "ordering-a-coffee"
-
     # Get path to test audio file
     audio_path = pathlib.Path(__file__).parent / "data" / "checkin.wav"
 
@@ -86,7 +84,7 @@ def test_practice_session_with_audio():
         # First get the scenario instructions
         scenarios_response = client.get("/api/scenarios")
         scenarios = [Scenario.model_validate(m) for m in scenarios_response.json()]
-        scenario = next(s for s in scenarios if s.id == scenario_id)
+        scenario = next(s for s in scenarios if s.id == SCENARIO_ID)
 
         # Translate the instructions
         translate_response = client.post(
@@ -104,17 +102,9 @@ def test_practice_session_with_audio():
         # Wait for response
         audio_pcm = []
         while True:
-            response = json.loads(websocket.receive_text())
-            if response["type"] == "text":
-                msg = TextWebSocketMessage.model_validate(response)
-            elif response["type"] == "audio":
-                msg = AudioWebSocketMessage.model_validate(response)
+            msg = parse_websocket_message(json.loads(websocket.receive_text()))
+            if msg.type == MessageType.AUDIO:
                 audio_pcm.append(msg.audio)
-            elif response["type"] == "transcription":
-                msg = TranscriptionWebSocketMessage.model_validate(response)
-                continue
-            else:
-                raise ValueError(f"Unknown message type: {response['type']}")
             if msg.end_of_turn:
                 break
 
@@ -151,26 +141,16 @@ def test_practice_session_with_audio():
         # Wait for response to audio
         second_response = []
         while True:
-            response = json.loads(websocket.receive_text())
-            print("Received message:", response["type"])
-
-            if response["type"] == "text":
-                msg = TextWebSocketMessage.model_validate(response)
-                print("Received text message:", msg)
-            elif response["type"] == "audio":
-                msg = AudioWebSocketMessage.model_validate(response)
+            msg = parse_websocket_message(json.loads(websocket.receive_text()))
+            if msg.type == MessageType.AUDIO:
+                print("Received audio...")
                 second_response.append(msg.audio)
-            elif response["type"] == "transcription":
-                msg = TranscriptionWebSocketMessage.model_validate(response)
-                print("Received transcription message:", msg)
-                continue
             else:
-                raise ValueError(f"Unknown message type: {response['type']}")
-            if msg.type == MessageType.TRANSCRIPTION:
-                print("Received transcription message:", msg)
-                continue
+                print("Received message:", msg)
 
-            if msg.end_of_turn:
+            if (
+                msg.type == MessageType.AUDIO or msg.type == MessageType.TEXT
+            ) and msg.end_of_turn:
                 break
 
         with wave.open("/tmp/second_response.wav", "wb") as f:

@@ -4,15 +4,25 @@ from typing import Annotated, Literal, Optional, Union
 from pydantic import Base64Bytes, BaseModel, Discriminator, RootModel
 
 
-class TranslateRequest(BaseModel):
-    text: str
-    language: str
-
 class TranscribeRequest(BaseModel):
     audio: Base64Bytes
     mime_type: str
     sample_rate: Optional[int] = None
     language: str = ""
+
+class HintOption(BaseModel):
+    native: str
+    translation: str
+
+class HintRequest(BaseModel):
+    audio: Base64Bytes
+    mime_type: str
+    sample_rate: Optional[int] = None
+    language: str = ""
+    num_hints: int = 3
+
+class HintResponse(BaseModel):
+    hints: list[HintOption]
 
 
 class VocabularyEntry(BaseModel):
@@ -21,40 +31,40 @@ class VocabularyEntry(BaseModel):
     notes: Optional[str] = None
 
 class DictionaryEntry(BaseModel):
-    translation: str
+    english: str
+    native: str
     notes: Optional[str] = None
 
 class TranscribeResponse(BaseModel):
     transcription: str
     chunked: list[str]  # List of terms/phrases
     dictionary: dict[str, DictionaryEntry]  # Mapping of terms to translations
-    translation: Optional[str] = None
+    translation: str
 
-TranslateResponse = TranscribeResponse
 
-class ScenarioDifficulty(int, Enum):
-    BEGINNER = 1
-    ELEMENTARY = 2
-    PRE_INTERMEDIATE = 3
-    INTERMEDIATE = 4
-    UPPER_INTERMEDIATE = 5
-    PRE_ADVANCED = 6
-    ADVANCED = 7
-    UPPER_ADVANCED = 8
-    EXPERT = 9
-    MASTERY = 10
+class TranslateRequest(BaseModel):
+    text: str
+    language: str
 
-class ScenarioDescription(BaseModel):
-    id: str
-    title: str
-    difficulty: ScenarioDifficulty
-    summary: str
+
+class TranslateResponse(BaseModel):
+    translation: str
+
 
 class Scenario(BaseModel):
-    id: str
+    id: str  # URL-friendly slug
     title: str
+    description: str
+    key_terms: list[str]
     instructions: str
-    difficulty: ScenarioDifficulty
+
+
+class Chapter(BaseModel):
+    id: str  # URL-friendly slug
+    title: str
+    description: str
+    conversations: list[Scenario]
+    key_terms: list[str]
 
 
 class MessageRole(str, Enum):
@@ -65,6 +75,7 @@ class MessageType(str, Enum):
     TEXT = "text"
     AUDIO = "audio"
     TRANSCRIPTION = "transcription"
+    HINT = "hint"
 
 class TextMode(str, Enum):
     APPEND = "append"
@@ -91,8 +102,12 @@ class AudioWebSocketMessage(BaseWebSocketMessage):
     type: Literal["audio"] = "audio"
     audio: Base64Bytes
 
+class HintWebSocketMessage(BaseWebSocketMessage):
+    type: Literal["hint"] = "hint"
+    hints: list[HintOption]
+
 WebSocketMessage = Annotated[
-    Union[TextWebSocketMessage, TranscriptionWebSocketMessage, AudioWebSocketMessage],
+    Union[TextWebSocketMessage, TranscriptionWebSocketMessage, AudioWebSocketMessage, HintWebSocketMessage],
     Discriminator("type"),
 ]
 
@@ -105,3 +120,30 @@ def parse_websocket_message(data: dict) -> WebSocketMessage:
 
 def parse_websocket_message_bytes(data: bytes) -> WebSocketMessage:
     return WebSocketRoot.model_validate_json(data).root
+
+
+class Language(BaseModel):
+    abbreviation: str
+    name: str
+
+
+LANGUAGES = {
+    lang.abbreviation: lang for lang in [
+        Language(abbreviation="en", name="English"),
+        Language(abbreviation="ja", name="Japanese"),
+        Language(abbreviation="es", name="Spanish"),
+        Language(abbreviation="fr", name="French"),
+        Language(abbreviation="de", name="German"),
+        Language(abbreviation="it", name="Italian"),
+        Language(abbreviation="zh", name="Chinese"),
+        Language(abbreviation="ko", name="Korean"),
+        Language(abbreviation="ru", name="Russian"),
+        Language(abbreviation="pt", name="Portuguese"),
+        Language(abbreviation="ar", name="Arabic"),
+        Language(abbreviation="hi", name="Hindi"),
+        Language(abbreviation="nl", name="Dutch"),
+        Language(abbreviation="pl", name="Polish"),
+        Language(abbreviation="tr", name="Turkish"),
+        Language(abbreviation="vi", name="Vietnamese"),
+    ]
+}

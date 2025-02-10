@@ -41,7 +41,7 @@ export const ScenarioList = ({
               </td>
               <td className="px-6 py-4">
                 <div className="text-sm text-gray-500">
-                  {getFirstSentence(scenario.instructions)}
+                  {getFirstSentence(scenario.description)}
                 </div>
               </td>
               <td className="px-6 py-4 text-right">

@@ -4,6 +4,7 @@ import {
   TranscribeResponse,
   MessageContent,
   TextMessageContent,
+  HintOption,
 } from "./types";
 
 export interface ChatMessage {
@@ -50,6 +51,10 @@ export class ChatHistory {
     transcription: TranscribeResponse
   ): ChatHistory {
     return this.addMessage(role, { type: "transcription", transcription });
+  }
+
+  addHintMessage(role: MessageRole, hints: HintOption[]): ChatHistory {
+    return this.addMessage(role, { type: "hint", hints });
   }
 
   addAudioMessage(
