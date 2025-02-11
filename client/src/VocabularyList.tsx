@@ -1,32 +1,29 @@
 import { useState, useEffect } from "react";
 import { DictionaryEntry } from "./types";
+import { ChatMessage } from "./ChatHistory";
 
 interface VocabularyItem {
   term: string;
   entry: DictionaryEntry;
 }
 
-export const VocabularyList = ({ 
-  messages 
-}: { 
-  messages: Array<{ 
-    content: { 
-      type: string; 
-      transcription?: { 
-        dictionary: Record<string, DictionaryEntry> 
-      } 
-    } 
-  }> 
-}) => {
+export const VocabularyList = ({ messages }: { messages: Array<ChatMessage> }) => {
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
 
   useEffect(() => {
     // Collect unique vocabulary items from all transcription messages
     const vocabMap = new Map<string, DictionaryEntry>();
-    
-    messages.forEach(msg => {
+
+    messages.forEach((msg) => {
       if (msg.content.type === "transcription" && msg.content.transcription) {
-        Object.entries(msg.content.transcription.dictionary).forEach(([term, entry]) => {
+        Object.entries(msg.content.transcription.dictionary).forEach(
+          ([term, entry]) => {
+            vocabMap.set(term, entry);
+          }
+        );
+      }
+      if (msg.content.type === "translate" && msg.content.dictionary) {
+        Object.entries(msg.content.dictionary).forEach(([term, entry]) => {
           vocabMap.set(term, entry);
         });
       }

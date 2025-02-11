@@ -5,6 +5,7 @@ import {
   MessageContent,
   TextMessageContent,
   HintOption,
+  DictionaryEntry,
 } from "./types";
 
 export interface ChatMessage {
@@ -44,6 +45,22 @@ export class ChatHistory {
 
   addTextMessage(role: MessageRole, text: string): ChatHistory {
     return this.addMessage(role, { type: "text", text });
+  }
+
+  addTranslateMessage(
+    role: MessageRole,
+    original: string,
+    translation: string,
+    chunked: string[] = [],
+    dictionary: Record<string, DictionaryEntry> = {}
+  ): ChatHistory {
+    return this.addMessage(role, { 
+      type: "translate", 
+      original, 
+      translation,
+      chunked,
+      dictionary
+    });
   }
 
   addTranscriptionMessage(

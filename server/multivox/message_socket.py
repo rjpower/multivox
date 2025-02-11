@@ -41,7 +41,7 @@ class TypedWebSocket:
     async def receive_message(self) -> WebSocketMessage:
         """Receive and validate a WebSocketMessage"""
         data = await self.websocket.receive_json()
-        logger.info("C->S: %s", data["type"])
+        logger.debug("C->S: %s", data["type"])
         try:
             return parse_websocket_message(data)
         except ValidationError as e:
@@ -49,5 +49,5 @@ class TypedWebSocket:
 
     async def send_message(self, message: WebSocketMessage):
         """Send a WebSocketMessage"""
-        logger.info("S->C: %s", message.type)
+        logger.debug("S->C: %s", message.type)
         await self.websocket.send_text(message.model_dump_json())

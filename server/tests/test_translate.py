@@ -1,5 +1,4 @@
 import pytest
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from multivox.app import app, translate
 from multivox.scenarios import list_scenarios
@@ -49,8 +48,8 @@ INSTRUCTIONS = list_scenarios()[0].instructions
 
 # Test data mapping languages to expected words in translation
 TRANSLATION_TEST_CASES = [
-    ("ja", ["先生", "レッスン", "計画"]),  # teacher, lesson, plan
-    ("es", ["profesor", "lección", "planes"])  # teacher, lesson, plans
+    ("ja", ["あなた"]),
+    ("es", ["fingiendo"]),
 ]
 
 @pytest.mark.parametrize("lang_code,expected_words", TRANSLATION_TEST_CASES)

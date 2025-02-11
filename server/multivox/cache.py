@@ -22,8 +22,12 @@ def _default_key_fn(func: Callable, args: tuple, kwargs: dict) -> str:
     # Build key parts
     key_parts = []
 
-    # Add qualified function name
-    key_parts.append(f"{func.__module__}.{func.__qualname__}")
+    # Add qualified function name and bytecode hash
+    bytecode = getattr(func, '__code__', None)
+    bytecode_hash = ''
+    if bytecode:
+        bytecode_hash = hashlib.md5(bytecode.co_code).hexdigest()
+    key_parts.append(f"{func.__module__}.{func.__qualname__}:{bytecode_hash}")
 
     # Add all arguments including defaults
     for param_name, value in bound_args.arguments.items():

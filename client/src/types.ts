@@ -30,6 +30,9 @@ export interface TranscribeResponse {
 
 export interface TranslateResponse {
   translation: string;
+  chunked: string[];
+  dictionary: Record<string, DictionaryEntry>;
+  original: string;
 }
 
 export interface Scenario {
@@ -63,8 +66,28 @@ export type HintMessageContent = {
   hints: HintOption[];
 };
 
+export type TranslateMessageContent = {
+  type: "translate";
+  original: string;
+  translation: string;
+  dictionary: Record<string, DictionaryEntry>;
+  chunked: string[];
+};
+
+export interface Language {
+  code: string;
+  name: string;
+}
+
+export interface LanguageSelectorProps {
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}
+
 export type MessageContent =
   | TextMessageContent
+  | TranslateMessageContent
   | TranscriptionMessageContent
   | AudioMessageContent
   | HintMessageContent;
@@ -100,9 +123,24 @@ export interface AudioWebSocketMessage extends BaseWebSocketMessage {
   audio: string; // Base64 encoded audio data
 }
 
+export interface TranslateWebSocketMessage extends BaseWebSocketMessage {
+  type: "translate";
+  original: string;
+  translation: string;
+  chunked: string[];
+  dictionary: Record<string, DictionaryEntry>;
+}
+
 export type WebSocketMessage =
   | TextWebSocketMessage
   | TranscriptionWebSocketMessage
   | AudioWebSocketMessage
-  | HintWebSocketMessage;
+  | HintWebSocketMessage
+  | TranslateWebSocketMessage;
 
+
+export enum WebSocketState {
+  DISCONNECTED = "DISCONNECTED",
+  CONNECTING = "CONNECTING",
+  CONNECTED = "CONNECTED",
+}

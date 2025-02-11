@@ -15,11 +15,8 @@ class HintOption(BaseModel):
     translation: str
 
 class HintRequest(BaseModel):
-    audio: Base64Bytes
-    mime_type: str
-    sample_rate: Optional[int] = None
-    language: str = ""
-    num_hints: int = 3
+    history: str
+    language: str
 
 class HintResponse(BaseModel):
     hints: list[HintOption]
@@ -49,6 +46,15 @@ class TranslateRequest(BaseModel):
 
 class TranslateResponse(BaseModel):
     translation: str
+    chunked: list[str]  # List of terms/phrases
+    dictionary: dict[str, DictionaryEntry]  # Mapping of terms to translations
+    translation: str
+
+
+class PracticeRequest(BaseModel):
+    lang: str
+    modality: Optional[str] = "audio"
+    test: bool = False
 
 
 class Scenario(BaseModel):
@@ -106,8 +112,15 @@ class HintWebSocketMessage(BaseWebSocketMessage):
     type: Literal["hint"] = "hint"
     hints: list[HintOption]
 
+class TranslateWebSocketMessage(BaseWebSocketMessage):
+    type: Literal["translate"] = "translate"
+    original: str
+    translation: str
+    chunked: list[str]  # List of terms/phrases
+    dictionary: dict[str, DictionaryEntry]  # Mapping of terms to translations
+
 WebSocketMessage = Annotated[
-    Union[TextWebSocketMessage, TranscriptionWebSocketMessage, AudioWebSocketMessage, HintWebSocketMessage],
+    Union[TextWebSocketMessage, TranscriptionWebSocketMessage, AudioWebSocketMessage, HintWebSocketMessage, TranslateWebSocketMessage],
     Discriminator("type"),
 ]
 

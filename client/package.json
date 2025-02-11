@@ -8,7 +8,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.5",
-    "tailwindcss": "^4.0.4"
+    "tailwindcss": "^4.0.4",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@types/react": "^19.0.8",
@@ -26,6 +27,6 @@
     "build": "NODE_ENV=\"production\" npm run build:html && npm run build:ts && npm run build:css",
     "typecheck": "tsc --noEmit",
     "server": "cd ../server && uv run uvicorn multivox.app:app --reload --workers 4 --limit-concurrency 1000 --backlog 2048 --timeout-keep-alive 60",
-    "dev-server": "npm run build:html && concurrently \"npm run build:ts:watch\" \"npm run build:css:watch\" \"npm run server\""
+    "dev-server": "npm run build:html && concurrently \"npm run build:ts:watch\" \"npm run build:css:watch\" \"npm run server\" \"open http://localhost:8000\""
   }
 }

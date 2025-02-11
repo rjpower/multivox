@@ -1,9 +1,5 @@
 import { useState } from "react";
-import type {
-  TranslateRequest,
-  TranscribeResponse,
-  TranslateResponse,
-} from "./types";
+import type { TranslateRequest, TranslateResponse } from "./types";
 
 export const Translate = () => {
   const [inputText, setInputText] = useState("");
@@ -57,7 +53,7 @@ export const Translate = () => {
         throw new Error(`HTTP error! status: ${reverseResponse.status}`);
       }
 
-      const reverseData: TranscribeResponse = await reverseResponse.json();
+      const reverseData: TranslateResponse = await reverseResponse.json();
       setReverseTranslation(reverseData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");

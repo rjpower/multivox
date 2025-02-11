@@ -13,10 +13,11 @@ from multivox.types import (
     Scenario,
     TextWebSocketMessage,
     parse_websocket_message,
+    parse_websocket_message_bytes,
 )
 
 # Use a known scenario ID from the test data
-SCENARIO_ID = list_scenarios()[0].id
+SCENARIO_ID = [s for s in list_scenarios() if "hotel" in s.title.lower()][0]
 
 def test_scenarios_api():
     """Test the scenarios API endpoint"""
@@ -49,7 +50,7 @@ def test_practice_session_basic():
         translate_response = client.post(
             "/api/translate", json={"text": scenario.instructions, "language": "ja"}
         )
-        translated_text = translate_response.json()["transcription"]
+        translated_text = translate_response.text
 
         # Send the translated instructions
         message = TextWebSocketMessage(
@@ -90,7 +91,7 @@ def test_practice_session_with_audio():
         translate_response = client.post(
             "/api/translate", json={"text": scenario.instructions, "language": "ja"}
         )
-        translated_text = translate_response.json()["transcription"]
+        translated_text = translate_response.text
 
         # Send the translated instructions
         message = TextWebSocketMessage(
@@ -160,6 +161,83 @@ def test_practice_session_with_audio():
             f.writeframes(b"".join(second_response))
 
 
-if __name__ == "__main__":
-    test_practice_session_basic()
-    test_practice_session_with_audio()
+def _exchange_messages(websocket, message: str) -> tuple[list[str], list[str]]:
+    """Helper function to send a message and collect responses and hints.
+    Returns (text_responses, hints)"""
+    message_obj = TextWebSocketMessage(
+        text=message, role=MessageRole.USER, end_of_turn=True
+    )
+    websocket.send_json(message_obj.model_dump())
+
+    text_responses = []
+    hints = []
+    while True:
+        data = websocket.receive_text()
+        resp = parse_websocket_message_bytes(data)
+        print(f"Received response: {resp}")
+        
+        if resp.type == MessageType.TEXT:
+            text_responses.append(resp.text)
+        elif resp.type == MessageType.HINT:
+            hints.extend(resp.hints)
+            break
+            
+    return text_responses, hints
+
+def test_simple_text_modality():
+    """Test websocket connection with text-only modality"""
+    client = TestClient(app)
+
+    with client.websocket_connect("/api/practice?lang=ja&modality=text") as websocket:
+        # Send a text message
+        message = TextWebSocketMessage(
+            text="おはようございます", role=MessageRole.USER, end_of_turn=True
+        )
+        websocket.send_json(message.model_dump())
+
+        # Wait for response and hints
+        text_responses = []
+        while True:
+            data = websocket.receive_text()
+            resp = parse_websocket_message_bytes(data)
+            print(resp)
+            if resp.type == MessageType.TEXT:
+                text_responses.append(resp.text)
+            else:
+                assert resp.type == MessageType.HINT
+                break
+
+def test_hotel_checkin_conversation():
+    """Test a full hotel check-in conversation flow in Japanese text modality"""
+    client = TestClient(app)
+
+    with client.websocket_connect("/api/practice?lang=ja&modality=text") as websocket:
+        # Initial greeting
+        responses, hints = _exchange_messages(
+            websocket, "こんにちは。チェックインをお願いします。"
+        )
+        assert len(responses) > 0
+        assert len(hints) > 0
+        assert not any("hello" in r.lower() for r in responses), "Response should be in Japanese"
+
+        # Provide reservation details
+        responses, hints = _exchange_messages(websocket, "山田太郎の予約があります。")
+        assert len(responses) > 0
+        assert len(hints) > 0
+        assert not any("name" in r.lower() for r in responses), "Response should be in Japanese"
+
+        # Provide ID
+        responses, hints = _exchange_messages(
+            websocket, "はい、パスポートをお見せします。"
+        )
+        assert len(responses) > 0
+        assert len(hints) > 0
+        assert not any("passport" in r.lower() for r in responses), "Response should be in Japanese"
+
+        # Final confirmation and key receipt
+        responses, hints = _exchange_messages(
+            websocket, "ありがとうございます。部屋は何階ですか？"
+        )
+        assert len(responses) > 0
+        assert len(hints) > 0
+        assert not any("floor" in r.lower() for r in responses), "Response should be in Japanese"
