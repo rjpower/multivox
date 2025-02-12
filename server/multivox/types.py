@@ -1,10 +1,11 @@
 from enum import Enum
 from typing import Annotated, Literal, Optional, Union
 
-from pydantic import Base64Bytes, BaseModel, Discriminator, RootModel
+from pydantic import Base64Bytes, BaseModel, Discriminator, Field, RootModel
 
 
 class TranscribeRequest(BaseModel):
+    api_key: str
     audio: Base64Bytes
     mime_type: str
     sample_rate: Optional[int] = None
@@ -15,6 +16,7 @@ class HintOption(BaseModel):
     translation: str
 
 class HintRequest(BaseModel):
+    api_key: str
     history: str
     language: str
 
@@ -41,18 +43,19 @@ class TranscribeResponse(BaseModel):
 
 class TranslateRequest(BaseModel):
     text: str
-    language: str
+    target_language: str
+    source_language: str = ""
 
 
 class TranslateResponse(BaseModel):
+    original: str
     translation: str
     chunked: list[str]  # List of terms/phrases
     dictionary: dict[str, DictionaryEntry]  # Mapping of terms to translations
-    translation: str
 
 
 class PracticeRequest(BaseModel):
-    lang: str
+    target_language: str
     modality: Optional[str] = "audio"
     test: bool = False
 
@@ -61,16 +64,14 @@ class Scenario(BaseModel):
     id: str  # URL-friendly slug
     title: str
     description: str
-    key_terms: list[str]
     instructions: str
 
 
 class Chapter(BaseModel):
-    id: str  # URL-friendly slug
     title: str
     description: str
-    conversations: list[Scenario]
-    key_terms: list[str]
+    id: str = ""
+    conversations: list[Scenario] = Field(default_factory=list)
 
 
 class MessageRole(str, Enum):
@@ -98,7 +99,7 @@ class BaseWebSocketMessage(BaseModel):
 class TextWebSocketMessage(BaseWebSocketMessage):
     type: Literal["text"] = "text"
     text: str
-    mode: Optional[TextMode] = TextMode.APPEND
+    mode: Optional[TextMode] = None
 
 class TranscriptionWebSocketMessage(BaseWebSocketMessage):
     type: Literal["transcription"] = "transcription"

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { TranslateRequest, TranslateResponse } from "./types";
+import { useAppStore } from "./store";
 
 export const Translate = () => {
   const [inputText, setInputText] = useState("");
@@ -21,14 +22,24 @@ export const Translate = () => {
     try {
       const request: TranslateRequest = {
         text: inputText,
-        language: targetLanguage,
+        target_language: targetLanguage,
       };
 
-      const response = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-      });
+      const apiKey = useAppStore.getState().geminiApiKey;
+      if (!apiKey) {
+        throw new Error("Gemini API key is required");
+      }
+
+      const response = await fetch(
+        `/api/translate?api_key=${encodeURIComponent(apiKey)}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(request),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -40,14 +51,17 @@ export const Translate = () => {
       // Now translate back to English
       const reverseRequest: TranslateRequest = {
         text: data.translation,
-        language: "en",
+        target_language: "en",
       };
 
-      const reverseResponse = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reverseRequest),
-      });
+      const reverseResponse = await fetch(
+        `/api/translate?api_key=${encodeURIComponent(apiKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(reverseRequest),
+        }
+      );
 
       if (!reverseResponse.ok) {
         throw new Error(`HTTP error! status: ${reverseResponse.status}`);

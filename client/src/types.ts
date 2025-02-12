@@ -5,7 +5,8 @@ export const BYTES_PER_SAMPLE = 2; // 16-bit = 2 bytes
 
 export interface TranslateRequest {
   text: string;
-  language: string;
+  target_language: string;
+  source_language?: string;
 }
 
 export interface VocabularyEntry {

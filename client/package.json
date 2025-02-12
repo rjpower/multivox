@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@tailwindcss/cli": "^4.0.4",
     "concurrently": "^9.1.2",
     "react": "^19.0.0",
@@ -20,13 +21,13 @@
   },
   "scripts": {
     "build:html": "cp src/index.html dist/index.html",
-    "build:ts": "tsc --noEmit && node build.js",
+    "build:ts": "tsc --noEmit && NODE_ENV=production node build.js",
     "build:ts:watch": "concurrently \"tsc --noEmit --watch\" \"node build.js --watch\"",
-    "build:css": "npx @tailwindcss/cli -i src/main.css -o dist/main.css",
+    "build:css": "NODE_ENV=production npx @tailwindcss/cli -i src/main.css -o dist/main.css",
     "build:css:watch": "npx @tailwindcss/cli -i src/main.css -o dist/main.css --watch",
-    "build": "NODE_ENV=\"production\" npm run build:html && npm run build:ts && npm run build:css",
+    "build": "npm run build:html && npm run build:ts && npm run build:css",
     "typecheck": "tsc --noEmit",
-    "server": "cd ../server && uv run uvicorn multivox.app:app --reload --workers 4 --limit-concurrency 1000 --backlog 2048 --timeout-keep-alive 60",
+    "server": "cd ../server && uv run uvicorn multivox.app:app --reload --workers 1 --limit-concurrency 1000 --backlog 2048 --timeout-keep-alive 60",
     "dev-server": "npm run build:html && concurrently \"npm run build:ts:watch\" \"npm run build:css:watch\" \"npm run server\" \"open http://localhost:8000\""
   }
 }

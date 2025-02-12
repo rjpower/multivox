@@ -19,13 +19,18 @@ class TypedWebSocket:
         await self.websocket.accept()
 
     async def close(self, code: int = 1000, reason: Optional[str] = None):
-        await self.websocket.close(code=code, reason=reason)
+        if self.websocket.client_state == WebSocketState.CONNECTED:
+            await self.websocket.close(code=code, reason=reason)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         return None
+
+    @property
+    def headers(self):
+        return self.websocket.headers
 
     @property
     def client_state(self):

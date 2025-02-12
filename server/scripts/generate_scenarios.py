@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
 import json
 import logging
-import os
 from concurrent.futures import ThreadPoolExecutor
-from typing import Annotated, List, Optional
+from pathlib import Path
+from typing import List, Optional
 
 import typer
-from google import genai
+from litellm import completion
 from multivox.cache import default_file_cache
-from multivox.types import Chapter, Scenario
+from multivox.types import Chapter
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-# Initialize Gemini client
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY"), http_options={"api_version": "v1alpha"}
-)
-CHAPTER_LIST_MODEL_ID = "gemini-2.0-flash-thinking-exp"
-CHAPTER_GEN_MODEL_ID = "gemini-2.0-flash"
+# Model configuration
+CHAPTER_LIST_MODEL_ID = "gemini/gemini-2.0-flash"
+CHAPTER_GEN_MODEL_ID = "gemini/gemini-2.0-flash"
+# CHAPTER_GEN_MODEL_ID = "openai/gpt-4o"
 
 file_cache = default_file_cache
 console = Console()
@@ -40,43 +38,83 @@ Output only valid JSON in this exact format:
       "id": "<descriptive url-friendly slug for this chapter>",
       "title": "Chapter Title",
       "description": "Detailed 2-3 sentence description covering main concepts and goals",
-      "key_terms": ["term1", "term2", "etc"]
     }
   ]
 }
 """
 
 CHAPTER_EXPANSION_PROMPT = """
-Create 5 related conversations for this chapter:
+Create 5 conversation prompts for this chapter:
 
+<chapter>
 {chapter_description}
+</chapter>
 
-Requirements:
-- Each conversation should build on previous ones
+Requirements for each conversation:
+- Build on previous one conversations in a natural progression
 - Include specific vocabulary and phrases to practice
-- Provide clear context and goals for each conversation
-- Ensure natural progression of difficulty
+- Be independent of each other, not requiring context from previous conversations
 
-The "instructions" field should contain detailed guidance for the conversation practice. For example:
+The "instructions" field should be a prompt for the teacher for how to role-play
+a scenario. Remember the instructions are for how the _teacher_ should act, and
+will not be shown to the student.  Good instructions always start with a
+sentence describing the teacher's role.  They then provide any detail about the
+situation (e.g. location, time of day).  They then provide a prompt for the
+teacher to start the conversation.
 
-```
-* You are pretending to be a hotel receptionist.
-* Act as a hotel receptionist at a front desk would.
-* Don't generate responses like "Sorry we don't have any rooms." that would end the conversation abruptly.
-* Don't explain yourself or refer to yourself e.g. as "I'm a helpful receptionist".
+For example, if the chapter is "Checking into a Hotel", "instructions" might be:
+
+<good>
+You are a hotel receptionist at the Hotel Magnificent.
+Help the guest check in to the hotel.
 
 A guest approaches...
-```
+</good>
+
+if the chapter is "Ordering Food at a Restaurant", this could be a conversation prompt:
+
+<good>
+You are a waiter at Le Fancy Pants restaurant, a high-end French restaurant.
+Greet the customer as they enter.
+Help them find a table and give them a menu, then take their order.
+
+A customer approaches...
+</good>
+
+<good>
+You are a dungeon master leading the user through a dangerous and mysterious quest.
+The user is trying to save the Kingdom of Multivox from a terrible curse.
+Lead them through a detailed set of dangerous situations and make them solve hard problems.
+
+The game begins...
+</good>
+
+bad instructions do not follow this structure, or are ambiguous:
+
+<bad>
+You are in a language class and want to make new friends. Share what you enjoy doing and ask what the other person likes.
+</bad>
+
+<bad>
+The class is over and you are leaving. Say goodbye to a classmate politely, and express a desire to see them again.
+</bad>
+
+These do not specify the role as the first sentence, and the role is ambiguous. DON'T DO THIS.
+
+Remember that good conversations are useful for language learners: don't give a scenario where
+the _learner_ has to give directions, or explain something complicated.
 
 Output only valid JSON in this exact format:
 {{
+  "id": "<url-friendly slug for this chapter>",
+  "title": "<chapter title>",
+  "description": "<chapter description>",
   "conversations": [
     {{
-      "id": "<descriptive url-friendly slug for this conversation>",
-      "title": "Conversation Title",
-      "description": "Detailed description of the conversation scenario",
-      "key_terms": ["term1", "term2"],
-      "instructions": "Detailed instructions for the conversation practice"
+      "id": "<url-friendly slug for this conversation>",
+      "title": "<conversation title>",
+      "description": "<description of the conversation>",
+      "instructions": "<detailed instructions for the conversation practice>"
     }}
   ]
 }}
@@ -86,76 +124,68 @@ Output only valid JSON in this exact format:
 @file_cache()
 def generate_chapter_list(
     model=CHAPTER_LIST_MODEL_ID, prompt=CHAPTERS_LIST_PROMPT
-) -> List[dict]:
+) -> List[Chapter]:
     """Generate list of chapter descriptions using LLM"""
-    response = client.models.generate_content(
+    response = completion(
         model=model,
-        contents=prompt,
-        # config={"response_mime_type": "application/json"}
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
     )
 
-    response_text = response.text
-    if response_text.startswith("```json"):
-        response_text = response_text[7:-3]
-
-    data = json.loads(response_text)
-    return data["chapters"]
+    response_text = response.choices[0].message.content  # type: ignore
+    return [Chapter.model_validate(c) for c in json.loads(response_text)["chapters"]]
 
 
 @file_cache()
 def generate_chapter_conversations(
-    chapter: dict,
-    chapter_num: int,
+    chapter: Chapter,
     prompt: str = CHAPTER_EXPANSION_PROMPT,
     model: str = CHAPTER_GEN_MODEL_ID,
-) -> List[dict]:
+) -> Chapter:
     """Generate conversations for a chapter using LLM"""
-    console.print(f"Generating conversations for chapter {chapter['title']}...")
+    console.print(f"Generating conversations for chapter {chapter.title}...")
     formatted_prompt = prompt.format(
-        chapter_description=json.dumps(chapter, indent=2),
-        chapter_num=chapter_num
+        chapter_description=chapter.model_dump_json(indent=1)
     )
 
-    response = client.models.generate_content(
+    response = completion(
         model=model,
-        contents=formatted_prompt,
-        config={"response_mime_type": "application/json"},
+        messages=[{"role": "user", "content": formatted_prompt}],
+        response_format={"type": "json_object"},
     )
 
-    data = json.loads(response.text)
-    return data["conversations"]
-
-
-def generate_chapter_with_conversations(chapter_data: tuple[dict, int]) -> Optional[Chapter]:
-    """Generate a single chapter with its conversations"""
-    chapter, chapter_num = chapter_data
+    response_text = response.choices[0].message.content  # type: ignore
     try:
-        conversations = generate_chapter_conversations(chapter, chapter_num)
-        return Chapter(
-            id=chapter["id"],
-            title=chapter["title"],
-            description=chapter["description"],
-            key_terms=chapter["key_terms"],
-            conversations=[Scenario(**conv) for conv in conversations],
-        )
+        return Chapter.model_validate_json(response_text)
     except Exception:
-        logging.exception(f"Failed to generate conversations for chapter {chapter['title']}")
+        logging.exception(f"Failed to parse {response_text}")
+        raise
+
+
+def generate_chapter_with_conversations(chapter: Chapter) -> Optional[Chapter]:
+    """Generate a single chapter with its conversations"""
+    try:
+        return generate_chapter_conversations(chapter)
+    except Exception:
+        logging.exception(f"Failed to generate conversations for chapter {chapter}")
         return None
 
-def generate_chapters() -> List[Chapter]:
-    """Generate full chapter list with conversations in parallel"""
-    chapters_list = generate_chapter_list()
 
+def generate_chapters(chapter_list: List[Chapter]) -> List[Chapter]:
+    """Generate full chapter list with conversations in parallel"""
     with ThreadPoolExecutor(max_workers=20) as executor:
         chapters = executor.map(
             generate_chapter_with_conversations,
-            [(chapter, i) for i, chapter in enumerate(chapters_list, 1)]
+            chapter_list,
         )
 
     return [chapter for chapter in chapters if chapter is not None]
 
+
 @app.command()
-def list_chapters():
+def cmd_list_chapters(
+    chapters_file: str = typer.Option("multivox/chapters.json")
+):
     """Generate and show list of chapters"""
     with Progress(
         SpinnerColumn(),
@@ -165,16 +195,21 @@ def list_chapters():
         progress.add_task("Generating chapter list...", total=None)
         chapters = generate_chapter_list()
 
+    # Save chapters to file
+    with open(chapters_file, "w") as f:
+        json.dump({"chapters": chapters}, f, indent=2)
+        console.print(f"\nSaved chapter list to {chapters_file}")
+
+    # Display chapters
     console.print("\nGenerated Chapters:")
     for i, chapter in enumerate(chapters, 1):
-        console.print(f"[bold]Chapter {i}: {chapter['title']}[/bold]")
-        console.print(f"  {chapter['description']}\n")
+        console.print(f"[bold]Chapter {i}: {chapter.title}")
 
 
 @app.command(name="generate-chapter")
 def cmd_generate_chapter(
-    chapter_num: Annotated[int, typer.Option()],
-    chapter_file: Annotated[str, typer.Option()] = "chapter.json"
+    title: str,
+    description: str,
 ):
     """Generate a single chapter's conversations"""
     with Progress(
@@ -183,48 +218,47 @@ def cmd_generate_chapter(
         transient=True,
     ) as progress:
         progress.add_task("Loading chapters...", total=None)
-        chapters = generate_chapter_list()
-
-        if chapter_num < 1 or chapter_num > len(chapters):
-            console.print(f"[red]Chapter number must be between 1 and {len(chapters)}")
-            return
-
-        chapter = chapters[chapter_num - 1]
+        chapter = Chapter(title=title, description=description)
         progress.add_task("Generating conversations...", total=None)
-        conversations = generate_chapter_conversations(chapter, chapter_num)
-
-        complete_chapter = Chapter(
-            id=chapter["id"],
-            title=chapter["title"],
-            description=chapter["description"],
-            key_terms=chapter["key_terms"],
-            conversations=[Scenario(**conv) for conv in conversations],
-        )
-
-    with open(chapter_file, "w") as f:
-        json.dump(complete_chapter.model_dump(), f, indent=2)
-        console.print(f"\nSaved chapter to {chapter_file}")
+        complete_chapter = generate_chapter_conversations(chapter)
+        print(complete_chapter)
 
 
 @app.command(name="generate-all")
-def cmd_generate_all(output_file: str = typer.Option("multivox/chapters.json")):
+def cmd_generate_all(
+    chapters_file: Path = typer.Option("multivox/chapters.json"),
+    scenarios_file: Path = typer.Option("multivox/scenarios.json"),
+):
     """Generate all chapters with conversations"""
     with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        transient=True,
+        TextColumn("[progress.description]{task.description}"), transient=True
     ) as progress:
-        progress.add_task("Generating chapters...", total=None)
-        chapters = generate_chapters()
+        # First try to load existing chapters, or generate new ones
+        progress.add_task("Loading/generating chapter list...", total=None)
+        if chapters_file.exists():
+            data = json.loads(chapters_file.read_text())
+            chapter_list = [Chapter.model_validate(c) for c in data["chapters"]]
+            console.print(f"\nLoaded existing chapters from {chapters_file}")
+        else:
+            chapter_list = generate_chapter_list()
+            chapters_file.write_text(json.dumps({"chapters": chapter_list}, indent=2))
 
-    with open(output_file, "w") as f:
-        json.dump([c.model_dump() for c in chapters], f, indent=2)
-        console.print(f"\nSaved chapters to {output_file}")
+    with Progress(
+        TextColumn("[progress.description]{task.description}"), transient=True
+    ) as progress:
+        # Generate scenarios
+        progress.add_task("Generating scenarios...", total=None)
+        chapters = generate_chapters(chapter_list)
+        scenarios_file.write_text(
+            json.dumps(
+                {"chapters": [chapter.model_dump() for chapter in chapters]}, indent=2
+            )
+        )
 
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(filename)s:%(funcName)s:%(lineno)d:%(asctime)s:%(message)s",
     )
     app()

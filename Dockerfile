@@ -25,4 +25,4 @@ COPY --from=client-builder /app/client/dist /app/client/dist
 EXPOSE 8000
 
 ENV ROOT_DIR=/app
-CMD ["uv", "run", "uvicorn", "multivox.app:app", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*"]
+CMD ["uv", "run", "uvicorn", "multivox.app:app", "--workers=32", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*"]

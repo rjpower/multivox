@@ -40,7 +40,7 @@ def test_practice_session_basic():
     """Test basic websocket connection and initial response"""
     client = TestClient(app)
 
-    with client.websocket_connect("/api/practice?lang=ja") as websocket:
+    with client.websocket_connect("/api/practice?target_language=ja") as websocket:
         # First get the scenario instructions
         scenarios_response = client.get("/api/scenarios")
         scenarios = [Scenario.model_validate(m) for m in scenarios_response.json()]
@@ -81,7 +81,7 @@ def test_practice_session_with_audio():
     # Get path to test audio file
     audio_path = pathlib.Path(__file__).parent / "data" / "checkin.wav"
 
-    with client.websocket_connect("/api/practice?lang=ja") as websocket:
+    with client.websocket_connect("/api/practice?target_language=ja") as websocket:
         # First get the scenario instructions
         scenarios_response = client.get("/api/scenarios")
         scenarios = [Scenario.model_validate(m) for m in scenarios_response.json()]
@@ -188,7 +188,9 @@ def test_simple_text_modality():
     """Test websocket connection with text-only modality"""
     client = TestClient(app)
 
-    with client.websocket_connect("/api/practice?lang=ja&modality=text") as websocket:
+    with client.websocket_connect(
+        "/api/practice?target_language=ja&modality=text"
+    ) as websocket:
         # Send a text message
         message = TextWebSocketMessage(
             text="おはようございます", role=MessageRole.USER, end_of_turn=True
@@ -211,7 +213,9 @@ def test_hotel_checkin_conversation():
     """Test a full hotel check-in conversation flow in Japanese text modality"""
     client = TestClient(app)
 
-    with client.websocket_connect("/api/practice?lang=ja&modality=text") as websocket:
+    with client.websocket_connect(
+        "/api/practice?target_language=ja&modality=text"
+    ) as websocket:
         # Initial greeting
         responses, hints = _exchange_messages(
             websocket, "こんにちは。チェックインをお願いします。"

@@ -9,8 +9,9 @@ You are an expert language teacher who is leading a role-play exercise.
 
 * Never break character.
 * You're a teacher, use appropriate language for the level of this lesson.
-  - If this appears to be a beginner lesson, use simple language and short sentences.
+* If this appears to be a beginner lesson, use simple language and short sentences.
 * Always gently push the user forward.
+* Speak slower than normal, and wait patiently for the user to respond, don't rush.
 * When the lesson goals have been achieved, say "Thank you for joining, let's go to the next lesson!"
 
 If asked:
@@ -34,10 +35,10 @@ Reply only using {language} from this point onward.
 Reply only to the user from this point onward.
 """
 
+
 def load_chapters() -> List[Chapter]:
-    """Load all chapters from chapters.json"""
-    f = (importlib.resources.files("multivox") / "chapters.json").open("r")
-    chapters = [Chapter.model_validate(c) for c in json.load(f)]
+    f = (importlib.resources.files("multivox") / "scenarios.json").open("r")
+    chapters = [Chapter.model_validate(c) for c in json.load(f)["chapters"]]
     return chapters
 
 

@@ -2,9 +2,7 @@ import { SERVER_SAMPLE_RATE, BYTES_PER_SAMPLE } from "./types";
 
 export class AudioPlayer {
   private audioContext: AudioContext;
-  private audioQueue: AudioBuffer[] = [];
-  private isPlaying = false;
-  private currentSource: AudioBufferSourceNode | null = null;
+  private scheduledSources: AudioBufferSourceNode[] = [];
   private nextStartTime: number = 0;
 
   constructor() {
@@ -60,60 +58,38 @@ export class AudioPlayer {
       
       // Convert PCM to AudioBuffer
       const audioBuffer = this.convertPCMToAudioBuffer(pcmData);
-      this.audioQueue.push(audioBuffer);
       
-      // Start playing if not already playing
-      if (!this.isPlaying) {
-        this.playNextInQueue();
+      // Create and schedule the source
+      const source = this.audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(this.audioContext.destination);
+
+      // If this is the first buffer or we're restarting or if scheduled time is in the past
+      if (this.nextStartTime === 0 || this.nextStartTime < this.audioContext.currentTime) {
+        // If we're starting fresh or if the next scheduled time is in the past,
+        // start from the current time
+        this.nextStartTime = this.audioContext.currentTime;
       }
+
+      // Schedule this buffer to play at the exact time the previous one ends
+      source.start(this.nextStartTime);
+      this.scheduledSources.push(source);
+
+      // Calculate the next start time based on the current buffer's duration
+      this.nextStartTime += audioBuffer.duration;
+      console.log('Scheduled audio at:', this.nextStartTime);
+
     } catch (error) {
       console.error('Error processing audio:', error);
     }
   }
 
-
-  private playNextInQueue() {
-    if (this.audioQueue.length === 0) {
-      this.isPlaying = false;
-      this.nextStartTime = 0;
-      return;
-    }
-
-    this.isPlaying = true;
-    const audioBuffer = this.audioQueue.shift()!;
-
-    const source = this.audioContext.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(this.audioContext.destination);
-
-    // If this is the first buffer or we're restarting
-    if (this.nextStartTime === 0) {
-      this.nextStartTime = this.audioContext.currentTime;
-    }
-
-    // Schedule this buffer to play at the exact time the previous one ends
-    source.start(this.nextStartTime);
-
-    // Calculate the next start time based on the current buffer's duration
-    this.nextStartTime += audioBuffer.duration;
-
-    // Schedule the next buffer slightly before this one ends
-    const timeUntilNext = audioBuffer.duration - 0.02;
-    setTimeout(() => {
-      this.currentSource = null;
-      this.playNextInQueue();
-    }, timeUntilNext * 1000);
-
-    this.currentSource = source;
-  }
-
   public stop() {
-    if (this.currentSource) {
-      this.currentSource.stop();
-      this.currentSource = null;
+    // Stop all scheduled sources
+    for (const source of this.scheduledSources) {
+      source.stop();
     }
-    this.isPlaying = false;
-    this.audioQueue = [];
+    this.scheduledSources = [];
     this.nextStartTime = 0;
   }
 

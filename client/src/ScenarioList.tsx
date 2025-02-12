@@ -8,12 +8,14 @@ const getFirstSentence = (text: string): string => {
   return match ? match[0] : singleLine;
 };
 
-export const ScenarioList = ({ 
-  scenarios, 
-  selectedLanguage 
-}: { 
-  scenarios: Scenario[],
-  selectedLanguage: string 
+export const ScenarioList = ({
+  scenarios,
+  onDelete,
+  isCustom = false,
+}: {
+  scenarios: Scenario[];
+  onDelete?: (id: string) => void;
+  isCustom?: boolean;
 }) => {
   return (
     <div className="overflow-x-auto">
@@ -44,13 +46,31 @@ export const ScenarioList = ({
                   {getFirstSentence(scenario.description)}
                 </div>
               </td>
-              <td className="px-6 py-4 text-right">
+              <td className="px-6 py-4 text-right space-x-2">
                 <Link
-                  to={`/practice/${scenario.id}?lang=${selectedLanguage}`}
+                  to={`/practice/${scenario.id}`}
                   className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                   Start Practice
                 </Link>
+                {isCustom && (
+                  <>
+                    <Link
+                      to={`/practice/${scenario.id}?mode=edit`}
+                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Edit
+                    </Link>
+                    {onDelete && (
+                      <button
+                        onClick={() => onDelete(scenario.id)}
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </>
+                )}
               </td>
             </tr>
           ))}
