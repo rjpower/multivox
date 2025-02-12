@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import io
+import json
 import logging
 import os
 import wave
@@ -22,7 +23,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from google import genai
 from google.genai import live as genai_live
 from google.genai import types as genai_types

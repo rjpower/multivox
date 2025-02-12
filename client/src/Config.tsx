@@ -38,6 +38,7 @@ export const Config = () => {
             <input
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
+              onBlur={handleSubmit}
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               placeholder="Enter your Gemini API key"
             />
@@ -62,23 +63,17 @@ export const Config = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-4 mb-4">
-            <button
-              type="submit"
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-            >
-              Save Configuration
-            </button>
+          <div className="mb-4">
             {apiKeyStatus === ApiKeyStatus.CHECKING && (
-              <div className="text-blue-600">Validating API key...</div>
+              <div className="text-sm text-blue-600">Validating API key...</div>
             )}
             {apiKeyStatus === ApiKeyStatus.VALID && (
-              <div className="text-green-600">
+              <div className="text-sm text-green-600">
                 API key validated successfully!
               </div>
             )}
             {apiKeyStatus === ApiKeyStatus.INVALID && (
-              <div className="text-red-600">
+              <div className="text-sm text-red-600">
                 Server response: {apiKeyError || "Invalid API key"}
               </div>
             )}
@@ -94,6 +89,12 @@ export const Config = () => {
             <p className="mt-1 text-sm text-gray-500">
               Select the language you want to practice with
             </p>
+            <button
+              type="submit"
+              className="mt-4 text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            >
+              Save Configuration
+            </button>
           </div>
         </div>
 

@@ -188,7 +188,10 @@ const createLanguageSlice: StateCreator<AppState, [], [], LanguageSlice> = (
   setLanguages: (languages) => set({ languages }),
   setSelectedLanguage: (code) => {
     localStorage.setItem("selectedLanguage", code);
-    set({ selectedLanguage: code });
+    set((state) => ({ 
+      selectedLanguage: code,
+      isReady: !!(code && state.geminiApiKey)
+    }));
   },
   fetchLanguages: async () => {
     const response = await fetch("/api/languages");
@@ -220,9 +223,10 @@ const createApiSlice: StateCreator<AppState, [], [], ApiSlice> = (set) => ({
 
     if (response.ok) {
       localStorage.setItem("geminiApiKey", key);
-      set({
+      set((state) => ({
         apiKeyStatus: ApiKeyStatus.VALID,
-      });
+        isReady: !!(key && state.selectedLanguage),
+      }));
     } else {
       const errorData = await response.json();
       const errorMessage = errorData.error?.message || "Invalid API key";
@@ -288,6 +292,16 @@ const createScenarioSlice: StateCreator<AppState, [], [], ScenarioSlice> = (
     }
   },
 });
+
+interface StoreActions {
+  reset: () => void;
+}
+
+interface CoreState {
+  isReady: boolean;
+}
+
+type FullAppState = AppState & CoreState & StoreActions;
 
 function handleWebSocketMessage(
   set: (fn: (state: AppState) => Partial<AppState>) => void
@@ -545,14 +559,16 @@ const resetStore = () => {
   window.location.reload();
 };
 
-export const useAppStore = create<AppState & { reset: typeof resetStore }>()(
-  devtools((...a) => {
-    const store = {
-      ...createVocabularySlice(...a),
-      ...createLanguageSlice(...a),
-      ...createApiSlice(...a),
-      ...createScenarioSlice(...a),
-      ...createPracticeSlice(...a),
+export const useAppStore = create<FullAppState>()(
+  devtools((set, get) => {
+    let store: any = {};
+    
+    store = {
+      ...createVocabularySlice(set, get, store),
+      ...createLanguageSlice(set, get, store),
+      ...createApiSlice(set, get, store),
+      ...createScenarioSlice(set, get, store),
+      ...createPracticeSlice(set, get, store),
     };
 
     // Load initial data
@@ -562,9 +578,8 @@ export const useAppStore = create<AppState & { reset: typeof resetStore }>()(
     return {
       ...store,
       reset: resetStore,
-      get isReady() {
-        return !!(store.geminiApiKey && store.selectedLanguage);
-      }
+      isReady: !!(store.geminiApiKey && store.selectedLanguage),
+      setIsReady: (ready: boolean) => set({ isReady: ready })
     };
   })
 );
