@@ -6,7 +6,10 @@ from google import genai
 from google.genai import types as genai_types
 
 from multivox.config import settings
-from multivox.types import Language, TranscribeResponse
+from multivox.types import (
+    Language,
+    TranscribeResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -95,3 +98,40 @@ async def transcribe(
     except Exception:
         logger.warning(f"Failed to parse {response.text} as TranscribeResponse")
         raise
+
+
+def streaming_transcription_config(
+    language: Language | None,
+) -> genai_types.LiveConnectConfig:
+    """Get Gemini configuration for streaming transcription"""
+    language_prompt = f"Assume the language is {language.name}.\n" if language else "\n"
+    config = genai_types.LiveConnectConfig()
+    config.response_modalities = [genai_types.Modality.TEXT]
+    config.system_instruction = genai_types.Content(
+        parts=[genai_types.Part(text=TRANSCRIPTION_PROMPT + "\n" + language_prompt)]
+    )
+    config.tools = [
+        genai_types.Tool(
+            function_declarations=[
+                genai_types.FunctionDeclaration(
+                    name="transcribe",
+                    description="Transcribes the incoming audio stream.",
+                    parameters={},
+                ),
+                genai_types.FunctionDeclaration(
+                    name="hint",
+                    description="Generates a hint for the user.",
+                    parameters={},
+                ),
+            ]
+        )
+    ]
+    return config
+
+
+def create_audio_blob(audio_data: bytes, sample_rate: int) -> genai_types.Blob:
+    """Create a Gemini Blob from audio data"""
+    return genai_types.Blob(
+        data=audio_data,
+        mime_type=f"audio/pcm;rate={sample_rate}"
+    )

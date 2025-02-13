@@ -161,3 +161,10 @@ LANGUAGES = {
         Language(abbreviation="vi", name="Vietnamese"),
     ]
 }
+
+
+class ChatMessage(BaseModel):
+    """Represents a single chat message"""
+
+    role: MessageRole
+    content: str

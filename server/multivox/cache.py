@@ -16,7 +16,7 @@ def _default_key_fn(func: Callable, *args: tuple, **kwargs: dict) -> str:
     sig = inspect.signature(func)
 
     # Bind arguments to signature, this handles defaults
-    bound_args = sig.bind(*args, **kwargs)
+    bound_args = sig.bind(*args, *kwargs)
     bound_args.apply_defaults()
 
     # Build key parts
@@ -88,10 +88,10 @@ class FileCache:
         if key_fn is None:
             key_fn = _default_key_fn
 
-        def decorator(func: Callable[..., T | "Awaitable[T]"]) -> Callable[..., T]:
+        def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
             @functools.wraps(func)
             async def wrapper(*args, **kwargs) -> T:
-                cache_key = key_fn(func, args, kwargs)
+                cache_key = key_fn(func, *args, **kwargs)
                 cache_path = self._get_cache_path(cache_key)
                 hash_key = hashlib.md5(cache_key.encode()).hexdigest()
                 logger.info("Calling %s with cache key %s", func.__name__, hash_key)
