@@ -1,12 +1,18 @@
-import { ArrowLeftCircleIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowLeftCircleIcon,
+  CloudArrowUpIcon,
+  InformationCircleIcon,
+  MicrophoneIcon,
+} from "@heroicons/react/24/outline";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChatHistory, ChatMessage } from "./ChatHistory";
+import { ChatHistory } from "./ChatHistory";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { PracticeVocabulary } from "./PracticeVocabulary";
 import { PracticeState, useAppStore } from "./store";
 import {
-  TranslateMessageContent,
+  ChatMessage,
+  TranslateChatMessage,
   type DictionaryEntry,
   type HintOption,
   type Scenario,
@@ -164,12 +170,12 @@ const ChatMessages = ({
             }`}
           >
             {(() => {
-              switch (msg.content.type) {
+              switch (msg.type) {
                 case "hint":
                   return (
                     <div className="max-w-[80%] px-4 py-2 bg-white rounded-lg shadow">
                       <HintMessage
-                        hints={msg.content.hints}
+                        hints={msg.hints}
                         messageInputRef={messageInputRef}
                       />
                     </div>
@@ -183,7 +189,7 @@ const ChatMessages = ({
                           : "text-indigo-300"
                       }`}
                     >
-                      <TranscriptionMessage data={msg.content.transcription} />
+                      <TranscriptionMessage data={msg} />
                     </div>
                   );
                 case "audio":
@@ -195,7 +201,23 @@ const ChatMessages = ({
                           : "bg-indigo-600 text-white"
                       }`}
                     >
-                      {msg.content.placeholder}
+                      <span className="inline-flex items-center">
+                        {msg.placeholder === "🎤" ? (
+                          <>
+                            <span className="animate-[bounce_1s_ease-in-out]">
+                              🎤
+                            </span>
+                            <span className="ml-1">...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="animate-[bounce_1s_ease-in-out]">
+                              🔊
+                            </span>
+                            <span className="ml-1">...</span>
+                          </>
+                        )}
+                      </span>
                     </div>
                   );
                 case "translate":
@@ -203,26 +225,36 @@ const ChatMessages = ({
                     <div className="max-w-[80%] px-4 py-2 bg-white rounded-lg shadow">
                       <div className="space-y-3">
                         <div className="text-sm leading-relaxed">
-                          {msg.content.chunked?.map(
-                            (term: string, idx: number) => (
-                              <TranscriptionChunk
-                                key={idx}
-                                term={term}
-                                dictionary={
-                                  (msg.content as TranslateMessageContent)
-                                    .dictionary || {}
-                                }
-                              />
-                            )
-                          ) || (
-                            <div className="text-gray-800">
-                              {msg.content.original}
-                            </div>
+                          {msg.chunked?.map((term: string, idx: number) => (
+                            <TranscriptionChunk
+                              key={idx}
+                              term={term}
+                              dictionary={
+                                (msg as TranslateChatMessage).dictionary || {}
+                              }
+                            />
+                          )) || (
+                            <div className="text-gray-800">{msg.original}</div>
                           )}
                         </div>
                         <div className="text-sm text-gray-600 italic">
-                          {msg.content.translation}
+                          {msg.translation}
                         </div>
+                      </div>
+                    </div>
+                  );
+                case "initialize":
+                  return (
+                    <div className="max-w-[80%] px-4 py-2 bg-blue-50 text-gray-600 rounded-lg border border-blue-200">
+                      <div className="flex items-center gap-2 mb-2 text-blue-600">
+                        <CloudArrowUpIcon className="h-5 w-5" />
+                      </div>
+                      <div className="text-sm">
+                        {msg.text.split("\n").map((line, i) => (
+                          <p key={i} className="whitespace-pre-wrap">
+                            {line}
+                          </p>
+                        ))}
                       </div>
                     </div>
                   );
@@ -235,7 +267,7 @@ const ChatMessages = ({
                           : "bg-indigo-600 text-white"
                       }`}
                     >
-                      {msg.content.text.split("\n").map((line, i) => (
+                      {msg.text.split("\n").map((line, i) => (
                         <p key={i} className="whitespace-pre-wrap">
                           {line}
                         </p>
@@ -268,19 +300,6 @@ const ChatInterface = ({
   const messageInputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="space-y-4">
-      <div className="flex items-center space-x-4">
-        <button
-          onClick={isRecording ? onStopRecording : onStartRecording}
-          className={`px-4 py-2 text-white rounded-md ${
-            isRecording
-              ? "bg-gray-600 hover:bg-gray-700"
-              : "bg-red-600 hover:bg-red-700"
-          }`}
-        >
-          {isRecording ? "Stop Recording" : "Start Recording"}
-        </button>
-      </div>
-
       <ChatMessages
         messages={chatHistory.getMessages()}
         messageInputRef={messageInputRef}
@@ -298,15 +317,28 @@ const ChatInterface = ({
             input.value = "";
           }
         }}
-        className="flex space-x-2"
+        className="flex space-x-2 items-center"
       >
-        <input
-          ref={messageInputRef}
-          type="text"
-          name="message"
-          placeholder="Type your message..."
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
+        <div className="flex-1 flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500">
+          <input
+            ref={messageInputRef}
+            type="text"
+            name="message"
+            placeholder="Type your message..."
+            className="flex-1 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={isRecording ? onStopRecording : onStartRecording}
+            className={`p-1.5 rounded-full transition-colors ${
+              isRecording
+                ? "bg-red-100 text-red-600 hover:bg-red-200"
+                : "hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <MicrophoneIcon className={`h-5 w-5 ${isRecording ? 'animate-pulse' : ''}`} />
+          </button>
+        </div>
         <button
           type="submit"
           className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -482,15 +514,15 @@ export const Practice = () => {
     if (practiceState === PracticeState.WAITING) {
       return <ScenarioInstructions scenario={scenario} />;
     }
-const LoadingDots = () => {
-  return (
-    <div className="flex space-x-2 items-center">
-      <div className="w-2 h-2 bg-indigo-600 rounded-full animate-[bounce_1s_infinite_0ms]"></div>
-      <div className="w-2 h-2 bg-indigo-600 rounded-full animate-[bounce_1s_infinite_200ms]"></div>
-      <div className="w-2 h-2 bg-indigo-600 rounded-full animate-[bounce_1s_infinite_400ms]"></div>
-    </div>
-  );
-};
+    const LoadingDots = () => {
+      return (
+        <div className="flex space-x-2 items-center">
+          <div className="w-2 h-2 bg-indigo-600 rounded-full animate-[bounce_1s_infinite_0ms]"></div>
+          <div className="w-2 h-2 bg-indigo-600 rounded-full animate-[bounce_1s_infinite_200ms]"></div>
+          <div className="w-2 h-2 bg-indigo-600 rounded-full animate-[bounce_1s_infinite_400ms]"></div>
+        </div>
+      );
+    };
 
     if (practiceState === PracticeState.TRANSLATING) {
       return (
@@ -533,9 +565,10 @@ const LoadingDots = () => {
             {scenarioId.startsWith("custom-") && (
               <button
                 onClick={handleSave}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2"
               >
-                Save Scenario
+                <InformationCircleIcon className="h-5 w-5" />
+                <span>Save Scenario</span>
               </button>
             )}
           </div>

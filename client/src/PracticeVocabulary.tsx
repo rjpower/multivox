@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { DictionaryEntry } from "./types";
-import { ChatMessage } from "./ChatHistory";
+import { ChatMessage, DictionaryEntry } from "./types";
 import { useAppStore } from "./store";
 import { BookmarkIcon, BookmarkSquareIcon } from "@heroicons/react/24/outline";
 import { BookmarkIcon as BookmarkSolidIcon } from "@heroicons/react/24/solid";
@@ -10,7 +9,11 @@ interface VocabularyItem {
   entry: DictionaryEntry;
 }
 
-export const PracticeVocabulary = ({ messages }: { messages: Array<ChatMessage> }) => {
+export const PracticeVocabulary = ({
+  messages,
+}: {
+  messages: Array<ChatMessage>;
+}) => {
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
 
   useEffect(() => {
@@ -18,15 +21,13 @@ export const PracticeVocabulary = ({ messages }: { messages: Array<ChatMessage> 
     const vocabMap = new Map<string, DictionaryEntry>();
 
     messages.forEach((msg) => {
-      if (msg.content.type === "transcription" && msg.content.transcription) {
-        Object.entries(msg.content.transcription.dictionary).forEach(
-          ([term, entry]) => {
-            vocabMap.set(term, entry);
-          }
-        );
+      if (msg.type === "transcription" && msg.dictionary) {
+        Object.entries(msg.dictionary).forEach(([term, entry]) => {
+          vocabMap.set(term, entry);
+        });
       }
-      if (msg.content.type === "translate" && msg.content.dictionary) {
-        Object.entries(msg.content.dictionary).forEach(([term, entry]) => {
+      if (msg.type === "translate" && msg.dictionary) {
+        Object.entries(msg.dictionary).forEach(([term, entry]) => {
           vocabMap.set(term, entry);
         });
       }
@@ -58,12 +59,12 @@ export const PracticeVocabulary = ({ messages }: { messages: Array<ChatMessage> 
           >
             <div className="flex-1">
               <div className="text-md font-medium text-gray-900">{term}</div>
-            <div className="text-sm text-gray-600">{entry.english}</div>
-            {entry.notes && (
-              <div className="text-xs text-gray-500 italic group-hover:block">
-                {entry.notes}
-              </div>
-            )}
+              <div className="text-sm text-gray-600">{entry.english}</div>
+              {entry.notes && (
+                <div className="text-xs text-gray-500 italic group-hover:block">
+                  {entry.notes}
+                </div>
+              )}
             </div>
             <SaveVocabButton term={term} entry={entry} />
           </div>

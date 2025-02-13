@@ -326,16 +326,10 @@ function handleWebSocketMessage(
           set((state) => ({
             practice: {
               ...state.practice,
-              chatHistory:
-                message.role === "assistant"
-                  ? state.practice.chatHistory.updateLastAssistantMessage(
-                      message.text!,
-                      message.mode ?? "append"
-                    )
-                  : state.practice.chatHistory.addTextMessage(
-                      message.role,
-                      message.text!
-                    ),
+              chatHistory: state.practice.chatHistory.addTextMessage(
+                message.role,
+                message.text!
+              ),
             },
           }));
         }
@@ -445,15 +439,14 @@ const createPracticeSlice: StateCreator<AppState, [], [], PracticeSlice> = (
             recorder,
             wsState: WebSocketState.CONNECTED,
             practiceState: PracticeState.ACTIVE,
-            chatHistory: s.practice.chatHistory.addTextMessage(
-              "assistant",
-              translation
-            ),
+            chatHistory:
+              s.practice.chatHistory.addInitializeMessage(translation),
           },
         }));
 
+        // send initialization message with translated instructions
         ws.send({
-          type: "text",
+          type: "initialize",
           text: translation,
           role: "assistant",
         });
@@ -478,7 +471,7 @@ const createPracticeSlice: StateCreator<AppState, [], [], PracticeSlice> = (
             practice: {
               ...s.practice,
               isRecording: true,
-              chatHistory: s.practice.chatHistory.addAudioMessage("user", true),
+              chatHistory: s.practice.chatHistory.addAudioMessage("user"),
             },
           }));
         }
@@ -495,7 +488,7 @@ const createPracticeSlice: StateCreator<AppState, [], [], PracticeSlice> = (
           practice: {
             ...s.practice,
             isRecording: false,
-            chatHistory: s.practice.chatHistory.addAudioMessage("user", false),
+            chatHistory: s.practice.chatHistory.addAudioMessage("user"),
           },
         }));
       }

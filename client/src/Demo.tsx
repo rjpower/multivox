@@ -42,10 +42,15 @@ export const Demo = () => {
         }
         // Apply the new state
         const newState = transitions.computedStates[next].state;
+        console.log(newState.practice.chatHistory.messages);
         useAppStore.setState((s) => ({
           practice: {
             ...s.practice,
-            chatHistory: new ChatHistory(newState.practice.chatHistory.messages),
+            chatHistory: new ChatHistory(
+              Array.isArray(newState.practice.chatHistory.messages) 
+                ? newState.practice.chatHistory.messages 
+                : []
+            ),
             connection: newState.practice.connection,
             recorder: newState.practice.recorder,
             practiceState: newState.practice.practiceState,
@@ -55,6 +60,8 @@ export const Demo = () => {
             isRecording: newState.practice.isRecording,
             translatedInstructions: newState.practice.translatedInstructions
           },
+          systemScenarios: newState.systemScenarios || [],
+          userScenarios: newState.userScenarios || [],
           languages: newState.languages,
           selectedLanguage: newState.selectedLanguage,
           geminiApiKey: newState.geminiApiKey,
@@ -70,10 +77,13 @@ export const Demo = () => {
 
   if (!transitions) return <div>Loading transitions...</div>;
 
+  // Check if we have the necessary data
+  const hasScenarios = transitions.computedStates[currentIndex].state.systemScenarios?.length > 0;
+  
   return (
     <div className="min-h-screen bg-gray-100 flex">
       <div className="flex-grow">
-        <Practice />
+        {hasScenarios ? <Practice /> : <div>Loading scenarios...</div>}
       </div>
       <div className="w-96 bg-white shadow-lg p-4 overflow-y-auto">
         <div className="mb-4 text-gray-600 font-medium">

@@ -15,7 +15,6 @@ export interface VocabularyEntry {
   notes?: string;
 }
 
-
 export interface DictionaryEntry {
   english: string;
   native: string;
@@ -43,37 +42,65 @@ export interface Scenario {
   instructions: string;
 }
 
+// Chat message type for the chat window
 export type MessageRole = "user" | "assistant";
-export type MessageType = "text" | "audio" | "transcription" | "hint";
-export type TextMode = "append" | "replace";
+export type MessageType =
+  | "initialize"
+  | "text"
+  | "audio"
+  | "transcription"
+  | "translate"
+  | "hint";
 
-export type TextMessageContent = {
+export interface ChatMessageBase {
+  type: MessageType;
+  role: MessageRole;
+}
+
+export interface InitializeChatMessage extends ChatMessageBase {
+  type: "initialize";
+  text: string;
+}
+
+export interface TextChatMessage extends ChatMessageBase {
   type: "text";
   text: string;
-};
+}
 
-export type TranscriptionMessageContent = {
+export interface TranscriptionChatMessage extends ChatMessageBase {
   type: "transcription";
-  transcription: TranscribeResponse;
-};
+  transcription: string;
+  chunked: string[];
+  dictionary: Record<string, DictionaryEntry>;
+  translation: string;
+}
 
-export type AudioMessageContent = {
+export interface AudioChatMessage extends ChatMessageBase {
   type: "audio";
+  timestamp: number;
   placeholder: "🔊" | "🎤"; // Different icons for playback vs recording
-};
+}
 
-export type HintMessageContent = {
+export interface HintChatMessage extends ChatMessageBase {
   type: "hint";
   hints: HintOption[];
-};
+}
 
-export type TranslateMessageContent = {
+export interface TranslateChatMessage extends ChatMessageBase {
   type: "translate";
   original: string;
   translation: string;
   dictionary: Record<string, DictionaryEntry>;
   chunked: string[];
-};
+}
+
+export type ChatMessage =
+  | InitializeChatMessage
+  | TextChatMessage
+  | TranslateChatMessage
+  | TranscriptionChatMessage
+  | AudioChatMessage
+  | HintChatMessage;
 
 export interface Language {
   code: string;
@@ -86,13 +113,7 @@ export interface LanguageSelectorProps {
   className?: string;
 }
 
-export type MessageContent =
-  | TextMessageContent
-  | TranslateMessageContent
-  | TranscriptionMessageContent
-  | AudioMessageContent
-  | HintMessageContent;
-
+// Websocket messages
 interface BaseWebSocketMessage {
   role: MessageRole;
   end_of_turn?: boolean;
@@ -103,6 +124,11 @@ export interface HintOption {
   translation: string;
 }
 
+export interface InitializeWebSocketMessage extends BaseWebSocketMessage {
+  type: "initialize";
+  text: string;
+}
+
 export interface HintWebSocketMessage extends BaseWebSocketMessage {
   type: "hint";
   hints: HintOption[];
@@ -111,7 +137,6 @@ export interface HintWebSocketMessage extends BaseWebSocketMessage {
 export interface TextWebSocketMessage extends BaseWebSocketMessage {
   type: "text";
   text: string;
-  mode?: TextMode;
 }
 
 export interface TranscriptionWebSocketMessage extends BaseWebSocketMessage {
@@ -133,6 +158,7 @@ export interface TranslateWebSocketMessage extends BaseWebSocketMessage {
 }
 
 export type WebSocketMessage =
+  | InitializeWebSocketMessage
   | TextWebSocketMessage
   | TranscriptionWebSocketMessage
   | AudioWebSocketMessage

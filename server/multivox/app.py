@@ -53,7 +53,6 @@ from multivox.types import (
     MessageType,
     PracticeRequest,
     Scenario,
-    TextMode,
     TextWebSocketMessage,
     TranscribeRequest,
     TranscribeResponse,
@@ -283,9 +282,9 @@ class ClientReaderTask(LongRunningTask):
         return [asyncio.create_task(self._process())]
 
     async def _process(self):
-        # Handle first message (scenario initialization)
+        # Handle first message specially (scenario initialization)
         message = await self.websocket.receive_message()
-        assert message.type == MessageType.TEXT
+        assert message.type == MessageType.INITIALIZE
         await self.session.send(input=message.text, end_of_turn=True)
 
         while self.running():
@@ -357,7 +356,6 @@ class GeminiReaderTask(LongRunningTask):
                         message = TextWebSocketMessage(
                             text=response.text or "",
                             role=MessageRole.ASSISTANT,
-                            mode=TextMode.APPEND,
                             end_of_turn=bool(
                                 response.server_content
                                 and response.server_content.turn_complete

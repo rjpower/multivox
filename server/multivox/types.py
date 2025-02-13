@@ -79,14 +79,11 @@ class MessageRole(str, Enum):
     ASSISTANT = "assistant"
 
 class MessageType(str, Enum):
+    INITIALIZE = "initialize"
     TEXT = "text"
     AUDIO = "audio"
     TRANSCRIPTION = "transcription"
     HINT = "hint"
-
-class TextMode(str, Enum):
-    APPEND = "append"
-    REPLACE = "replace"
 
 # Audio sample rates
 CLIENT_SAMPLE_RATE = 16000
@@ -96,10 +93,18 @@ class BaseWebSocketMessage(BaseModel):
     role: MessageRole
     end_of_turn: bool = False
 
+
+class InitializeWebSocketMessage(BaseWebSocketMessage):
+    """Used as the initial message to establish a conversation."""
+
+    type: Literal["initialize"] = "initialize"
+    text: str
+
+
 class TextWebSocketMessage(BaseWebSocketMessage):
     type: Literal["text"] = "text"
     text: str
-    mode: Optional[TextMode] = None
+
 
 class TranscriptionWebSocketMessage(BaseWebSocketMessage):
     type: Literal["transcription"] = "transcription"
@@ -121,7 +126,14 @@ class TranslateWebSocketMessage(BaseWebSocketMessage):
     dictionary: dict[str, DictionaryEntry]  # Mapping of terms to translations
 
 WebSocketMessage = Annotated[
-    Union[TextWebSocketMessage, TranscriptionWebSocketMessage, AudioWebSocketMessage, HintWebSocketMessage, TranslateWebSocketMessage],
+    Union[
+        InitializeWebSocketMessage,
+        TextWebSocketMessage,
+        TranscriptionWebSocketMessage,
+        AudioWebSocketMessage,
+        HintWebSocketMessage,
+        TranslateWebSocketMessage,
+    ],
     Discriminator("type"),
 ]
 
