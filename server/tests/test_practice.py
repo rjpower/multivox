@@ -1,5 +1,7 @@
 import base64
 import json
+import logging
+import os
 import pathlib
 import wave
 
@@ -17,7 +19,7 @@ from multivox.types import (
 )
 
 # Use a known scenario ID from the test data
-SCENARIO_ID = [s for s in list_scenarios() if "hotel" in s.title.lower()][0]
+SCENARIO_ID = [s for s in list_scenarios() if "hotel" in s.title.lower()][0].id
 
 def test_scenarios_api():
     """Test the scenarios API endpoint"""
@@ -40,39 +42,42 @@ def test_practice_session_basic():
     """Test basic websocket connection and initial response"""
     client = TestClient(app)
 
-    with client.websocket_connect("/api/practice?target_language=ja") as websocket:
-        # First get the scenario instructions
-        scenarios_response = client.get("/api/scenarios")
-        scenarios = [Scenario.model_validate(m) for m in scenarios_response.json()]
-        scenario = next(s for s in scenarios if s.id == SCENARIO_ID)
+    # First get the scenario instructions
+    scenarios_response = client.get("/api/scenarios")
+    scenarios = [Scenario.model_validate(m) for m in scenarios_response.json()]
+    scenario = next(s for s in scenarios if s.id == SCENARIO_ID)
 
-        # Translate the instructions
-        translate_response = client.post(
-            "/api/translate", json={"text": scenario.instructions, "language": "ja"}
-        )
-        translated_text = translate_response.text
+    # Translate the instructions
+    translate_response = client.post(
+        "/api/translate", json={"text": scenario.instructions, "language": "ja"}
+    )
+    translated_text = translate_response.text
 
-        # Send the translated instructions
+    with client.websocket_connect(
+        f"/api/practice?target_language=ja&api_key={os.environ['GEMINI_API_KEY']}"
+    ) as websocket:
+        # Send initial message and wait for response
+        logging.info("Sending initial message.")
         message = TextWebSocketMessage(
             text=translated_text,
-            role=MessageRole.USER
+            role=MessageRole.USER,
+            end_of_turn=True
         )
         websocket.send_json(message.model_dump())
 
-        # We should receive a response
-        response = websocket.receive_text()
-        assert response, "Should receive response"
-        assert len(response) > 0, "Response should not be empty"
+        # Collect all responses until we get hints
+        responses = []
+        while True:
+            response = websocket.receive_text()
+            msg = parse_websocket_message_bytes(response)
+            logging.info("Received message type: %s", msg.type)
+            responses.append(msg)
+            if msg.type == MessageType.HINT:
+                break
 
-        # Test sending some audio data
-        websocket.send_text(
-            AudioWebSocketMessage(
-                audio=base64.b64encode(b"dummy audio"),
-                role=MessageRole.USER,
-            ).model_dump_json()
-        )
-        response = websocket.receive_text()
-        assert response, "Should receive response to audio input"
+        # Verify we got expected message types
+        assert any(r.type == MessageType.TEXT for r in responses), "Should receive text response"
+        assert any(r.type == MessageType.HINT for r in responses), "Should receive hints"
 
 
 def test_practice_session_with_audio():
@@ -80,20 +85,20 @@ def test_practice_session_with_audio():
     client = TestClient(app)
     # Get path to test audio file
     audio_path = pathlib.Path(__file__).parent / "data" / "checkin.wav"
+    # First get the scenario instructions
+    scenarios_response = client.get("/api/scenarios")
+    scenarios = [Scenario.model_validate(m) for m in scenarios_response.json()]
+    scenario = next(s for s in scenarios if s.id == SCENARIO_ID)
 
-    with client.websocket_connect("/api/practice?target_language=ja") as websocket:
-        # First get the scenario instructions
-        scenarios_response = client.get("/api/scenarios")
-        scenarios = [Scenario.model_validate(m) for m in scenarios_response.json()]
-        scenario = next(s for s in scenarios if s.id == SCENARIO_ID)
+    # Translate the instructions
+    translate_response = client.post(
+        "/api/translate", json={"text": scenario.instructions, "language": "ja"}
+    )
+    translated_text = translate_response.text
 
-        # Translate the instructions
-        translate_response = client.post(
-            "/api/translate", json={"text": scenario.instructions, "language": "ja"}
-        )
-        translated_text = translate_response.text
-
-        # Send the translated instructions
+    with client.websocket_connect(
+        f"/api/practice?target_language=ja&api_key={os.environ['GEMINI_API_KEY']}"
+    ) as websocket:
         message = TextWebSocketMessage(
             text=translated_text,
             role=MessageRole.USER
@@ -189,7 +194,7 @@ def test_simple_text_modality():
     client = TestClient(app)
 
     with client.websocket_connect(
-        "/api/practice?target_language=ja&modality=text"
+        f"/api/practice?target_language=ja&modality=text&api_key={os.environ['GEMINI_API_KEY']}"
     ) as websocket:
         # Send a text message
         message = TextWebSocketMessage(
@@ -214,7 +219,7 @@ def test_hotel_checkin_conversation():
     client = TestClient(app)
 
     with client.websocket_connect(
-        "/api/practice?target_language=ja&modality=text"
+        f"/api/practice?target_language=ja&modality=text&api_key={os.environ['GEMINI_API_KEY']}"
     ) as websocket:
         # Initial greeting
         responses, hints = _exchange_messages(

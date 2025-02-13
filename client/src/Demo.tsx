@@ -45,15 +45,21 @@ export const Demo = () => {
         useAppStore.setState((s) => ({
           practice: {
             ...s.practice,
-            chatHistory: new ChatHistory(newState.chatHistory.messages),
-            connection: newState.connection,
-            recorder: newState.recorder,
-            practiceState: newState.practiceState,
-            wsState: newState.wsState,
-            modality: newState.modality,
-            customInstructions: newState.customInstructions,
-            isRecording: newState.isRecording
-          }
+            chatHistory: new ChatHistory(newState.practice.chatHistory.messages),
+            connection: newState.practice.connection,
+            recorder: newState.practice.recorder,
+            practiceState: newState.practice.practiceState,
+            wsState: newState.practice.wsState,
+            modality: newState.practice.modality,
+            customInstructions: newState.practice.customInstructions,
+            isRecording: newState.practice.isRecording,
+            translatedInstructions: newState.practice.translatedInstructions
+          },
+          languages: newState.languages,
+          selectedLanguage: newState.selectedLanguage,
+          geminiApiKey: newState.geminiApiKey,
+          apiKeyStatus: newState.apiKeyStatus,
+          isReady: newState.isReady
         }));
         return next;
       });

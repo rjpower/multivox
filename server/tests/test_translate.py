@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 from multivox.app import app, translate
@@ -11,7 +13,12 @@ def test_translate_api():
 
     response = client.post(
         "/api/translate",
-        json={"text": "Hello, how are you?", "language": "ja"}
+        json={
+            "text": "Hello, how are you?",
+            "target_language": "ja",
+            "source_language": "en",
+        },
+        params={"api_key": os.environ["GEMINI_API_KEY"]},
     )
 
     assert response.status_code == 200
@@ -25,7 +32,11 @@ def test_translate_api():
 async def test_translate_basic():
     """Test that translation to Japanese produces different output than input"""
     test_text = "Hello, how are you?"
-    result: TranslateResponse = await translate(test_text, LANGUAGES["ja"])
+    result: TranslateResponse = await translate(
+        text=test_text,
+        source_lang=LANGUAGES["en"],
+        target_lang=LANGUAGES["ja"]
+    )
     print(result)
 
     assert result.translation != test_text  # Translation should be different from input
@@ -40,7 +51,13 @@ async def test_translate_invalid_language():
 
     with pytest.raises(KeyError):
         client.post(
-            "/api/translate", json={"text": "Hello, how are you?", "language": "xx"}
+            "/api/translate",
+            json={
+                "text": "Hello, how are you?",
+                "target_language": "xx",
+                "source_language": "en",
+            },
+            params={"api_key": os.environ["GEMINI_API_KEY"]},
         )
 
 INSTRUCTIONS = list_scenarios()[0].instructions
@@ -49,13 +66,17 @@ INSTRUCTIONS = list_scenarios()[0].instructions
 # Test data mapping languages to expected words in translation
 TRANSLATION_TEST_CASES = [
     ("ja", ["あなた"]),
-    ("es", ["fingiendo"]),
+    ("es", ["gerente", "tienda", "cliente"]),
 ]
 
 @pytest.mark.parametrize("lang_code,expected_words", TRANSLATION_TEST_CASES)
 async def test_translate_long_instructions(lang_code: str, expected_words: list[str]):
     """Test translation of longer instructional text"""
-    result = await translate(INSTRUCTIONS, LANGUAGES[lang_code])
+    result = await translate(
+        text=INSTRUCTIONS,
+        source_lang=LANGUAGES["en"],
+        target_lang=LANGUAGES[lang_code]
+    )
     print(result)
 
     # Check the translation is non-empty and roughly proportional in length

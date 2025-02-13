@@ -4,7 +4,7 @@ import inspect
 import logging
 import pickle
 from pathlib import Path
-from typing import Callable, Optional, TypeVar
+from typing import Awaitable, Callable, Optional, TypeVar
 
 T = TypeVar('T')
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ class FileCache:
         if key_fn is None:
             key_fn = _default_key_fn
 
-        def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        def decorator(func: Callable[..., T | "Awaitable[T]"]) -> Callable[..., T]:
             @functools.wraps(func)
             async def wrapper(*args, **kwargs) -> T:
                 cache_key = key_fn(func, args, kwargs)

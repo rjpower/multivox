@@ -1,4 +1,5 @@
 import base64
+import os
 import pathlib
 
 import pytest
@@ -28,6 +29,7 @@ def test_transcribe_endpoint(sample_rate):
             "audio": audio_b64,
             "mime_type": f"audio/pcm;rate={sample_rate}",
             "language": "ja",
+            "api_key": os.environ["GEMINI_API_KEY"],
         },
     )
 
