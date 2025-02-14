@@ -7,23 +7,53 @@ from multivox.types import HintResponse, Language
 
 logger = logging.getLogger(__name__)
 
-HINT_PROMPT = """
-You are a language expert. Generate 3 natural responses to this conversation.
-Output only valid JSON in this exact format:
-Provide responses that would be appropriate in the conversation.
-
+HINT_FORMAT = """
 {
-    "hints": [
-        {
-            "native": "<Response to the conversation, consistent with the level of the user>",
-            "translation": "<translation in idiomatic English>"
-        }
-    ]
+ "hints": [ {
+    "native": "<Response to the conversation, consistent with the level of the user>",
+    "translation": "<translation in idiomatic English>"
+  }]
 }
+"""
 
+
+HINT_PROMPT = f"""
+You are a language expert. 
+
+Generate 3 natural responses to this conversation.
+Provide responses that would be appropriate in the conversation.
 Do not include any other text or explanations.
 Only provide responses suitable for the "user" role.
 Do not provide responses for the "assistant".
+
+Output only valid JSON in this exact format:
+
+{HINT_FORMAT}
+"""
+
+STREAMING_HINT_PROMPT = """
+<INSTRUCTIONS>
+Good job.
+
+Now I need you to generate 3 natural responses for the _user_ to this conversation.
+Only provide responses suitable for the "user" role.
+Do not provide responses for the "assistant".
+
+You must call the `hint` tool with the following arguments:
+
+```
+hint({
+  hints=[{
+    "native": "<Response to the conversation, consistent with the level of the user>",
+    "translation": "<translation in idiomatic English>"
+  }]
+})
+```
+
+Only call `hint`.
+Perform no other operations.
+You _must_ call `hint` before ending your turn.
+</INSTRUCTIONS>
 """
 
 async def generate_hints(

@@ -26,7 +26,7 @@ export const PracticeVocabulary = ({
           vocabMap.set(term, entry);
         });
       }
-      if (msg.type === "translate" && msg.dictionary) {
+      if (msg.type === "translation" && msg.dictionary) {
         Object.entries(msg.dictionary).forEach(([term, entry]) => {
           vocabMap.set(term, entry);
         });

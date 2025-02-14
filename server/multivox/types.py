@@ -11,14 +11,17 @@ class TranscribeRequest(BaseModel):
     sample_rate: Optional[int] = None
     language: str = ""
 
+
 class HintOption(BaseModel):
     native: str
     translation: str
+
 
 class HintRequest(BaseModel):
     api_key: str
     history: str
     language: str
+
 
 class HintResponse(BaseModel):
     hints: list[HintOption]
@@ -29,10 +32,12 @@ class VocabularyEntry(BaseModel):
     translation: str
     notes: Optional[str] = None
 
+
 class DictionaryEntry(BaseModel):
     english: str
     native: str
     notes: Optional[str] = None
+
 
 class TranscribeResponse(BaseModel):
     transcription: str
@@ -78,16 +83,21 @@ class MessageRole(str, Enum):
     USER = "user"
     ASSISTANT = "assistant"
 
+
 class MessageType(str, Enum):
     INITIALIZE = "initialize"
     TEXT = "text"
     AUDIO = "audio"
+    TRANSLATION = "translation"
     TRANSCRIPTION = "transcription"
     HINT = "hint"
+    ERROR = "error"
+
 
 # Audio sample rates
 CLIENT_SAMPLE_RATE = 16000
 SERVER_SAMPLE_RATE = 24000
+
 
 class BaseWebSocketMessage(BaseModel):
     role: MessageRole
@@ -97,33 +107,42 @@ class BaseWebSocketMessage(BaseModel):
 class InitializeWebSocketMessage(BaseWebSocketMessage):
     """Used as the initial message to establish a conversation."""
 
-    type: Literal["initialize"] = "initialize"
+    type: Literal[MessageType.INITIALIZE] = MessageType.INITIALIZE
+    text: str
+
+
+class ErrorWebSocketMessage(BaseWebSocketMessage):
+    type: Literal[MessageType.ERROR] = MessageType.ERROR
     text: str
 
 
 class TextWebSocketMessage(BaseWebSocketMessage):
-    type: Literal["text"] = "text"
+    type: Literal[MessageType.TEXT] = MessageType.TEXT
     text: str
 
 
 class TranscriptionWebSocketMessage(BaseWebSocketMessage):
-    type: Literal["transcription"] = "transcription"
+    type: Literal[MessageType.TRANSCRIPTION] = MessageType.TRANSCRIPTION
     transcription: TranscribeResponse
 
+
 class AudioWebSocketMessage(BaseWebSocketMessage):
-    type: Literal["audio"] = "audio"
+    type: Literal[MessageType.AUDIO] = MessageType.AUDIO
     audio: Base64Bytes
 
+
 class HintWebSocketMessage(BaseWebSocketMessage):
-    type: Literal["hint"] = "hint"
+    type: Literal[MessageType.HINT] = MessageType.HINT
     hints: list[HintOption]
 
+
 class TranslateWebSocketMessage(BaseWebSocketMessage):
-    type: Literal["translate"] = "translate"
+    type: Literal[MessageType.TRANSLATION] = MessageType.TRANSLATION
     original: str
     translation: str
     chunked: list[str]  # List of terms/phrases
     dictionary: dict[str, DictionaryEntry]  # Mapping of terms to translations
+
 
 WebSocketMessage = Annotated[
     Union[
@@ -154,7 +173,8 @@ class Language(BaseModel):
 
 
 LANGUAGES = {
-    lang.abbreviation: lang for lang in [
+    lang.abbreviation: lang
+    for lang in [
         Language(abbreviation="en", name="English"),
         Language(abbreviation="ja", name="Japanese"),
         Language(abbreviation="es", name="Spanish"),

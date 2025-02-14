@@ -10,10 +10,12 @@ from multivox.app import app
 from multivox.scenarios import list_scenarios
 from multivox.types import (
     AudioWebSocketMessage,
+    InitializeWebSocketMessage,
     MessageRole,
     MessageType,
     Scenario,
     TextWebSocketMessage,
+    TranslateResponse,
     parse_websocket_message,
     parse_websocket_message_bytes,
 )
@@ -49,21 +51,21 @@ def test_practice_session_basic():
 
     # Translate the instructions
     translate_response = client.post(
-        "/api/translate", json={"text": scenario.instructions, "language": "ja"}
+        "/api/translate?&api_key={os.environ['GEMINI_API_KEY']}",
+        json={"text": scenario.instructions, "target_language": "ja"},
     )
-    translated_text = translate_response.text
+    assert translate_response.status_code == 200, translate_response.text
+    translation = TranslateResponse.model_validate_json(translate_response.text)
 
     with client.websocket_connect(
         f"/api/practice?target_language=ja&api_key={os.environ['GEMINI_API_KEY']}"
     ) as websocket:
         # Send initial message and wait for response
         logging.info("Sending initial message.")
-        message = TextWebSocketMessage(
-            text=translated_text,
-            role=MessageRole.USER,
-            end_of_turn=True
+        message = InitializeWebSocketMessage(
+            text=translation.translation, role=MessageRole.USER, end_of_turn=True
         )
-        websocket.send_json(message.model_dump())
+        websocket.send_text(message.model_dump_json())
 
         # Collect all responses until we get hints
         responses = []
@@ -92,18 +94,21 @@ def test_practice_session_with_audio():
 
     # Translate the instructions
     translate_response = client.post(
-        "/api/translate", json={"text": scenario.instructions, "language": "ja"}
+        f"/api/translate?api_key={os.environ['GEMINI_API_KEY']}", 
+        json={"text": scenario.instructions, "target_language": "ja"}
     )
-    translated_text = translate_response.text
+    assert translate_response.status_code == 200
+    translation = TranslateResponse.model_validate_json(translate_response.text)
 
     with client.websocket_connect(
         f"/api/practice?target_language=ja&api_key={os.environ['GEMINI_API_KEY']}"
     ) as websocket:
-        message = TextWebSocketMessage(
-            text=translated_text,
-            role=MessageRole.USER
+        message = InitializeWebSocketMessage(
+            text=translation.translation,
+            role=MessageRole.USER,
+            end_of_turn=True
         )
-        websocket.send_json(message.model_dump())
+        websocket.send_text(message.model_dump_json())
 
         # Wait for response
         audio_pcm = []
@@ -138,9 +143,7 @@ def test_practice_session_with_audio():
         print("Sending text message for end of turn")
         websocket.send_text(
             TextWebSocketMessage(
-                text=".", 
-                role=MessageRole.USER, 
-                end_of_turn=True
+                text=".", role=MessageRole.USER, end_of_turn=True
             ).model_dump_json()
         )
 
@@ -166,13 +169,18 @@ def test_practice_session_with_audio():
             f.writeframes(b"".join(second_response))
 
 
-def _exchange_messages(websocket, message: str) -> tuple[list[str], list[str]]:
+def _exchange_messages(websocket, message: str, is_initial: bool = False) -> tuple[list[str], list[str]]:
     """Helper function to send a message and collect responses and hints.
     Returns (text_responses, hints)"""
-    message_obj = TextWebSocketMessage(
-        text=message, role=MessageRole.USER, end_of_turn=True
-    )
-    websocket.send_json(message_obj.model_dump())
+    if is_initial:
+        message_obj = InitializeWebSocketMessage(
+            text=message, role=MessageRole.USER, end_of_turn=True
+        )
+    else:
+        message_obj = TextWebSocketMessage(
+            text=message, role=MessageRole.USER, end_of_turn=True
+        )
+    websocket.send_text(message_obj.model_dump_json())
 
     text_responses = []
     hints = []
@@ -180,13 +188,13 @@ def _exchange_messages(websocket, message: str) -> tuple[list[str], list[str]]:
         data = websocket.receive_text()
         resp = parse_websocket_message_bytes(data)
         print(f"Received response: {resp}")
-        
+
         if resp.type == MessageType.TEXT:
             text_responses.append(resp.text)
         elif resp.type == MessageType.HINT:
             hints.extend(resp.hints)
             break
-            
+
     return text_responses, hints
 
 def test_simple_text_modality():
@@ -196,23 +204,26 @@ def test_simple_text_modality():
     with client.websocket_connect(
         f"/api/practice?target_language=ja&modality=text&api_key={os.environ['GEMINI_API_KEY']}"
     ) as websocket:
-        # Send a text message
-        message = TextWebSocketMessage(
-            text="おはようございます", role=MessageRole.USER, end_of_turn=True
+        # Send initial message
+        message = InitializeWebSocketMessage(
+            text="おはようございます",
+            role=MessageRole.USER,
+            end_of_turn=True
         )
-        websocket.send_json(message.model_dump())
+        websocket.send_text(message.model_dump_json())
 
-        # Wait for response and hints
-        text_responses = []
+        # Collect all responses until we get hints
+        responses = []
         while True:
-            data = websocket.receive_text()
-            resp = parse_websocket_message_bytes(data)
-            print(resp)
-            if resp.type == MessageType.TEXT:
-                text_responses.append(resp.text)
-            else:
-                assert resp.type == MessageType.HINT
+            response = websocket.receive_text()
+            msg = parse_websocket_message_bytes(response)
+            responses.append(msg)
+            if msg.type == MessageType.HINT:
                 break
+
+        # Verify we got expected message types
+        assert any(r.type == MessageType.TEXT for r in responses), "Should receive text response"
+        assert any(r.type == MessageType.HINT for r in responses), "Should receive hints"
 
 def test_hotel_checkin_conversation():
     """Test a full hotel check-in conversation flow in Japanese text modality"""
@@ -223,7 +234,7 @@ def test_hotel_checkin_conversation():
     ) as websocket:
         # Initial greeting
         responses, hints = _exchange_messages(
-            websocket, "こんにちは。チェックインをお願いします。"
+            websocket, "こんにちは。チェックインをお願いします。", is_initial=True
         )
         assert len(responses) > 0
         assert len(hints) > 0

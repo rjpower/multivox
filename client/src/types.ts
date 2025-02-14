@@ -49,7 +49,8 @@ export type MessageType =
   | "text"
   | "audio"
   | "transcription"
-  | "translate"
+  | "translation"
+  | "error"
   | "hint";
 
 export interface ChatMessageBase {
@@ -86,8 +87,13 @@ export interface HintChatMessage extends ChatMessageBase {
   hints: HintOption[];
 }
 
+export interface ErrorChatMessage extends ChatMessageBase {
+  type: "error";
+  text: string;
+}
+
 export interface TranslateChatMessage extends ChatMessageBase {
-  type: "translate";
+  type: "translation";
   original: string;
   translation: string;
   dictionary: Record<string, DictionaryEntry>;
@@ -95,6 +101,7 @@ export interface TranslateChatMessage extends ChatMessageBase {
 }
 
 export type ChatMessage =
+  | ErrorChatMessage
   | InitializeChatMessage
   | TextChatMessage
   | TranslateChatMessage
@@ -129,6 +136,11 @@ export interface InitializeWebSocketMessage extends BaseWebSocketMessage {
   text: string;
 }
 
+export interface ErrorWebSocketMessage extends BaseWebSocketMessage {
+  type: "error";
+  text: string;
+}
+
 export interface HintWebSocketMessage extends BaseWebSocketMessage {
   type: "hint";
   hints: HintOption[];
@@ -149,8 +161,8 @@ export interface AudioWebSocketMessage extends BaseWebSocketMessage {
   audio: string; // Base64 encoded audio data
 }
 
-export interface TranslateWebSocketMessage extends BaseWebSocketMessage {
-  type: "translate";
+export interface TranslationWebSocketMessage extends BaseWebSocketMessage {
+  type: "translation";
   original: string;
   translation: string;
   chunked: string[];
@@ -159,11 +171,12 @@ export interface TranslateWebSocketMessage extends BaseWebSocketMessage {
 
 export type WebSocketMessage =
   | InitializeWebSocketMessage
+  | ErrorWebSocketMessage
   | TextWebSocketMessage
   | TranscriptionWebSocketMessage
   | AudioWebSocketMessage
   | HintWebSocketMessage
-  | TranslateWebSocketMessage;
+  | TranslationWebSocketMessage;
 
 
 export enum WebSocketState {

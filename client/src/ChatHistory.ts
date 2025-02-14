@@ -1,11 +1,4 @@
-import {
-  MessageRole,
-  TranscribeResponse,
-  ChatMessage,
-  TextChatMessage,
-  HintOption,
-  DictionaryEntry,
-} from "./types";
+import { ChatMessage, WebSocketMessage } from "./types";
 
 export class ChatHistory {
   private messages: ChatMessage[] = [];
@@ -14,110 +7,111 @@ export class ChatHistory {
     this.messages = initialMessages;
   }
 
-  addMessage(message: ChatMessage): ChatHistory {
-    // For audio messages, replace the last audio message if it exists and has the same role
-    if (message.type === "audio") {
-      const lastMessageIndex = this.messages.length - 1;
-      const lastMessage = this.messages[lastMessageIndex];
-
-      if (
-        lastMessage &&
-        lastMessage.role === message.role &&
-        lastMessage.type === "audio"
-      ) {
-        // Replace the last audio message
-        return new ChatHistory([
-          ...this.messages.slice(0, lastMessageIndex),
-          { ...message },
-        ]);
-      }
-    }
-
-    // For non-audio messages or if no matching audio message found, append
+  private appendMessage(message: ChatMessage): ChatHistory {
     return new ChatHistory([...this.messages, message]);
   }
 
-  addInitializeMessage(text: string): ChatHistory {
-    return this.addMessage({
-      type: "initialize",
+  private replaceLastMessage(message: ChatMessage): ChatHistory {
+    return new ChatHistory([...this.messages.slice(0, -1), message]);
+  }
+
+  private shouldReplaceLastMessage(message: ChatMessage): boolean {
+    const lastMessage = this.messages[this.messages.length - 1];
+    return (
+      message.type === "audio" &&
+      lastMessage?.type === "audio" &&
+      lastMessage?.role === message.role
+    );
+  }
+
+  private appendOrReplaceMessage(message: ChatMessage): ChatHistory {
+    return this.shouldReplaceLastMessage(message)
+      ? this.replaceLastMessage(message)
+      : this.appendMessage(message);
+  }
+
+  handleMessage(message: WebSocketMessage): ChatHistory {
+    switch (message.type) {
+      case "initialize":
+        return this.appendMessage({
+          type: "initialize",
+          role: "assistant",
+          text: message.text,
+        });
+
+      case "text":
+        return message.role === "assistant"
+          ? this.appendAssistantText(message.text)
+          : this.appendMessage({
+              type: "text",
+              role: message.role,
+              text: message.text,
+            });
+
+      case "translation":
+        return this.appendMessage({
+          type: "translation",
+          role: message.role,
+          original: message.original,
+          translation: message.translation,
+          chunked: message.chunked || [],
+          dictionary: message.dictionary || {},
+        });
+
+      case "transcription":
+        return this.appendMessage({
+          role: message.role,
+          type: "transcription",
+          ...message.transcription,
+        });
+
+      case "audio":
+        return this.appendOrReplaceMessage({
+          role: message.role,
+          type: "audio",
+          placeholder: message.role === "user" ? "🎤" : "🔊",
+          timestamp: Date.now(),
+        });
+
+      case "hint":
+        return this.appendMessage({
+          type: "hint",
+          role: message.role,
+          hints: message.hints,
+        });
+
+      case "error":
+        return this.appendMessage({
+          type: "error",
+          role: message.role,
+          text: message.text,
+        });
+
+      default:
+        return this;
+    }
+  }
+
+  private appendAssistantText(text: string): ChatHistory {
+    if (text === "") {
+      return this;
+    }
+
+    const lastMessage = this.messages[this.messages.length - 1];
+
+    if (lastMessage?.role === "assistant" && lastMessage?.type === "text") {
+      return this.replaceLastMessage({
+        role: "assistant",
+        type: "text",
+        text: lastMessage.text + text,
+      });
+    }
+
+    return this.appendMessage({
+      type: "text",
       role: "assistant",
       text,
     });
-  }
-
-  addTextMessage(role: MessageRole, text: string): ChatHistory {
-    if (role == "assistant") {
-      return this.updateLastAssistantMessage(text);
-    } else {
-      return this.addMessage({ type: "text", role, text });
-    }
-  }
-
-  addTranslateMessage(
-    role: MessageRole,
-    original: string,
-    translation: string,
-    chunked: string[] = [],
-    dictionary: Record<string, DictionaryEntry> = {}
-  ): ChatHistory {
-    return this.addMessage({
-      type: "translate",
-      role,
-      original,
-      translation,
-      chunked,
-      dictionary,
-    });
-  }
-
-  addTranscriptionMessage(
-    role: MessageRole,
-    transcription: TranscribeResponse
-  ): ChatHistory {
-    return this.addMessage({ role, type: "transcription", ...transcription });
-  }
-
-  addHintMessage(role: MessageRole, hints: HintOption[]): ChatHistory {
-    return this.addMessage({ role, type: "hint", hints });
-  }
-
-  addAudioMessage(role: MessageRole): ChatHistory {
-    return this.addMessage({
-      role,
-      type: "audio",
-      placeholder: role === "user" ? "🎤" : "🔊",
-      timestamp: Date.now(),
-    });
-  }
-
-  // Gemini flash streams the assistant messages, so we need to append
-  // the text to the last assistant message if it exists and it is the
-  // last message in the chat history.
-  updateLastAssistantMessage(text: string): ChatHistory {
-    const lastMessage = this.messages[this.messages.length - 1];
-
-    // If no messages or last message isn't from assistant, add as new
-    if (
-      !lastMessage ||
-      lastMessage.role !== "assistant" ||
-      lastMessage.type !== "text"
-    ) {
-      return this.addMessage({ type: "text", role: "assistant", text });
-    }
-
-    // Update the last message
-    const newContent = lastMessage.text + text;
-
-    const newMessages = [
-      ...this.messages.slice(0, -1),
-      {
-        role: lastMessage.role,
-        type: "text",
-        text: newContent,
-      } as TextChatMessage,
-    ];
-
-    return new ChatHistory(newMessages);
   }
 
   getMessages(): ChatMessage[] {

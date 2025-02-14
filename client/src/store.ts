@@ -72,7 +72,10 @@ interface ScenarioSlice {
   scenariosLoading: boolean;
   addUserScenario: (scenario: ScenarioInput) => void;
   removeUserScenario: (id: string) => void;
-  updateUserScenario: (id: string, updates: Partial<Omit<UserScenario, "id" | "isCustom" | "dateCreated">>) => void;
+  updateUserScenario: (
+    id: string,
+    updates: Partial<Omit<UserScenario, "id" | "isCustom" | "dateCreated">>
+  ) => void;
   fetchSystemScenarios: () => Promise<void>;
 }
 
@@ -111,8 +114,8 @@ export type AppState = VocabularySlice &
   ApiSlice &
   ScenarioSlice &
   PracticeSlice & {
-  isReady: boolean;
-};
+    isReady: boolean;
+  };
 
 const createVocabularySlice: StateCreator<AppState, [], [], VocabularySlice> = (
   set,
@@ -188,9 +191,9 @@ const createLanguageSlice: StateCreator<AppState, [], [], LanguageSlice> = (
   setLanguages: (languages) => set({ languages }),
   setSelectedLanguage: (code) => {
     localStorage.setItem("selectedLanguage", code);
-    set((state) => ({ 
+    set((state) => ({
       selectedLanguage: code,
-      isReady: !!(code && state.geminiApiKey)
+      isReady: !!(code && state.geminiApiKey),
     }));
   },
   fetchLanguages: async () => {
@@ -307,75 +310,18 @@ function handleWebSocketMessage(
   set: (fn: (state: AppState) => Partial<AppState>) => void
 ) {
   return (message: WebSocketMessage) => {
-    switch (message.type) {
-      case "hint":
-        if (message.hints) {
-          set((state) => ({
-            practice: {
-              ...state.practice,
-              chatHistory: state.practice.chatHistory.addHintMessage(
-                message.role,
-                message.hints
-              ),
-            },
-          }));
-        }
-        break;
-      case "text":
-        if (message.text) {
-          set((state) => ({
-            practice: {
-              ...state.practice,
-              chatHistory: state.practice.chatHistory.addTextMessage(
-                message.role,
-                message.text!
-              ),
-            },
-          }));
-        }
-        break;
-      case "translate":
-        set((state) => ({
-          practice: {
-            ...state.practice,
-            chatHistory: state.practice.chatHistory.addTranslateMessage(
-              message.role,
-              message.original,
-              message.translation,
-              message.chunked,
-              message.dictionary
-            ),
-          },
-        }));
-        break;
-      case "transcription":
-        set((state) => ({
-          practice: {
-            ...state.practice,
-            chatHistory: state.practice.chatHistory.addTranscriptionMessage(
-              message.role,
-              message.transcription!
-            ),
-          },
-        }));
-        break;
-      case "audio":
-        if (message.audio) {
-          set((state) => ({
-            practice: {
-              ...state.practice,
-              chatHistory: state.practice.chatHistory.addAudioMessage(
-                message.role
-              ),
-            },
-          }));
-          const store = useAppStore.getState();
-          if (store.practice.audioPlayer) {
-            store.practice.audioPlayer.addAudioToQueue(message.audio);
-          }
-        }
-        break;
+    if (message.type == "audio") {
+      const store = useAppStore.getState();
+      if (store.practice.audioPlayer) {
+        store.practice.audioPlayer.addAudioToQueue(message.audio);
+      }
     }
+    set((state) => ({
+      practice: {
+        ...state.practice,
+        chatHistory: state.practice.chatHistory.handleMessage(message),
+      },
+    }));
   };
 }
 
@@ -439,8 +385,11 @@ const createPracticeSlice: StateCreator<AppState, [], [], PracticeSlice> = (
             recorder,
             wsState: WebSocketState.CONNECTED,
             practiceState: PracticeState.ACTIVE,
-            chatHistory:
-              s.practice.chatHistory.addInitializeMessage(translation),
+            chatHistory: s.practice.chatHistory.handleMessage({
+              type: "initialize",
+              role: "assistant",
+              text: translation,
+            }),
           },
         }));
 
@@ -471,7 +420,11 @@ const createPracticeSlice: StateCreator<AppState, [], [], PracticeSlice> = (
             practice: {
               ...s.practice,
               isRecording: true,
-              chatHistory: s.practice.chatHistory.addAudioMessage("user"),
+              chatHistory: s.practice.chatHistory.handleMessage({
+                type: "audio",
+                role: "user",
+                audio: "",
+              }),
             },
           }));
         }
@@ -488,7 +441,12 @@ const createPracticeSlice: StateCreator<AppState, [], [], PracticeSlice> = (
           practice: {
             ...s.practice,
             isRecording: false,
-            chatHistory: s.practice.chatHistory.addAudioMessage("user"),
+            chatHistory: s.practice.chatHistory.handleMessage({
+              type: "audio",
+              role: "user",
+              audio: "",
+              end_of_turn: true,
+            }),
           },
         }));
       }
@@ -507,7 +465,11 @@ const createPracticeSlice: StateCreator<AppState, [], [], PracticeSlice> = (
       set((s) => ({
         practice: {
           ...s.practice,
-          chatHistory: s.practice.chatHistory.addTextMessage("user", text),
+          chatHistory: s.practice.chatHistory.handleMessage({
+            type: "text",
+            role: "user",
+            text,
+          }),
         },
       }));
 
@@ -555,7 +517,7 @@ const resetStore = () => {
 export const useAppStore = create<FullAppState>()(
   devtools((set, get) => {
     let store: any = {};
-    
+
     store = {
       ...createVocabularySlice(set, get, store),
       ...createLanguageSlice(set, get, store),
@@ -572,7 +534,7 @@ export const useAppStore = create<FullAppState>()(
       ...store,
       reset: resetStore,
       isReady: !!(store.geminiApiKey && store.selectedLanguage),
-      setIsReady: (ready: boolean) => set({ isReady: ready })
+      setIsReady: (ready: boolean) => set({ isReady: ready }),
     };
   })
 );
