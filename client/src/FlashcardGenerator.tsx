@@ -1,6 +1,7 @@
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useEffect, useState } from "react";
 import { create } from "zustand";
+import { useAppStore } from "./store";
 
 export interface FlashcardFieldMapping {
   term: string;
@@ -17,6 +18,7 @@ export interface FlashcardGenerateRequest {
   include_audio: boolean;
   field_mapping?: FlashcardFieldMapping | null;
   target_language: string;
+  api_key: string;
 }
 
 export interface FlashcardProgressMessage {
@@ -87,7 +89,7 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
     // Cleanup any existing websocket
     get().cleanup();
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(
       `${protocol}//${window.location.host}/api/flashcards/generate`
     );
@@ -100,6 +102,7 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
         include_audio: options.includeAudio,
         target_language: options.target_language,
         mode: mode,
+        api_key: useAppStore.getState().geminiApiKey || "",
         field_mapping:
           mode === "csv"
             ? {
@@ -120,14 +123,14 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
         return {
           messages: [
             ...state.messages,
-            { 
-              timestamp, 
-              text: data.text, 
+            {
+              timestamp,
+              text: data.text,
               type: data.type,
-              url: data.url 
+              url: data.url,
             },
           ].slice(-100),
-          spinner: data.type !== "success"
+          spinner: data.type !== "success",
         };
       });
     };
@@ -499,7 +502,10 @@ const FlashcardGenerator = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ 
+          content,
+          api_key: useAppStore.getState().geminiApiKey 
+        }),
       });
       if (!res.ok) {
         throw new Error(`Server error: ${res.status}`);

@@ -117,12 +117,13 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 default_file_cache = FileCache(cache_dir=ROOT_DIR / "cache")
 
 
-def cached_completion(messages: List[dict], **kw) -> str:
+def cached_completion(messages: List[dict], api_key: Optional[str] = None, **kw) -> str:
     """Execute LLM completion with caching
 
     Args:
-        prompt: The prompt to send to the LLM
-        response_format: Expected response format ("json_object" or "text")
+        messages: The messages to send to the LLM
+        api_key: Optional Gemini API key to use for the request
+        **kw: Additional keyword arguments for the completion
 
     Returns:
         Parsed response from LLM
@@ -130,7 +131,7 @@ def cached_completion(messages: List[dict], **kw) -> str:
     filtered_kw = {
         key: value
         for key, value in kw.items()
-        if isinstance(value, (int, str, float, dict, list))
+        if isinstance(value, (int, str, float, dict, list)) and key != "api_key"
     }
     filtered_kw["model"] = settings.COMPLETION_MODEL_ID
 
@@ -141,8 +142,12 @@ def cached_completion(messages: List[dict], **kw) -> str:
     if cache_path.exists():
         return cache_path.read_text(encoding="utf-8")
 
+    # Pass api_key directly to completion call if provided
     response = litellm.completion(
-        model=settings.COMPLETION_MODEL_ID, messages=messages, **kw
+        model=settings.COMPLETION_MODEL_ID,
+        messages=messages,
+        api_key=api_key,
+        **kw
     )
 
     result = response.choices[0].message.content  # type: ignore

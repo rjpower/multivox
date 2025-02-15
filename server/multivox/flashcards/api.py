@@ -29,9 +29,10 @@ class GenerateRequest(BaseModel):
     mode: str
     content: str
     format: OutputFormat
+    api_key: str
+    target_language: FlashcardLanguage
     include_audio: bool = False
     field_mapping: Optional[SourceMapping] = None
-    target_language: FlashcardLanguage
 
 
 class ProgressType(enum.StrEnum):
@@ -46,9 +47,15 @@ class ProgressMessage(BaseModel):
     url: str | None = None
 
 
-class AnalyzeResponse(BaseModel):
-    headers: List[str]
-    preview_rows: List[Dict[str, str]]
+class CSVAnalyzeRequest(BaseModel):
+    content: str
+    api_key: Optional[str] = None
+
+
+class CSVAnalyzeResponse(BaseModel):
+    headers: List[str] = Field(default_factory=list)
+    preview_rows: List[Dict[str, str]] = Field(default_factory=list)
+    separator: str = ""
     suggestions: Optional[Dict] = None
     error: Optional[str] = None
 
@@ -101,8 +108,6 @@ class ProcessingTask:
         try:
             if request.mode == "csv":  # CSV mode
                 _, df = read_csv(request.content)
-                logger.info("Read CSV with shape: %s", df.shape)
-                logger.info("Request: %s", request)
                 process_config = CSVProcessConfig(
                     df=df,
                     target_language=request.target_language,
@@ -111,6 +116,7 @@ class ProcessingTask:
                     include_audio=request.include_audio,
                     field_mapping=request.field_mapping,
                     progress_logger=self.log_progress,
+                    api_key=request.api_key
                 )
                 process_csv(process_config)
             else:  # SRT mode
@@ -125,6 +131,7 @@ class ProcessingTask:
                         include_audio=request.include_audio,
                         target_language=request.target_language,
                         progress_logger=self.log_progress,
+                        api_key=request.api_key
                     )
                     process_srt(process_config)
 
@@ -158,13 +165,6 @@ class ProcessingTask:
         self.stop_event.set()
 
 
-class CSVAnalysisResponse(BaseModel):
-    headers: List[str] = Field(default_factory=list)
-    preview_rows: List[Dict[str, str]] = Field(default_factory=list)
-    separator: str = ""
-    suggestions: Optional[Dict] = None
-    error: Optional[str] = None
-
 router = APIRouter(prefix="/api/flashcards")
 
 @router.get("/languages")
@@ -172,25 +172,24 @@ async def get_languages():
     """Get list of supported languages"""
     return [{"code": lang.value, "name": lang.name.title().replace('_', ' ')} for lang in FlashcardLanguage]
 
-class CSVAnalyzeRequest(BaseModel):
-    content: str
 
-@router.post("/analyze", response_model=CSVAnalysisResponse)
+@router.post("/analyze", response_model=CSVAnalyzeResponse)
 async def analyze_csv(request: CSVAnalyzeRequest):
     """Analyze CSV structure and suggest field mappings"""
     try:
         separator, df = read_csv(request.content)
-        suggestions = infer_field_mapping(df)
-        df = df.dropna(axis="columns")
+        logger.info("Read CSV with shape: %s", df.shape)
+        suggestions = infer_field_mapping(df, api_key=request.api_key)
+        df = df.dropna(axis="columns", how="all")  # Only drop completely empty columns
 
-        return CSVAnalysisResponse(
+        return CSVAnalyzeResponse(
             headers=df.columns.tolist(),
-            preview_rows=df.head(5).to_dict(orient="records"),
+            preview_rows=df.head(5).fillna('').to_dict(orient="records"),
             separator=separator,
             suggestions=suggestions,
         )
     except Exception as e:
-        return CSVAnalysisResponse(error=str(e))
+        return CSVAnalyzeResponse(error=str(e))
 
 
 @router.websocket("/generate")
