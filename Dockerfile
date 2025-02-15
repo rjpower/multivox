@@ -9,7 +9,7 @@ RUN mkdir -p dist
 RUN npm run build
 
 # Python build stage
-FROM python:3.12-slim-bookworm
+FROM mcr.microsoft.com/playwright:v1.50.0-noble
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
@@ -18,9 +18,13 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 COPY server/pyproject.toml server/uv.lock server/README.md ./
 RUN uv sync --frozen
+RUN uv run playwright install chromium
 
 COPY server/ ./
 COPY --from=client-builder /app/client/dist /app/client/dist
+
+RUN mkdir -p data downloads
+VOLUME ["/app/data", "/app/downloads"]
 
 EXPOSE 8000
 

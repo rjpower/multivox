@@ -86,8 +86,9 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
     // Cleanup any existing websocket
     get().cleanup();
 
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(
-      `ws://${window.location.host}/api/flashcards/generate`
+      `${protocol}//${window.location.host}/api/flashcards/generate`
     );
     set({ websocket: ws });
     ws.onopen = () => {
