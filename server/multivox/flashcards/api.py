@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 
 import pandas
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from multivox.config import settings
 from multivox.flashcards.lib import (
     CSVProcessConfig,
     SRTProcessConfig,
@@ -42,6 +43,7 @@ class ProgressType(enum.StrEnum):
 class ProgressMessage(BaseModel):
     text: str
     type: str
+    url: str | None = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -85,7 +87,7 @@ class ProcessingTask:
             try:
                 msg: ProgressMessage = self.message_queue.get(timeout=0.1)
                 await self.websocket.send_text(msg.model_dump_json())
-                if msg.type == ProgressType.ERROR or msg.type == ProgressType.SUCCESS:
+                if msg.type in (ProgressType.ERROR, ProgressType.SUCCESS):
                     self.stop()
                     break
             except queue.Empty:
@@ -98,8 +100,11 @@ class ProcessingTask:
         """Run the actual processing in a thread"""
         try:
             if request.mode == "csv":  # CSV mode
+                _, df = read_csv(request.content)
+                logger.info("Read CSV with shape: %s", df.shape)
+                logger.info("Request: %s", request)
                 process_config = CSVProcessConfig(
-                    df=pandas.read_csv(io.StringIO(request.content)),
+                    df=df,
                     target_language=request.target_language,
                     output_path=output_path,
                     output_format=request.format,
@@ -124,9 +129,17 @@ class ProcessingTask:
                     process_srt(process_config)
 
             if not self.stop_event.is_set():
-                self.log_progress(
-                    f"Download ready: /downloads/{output_path.name}",
-                    ProgressType.SUCCESS,
+                # Move file to downloads directory
+                settings.DOWNLOAD_DIR.mkdir(exist_ok=True)
+                final_path = settings.DOWNLOAD_DIR / output_path.name
+                output_path.rename(final_path)
+
+                self.message_queue.put(
+                    ProgressMessage(
+                        text="Processing complete.",
+                        type=ProgressType.SUCCESS,
+                        url="/downloads/" + output_path.name,
+                    )
                 )
         except Exception as e:
             if not self.stop_event.is_set():
@@ -189,6 +202,7 @@ async def generate_flashcards(websocket: WebSocket):
         data = await websocket.receive_text()
         request = GenerateRequest.model_validate_json(data)
         await task.run_task(request)
+        logger.info("Finished flashcard task.")
     except WebSocketDisconnect:
         task.stop()
     except Exception as e:

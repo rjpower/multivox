@@ -237,6 +237,7 @@ def process_csv(config: CSVProcessConfig):
     config.progress_logger("Loading CSV data")
 
     vocab_items = load_csv_items(config.df, config.field_mapping)
+    config.progress_logger(f"Loaded {len(vocab_items)} vocabulary items")
     vocab_items = filter_known_vocabulary(vocab_items, config.ignore_words)
     vocab_items = remove_duplicate_terms(vocab_items)
     config.progress_logger(

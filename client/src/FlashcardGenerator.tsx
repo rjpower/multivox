@@ -32,6 +32,7 @@ export interface Message {
   timestamp: string;
   text: string;
   type?: "error" | "success" | undefined;
+  url?: string;
 }
 
 interface UploadStore {
@@ -72,7 +73,7 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
     set({ modalVisible: false });
   },
   setSubmitting: (submitting) => set({ submitting }),
-  setSpinner: (spinner) => set({ spinner }),
+  setSpinner: (spinner: boolean) => set({ spinner }),
   logMessage: (text, type?) =>
     set((state) => {
       const timestamp = new Date().toLocaleTimeString();
@@ -119,12 +120,17 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
         return {
           messages: [
             ...state.messages,
-            { timestamp, text: data.text, type: data.type },
+            { 
+              timestamp, 
+              text: data.text, 
+              type: data.type,
+              url: data.url 
+            },
           ].slice(-100),
+          spinner: data.type !== "success"
         };
       });
     };
-    ws.onclose = () => set({ spinner: true });
   },
 }));
 
@@ -133,6 +139,7 @@ interface ProcessingModalProps {
   messages: Message[];
   spinner: boolean;
   onClose: () => void;
+  setSpinner: (flag: boolean) => void;
 }
 
 const ProcessingModal: React.FC<ProcessingModalProps> = ({
@@ -181,7 +188,19 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
               }`}
             >
               <span className="mr-2">[{msg.timestamp}]</span>
-              <span dangerouslySetInnerHTML={{ __html: msg.text }} />
+              <>
+                <span dangerouslySetInnerHTML={{ __html: msg.text }} />
+                {msg.type === "success" && msg.url && (
+                  <a
+                    href={msg.url}
+                    className="ml-2 text-blue-600 hover:text-blue-800 underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Download
+                  </a>
+                )}
+              </>
             </div>
           ))}
         </div>
@@ -436,7 +455,7 @@ const FlashcardGenerator = () => {
   const [content, setContent] = useState("");
   const [fieldMapping, setFieldMapping] = useState(initialFieldMapping);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-  const [format, setFormat] = useState("apkg");
+  const [format, setFormat] = useState("pdf");
   const [includeAudio, setIncludeAudio] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState("");
   const [languages, setLanguages] = useState<
@@ -449,7 +468,7 @@ const FlashcardGenerator = () => {
       .then((data) => {
         setLanguages(data);
         if (data.length > 0) {
-          setTargetLanguage(data[0].code);
+          setTargetLanguage(data[1].code);
         }
       });
   }, []);
@@ -542,17 +561,93 @@ const FlashcardGenerator = () => {
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h1 className="text-2xl font-bold mb-4">Vocabulary Card Builder</h1>
-          <div className="mb-4">
-            <label className="mr-2 font-medium">Input Mode:</label>
-            <select
-              value={inputMode}
-              onChange={(e) => setInputMode(e.target.value as "csv" | "srt")}
-              className="border rounded p-2"
-            >
-              <option value="srt">SRT</option>
-              <option value="csv">CSV</option>
-            </select>
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold mb-2">Vocabulary Card Builder</h1>
+            <p className="text-gray-600">
+              Generate flashcards from your vocabulary list using AI-powered translations and examples.
+              Simply paste your vocabulary as CSV/text or subtitle (SRT) file content, and get beautifully formatted
+              flashcards with translations, context sentences, and optional audio.
+            </p>
+          </div>
+
+          <div className="mb-6 flex space-x-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Output Format</label>
+              <select
+                value={format}
+                onChange={(e) => setFormat(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="apkg">Anki Deck (.apkg)</option>
+                <option value="pdf">PDF Document</option>
+              </select>
+            </div>
+
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Target Language</label>
+              <select
+                value={targetLanguage}
+                onChange={(e) => setTargetLanguage(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              >
+                <option value="">Select Language</option>
+                {languages.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {format === 'apkg' && (
+              <div className="flex-1 flex items-end">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={includeAudio}
+                    onChange={(e) => setIncludeAudio(e.target.checked)}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <span className="text-sm text-gray-700">Include TTS Audio</span>
+                </label>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <label className="text-sm font-medium text-gray-700">Input Type</label>
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setInputMode('csv')}
+                  className={`px-3 py-1 text-sm rounded-md ${
+                    inputMode === 'csv'
+                      ? 'bg-indigo-100 text-indigo-700 font-medium'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  CSV/Text
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputMode('srt')}
+                  className={`px-3 py-1 text-sm rounded-md ${
+                    inputMode === 'srt'
+                      ? 'bg-indigo-100 text-indigo-700 font-medium'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Subtitles (SRT)
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 mb-2">
+              {inputMode === 'csv'
+                ? 'Paste your vocabulary list as CSV or simple text. One term per line is fine - missing translations and examples will be generated automatically.'
+                : 'Paste the contents of an SRT subtitle file to extract and generate flashcards from the vocabulary used in the subtitles.'}
+            </p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -604,49 +699,14 @@ const FlashcardGenerator = () => {
                 )}
               </>
             )}
-            <div className="flex items-center gap-4">
-              <label className="mr-2">Output Format:</label>
-              <select
-                value={format}
-                onChange={(e) => setFormat(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            <div className="mt-6 flex justify-end">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
               >
-                <option value="apkg">Anki Deck</option>
-                <option value="pdf">PDF</option>
-              </select>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={includeAudio}
-                  onChange={(e) => setIncludeAudio(e.target.checked)}
-                />
-                Include TTS Audio
-              </label>
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Target Language:
-                </label>
-                <select
-                  value={targetLanguage}
-                  onChange={(e) => setTargetLanguage(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                >
-                  <option value="">Select Language</option>
-                  {languages.map((lang) => (
-                    <option key={lang.code} value={lang.code}>
-                      {lang.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  Generate Deck
-                </button>
-              </div>
+                {submitting ? 'Generating...' : 'Generate Flashcards'}
+              </button>
             </div>
           </form>
           <ProcessingModal
@@ -654,6 +714,7 @@ const FlashcardGenerator = () => {
             messages={messages}
             spinner={spinner}
             onClose={hideModal}
+            setSpinner={useUploadStore((state) => state.setSpinner)}
           />
         </div>
       </div>

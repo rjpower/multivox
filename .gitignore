@@ -1,6 +1,7 @@
 .aider*
 dist/
 build/
+server/downloads
 
 # Node.js and TypeScript
 node_modules
