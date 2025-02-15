@@ -1,10 +1,15 @@
 import functools
 import hashlib
 import inspect
+import json
 import logging
 import pickle
 from pathlib import Path
-from typing import Awaitable, Callable, Optional, TypeVar
+from typing import Awaitable, Callable, List, Optional, TypeVar
+
+import litellm
+
+from multivox.config import settings
 
 T = TypeVar('T')
 logger = logging.getLogger(__name__)
@@ -59,7 +64,7 @@ class FileCache:
         hash_key = hashlib.md5(key.encode()).hexdigest()
         return self.cache_dir / f"{hash_key}.pkl"
 
-    def __call__(self, key_fn: Optional[Callable] = None):
+    def cache_fn(self, key_fn: Optional[Callable] = None):
         """Decorator that caches function results using the provided key function."""
         if key_fn is None:
             key_fn = _default_key_fn
@@ -83,7 +88,7 @@ class FileCache:
 
         return decorator
 
-    def cache_async(self, key_fn: Optional[Callable] = None):
+    def cache_fn_async(self, key_fn: Optional[Callable] = None):
         """Decorator that caches async function results using the provided key function."""
         if key_fn is None:
             key_fn = _default_key_fn
@@ -110,3 +115,36 @@ class FileCache:
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 default_file_cache = FileCache(cache_dir=ROOT_DIR / "cache")
+
+
+def cached_completion(messages: List[dict], **kw) -> str:
+    """Execute LLM completion with caching
+
+    Args:
+        prompt: The prompt to send to the LLM
+        response_format: Expected response format ("json_object" or "text")
+
+    Returns:
+        Parsed response from LLM
+    """
+    filtered_kw = {
+        key: value
+        for key, value in kw.items()
+        if isinstance(value, (int, str, float, dict, list))
+    }
+    filtered_kw["model"] = settings.COMPLETION_MODEL_ID
+
+    cache_key = json.dumps({"messages": messages, **filtered_kw}, sort_keys=True)
+    cache_path = (
+        ROOT_DIR / "cache" / f"{hashlib.md5(cache_key.encode()).hexdigest()}.json"
+    )
+    if cache_path.exists():
+        return cache_path.read_text(encoding="utf-8")
+
+    response = litellm.completion(
+        model=settings.COMPLETION_MODEL_ID, messages=messages, **kw
+    )
+
+    result = response.choices[0].message.content  # type: ignore
+    cache_path.write_text(result)
+    return result  # type: ignore

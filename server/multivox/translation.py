@@ -49,7 +49,7 @@ You always output {translation_target} in the "translation" field.
 """
 
 
-@default_file_cache.cache_async()
+@default_file_cache.cache_fn_async()
 async def translate(
     text: str,
     source_lang: Language,

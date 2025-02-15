@@ -6,10 +6,15 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.8",
+    "genanki>=0.13.1",
+    "google-cloud-texttospeech>=2.25.0",
     "google-genai>=1.0.0",
     "ipython>=8.32.0",
     "litellm>=1.60.7",
+    "pandas>=2.2.3",
+    "playwright>=1.50.0",
     "pydantic-settings>=2.7.1",
+    "pysrt>=1.1.2",
     "pytest>=8.3.4",
     "pytest-asyncio>=0.25.3",
     "pytest-xdist>=3.6.1",

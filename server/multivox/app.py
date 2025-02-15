@@ -14,6 +14,7 @@ from fastapi import (
     Request,
     WebSocket,
     WebSocketDisconnect,
+    staticfiles,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -24,6 +25,7 @@ from google.genai import types as genai_types
 from multivox import scenarios
 from multivox.cache import default_file_cache
 from multivox.config import settings
+from multivox.flashcards.api import router as flashcard_router
 from multivox.hints import STREAMING_HINT_PROMPT, generate_hints
 from multivox.message_socket import TypedWebSocket
 from multivox.scenarios import (
@@ -83,6 +85,14 @@ logger = logging.getLogger(__name__)
 
 
 app = FastAPI()
+
+# Mount flashcard routes
+app.include_router(flashcard_router)
+app.mount(
+    "/downloads",
+    staticfiles.StaticFiles(directory="downloads", check_dir=False),
+    name="downloads",
+)
 
 
 @app.exception_handler(Exception)

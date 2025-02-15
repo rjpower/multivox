@@ -17,7 +17,7 @@
     "@types/react-dom": "^19.0.3",
     "autoprefixer": "^10.4.20",
     "esbuild-plugin-manifest": "^1.0.5",
-    "esbuild-wasm": "^0.25.0",
+    "esbuild": "^0.25.0",
     "typescript": "^5.7.3"
   },
   "scripts": {

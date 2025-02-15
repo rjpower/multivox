@@ -15,6 +15,7 @@ import { useAppStore } from "./store";
 import { Translate } from "./Translate";
 import { VocabularyList } from "./VocabularyList";
 import { Demo } from "./Demo";
+import FlashcardGenerator from "./FlashcardGenerator";
 
 interface RequireApiKeyProps {
   children: React.ReactNode;
@@ -90,13 +91,20 @@ const NavBar = () => {
         <div className="flex items-center space-x-4">
           <NavLink to="/">Home</NavLink>
           <NavLink to="/config">Config</NavLink>
-          <NavLink to="/scenarios" disabled={!useAppStore((state) => state.isReady)}>
+          <NavLink
+            to="/scenarios"
+            disabled={!useAppStore((state) => state.isReady)}
+          >
             Practice
           </NavLink>
-          <NavLink to="/translate" disabled={!useAppStore((state) => state.isReady)}>
+          <NavLink
+            to="/translate"
+            disabled={!useAppStore((state) => state.isReady)}
+          >
             Translator
           </NavLink>
           <NavLink to="/vocabulary">Vocabulary</NavLink>
+          <NavLink to="/flashcards">Flashcards</NavLink>
         </div>
       </div>
     </nav>
@@ -138,6 +146,7 @@ const App = () => {
             />
             <Route path="/config" element={<Config />} />
             <Route path="/vocabulary" element={<VocabularyList />} />
+            <Route path="/flashcards" element={<FlashcardGenerator />} />
           </Routes>
         </div>
       </Router>

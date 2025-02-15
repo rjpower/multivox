@@ -1,10 +1,10 @@
-const esbuild = require('esbuild-wasm');
-const manifestPlugin = require('esbuild-plugin-manifest');
-const fs = require('fs');
-const path = require('path');
+const esbuild = require("esbuild");
+const manifestPlugin = require("esbuild-plugin-manifest");
+const fs = require("fs");
+const path = require("path");
 
-const watch = process.argv.includes('--watch');
-const isProd = process.env.NODE_ENV === 'production';
+const watch = process.argv.includes("--watch");
+const isProd = process.env.NODE_ENV === "production";
 
 async function buildCss() {
   try {
@@ -74,11 +74,14 @@ const config = {
           try {
             const manifestPath = path.join("dist", "manifest.json");
             const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-            
-            const htmlContent = fs.readFileSync(path.join("src", "index.html"), "utf8");
+
+            const htmlContent = fs.readFileSync(
+              path.join("src", "index.html"),
+              "utf8"
+            );
             const updatedHtml = htmlContent
-              .replace('href="/main.css"', `href="/${manifest['main.css']}"`)
-              .replace('src="/main.js"', `src="/${manifest['main.js']}"`)
+              .replace('href="/main.css"', `href="/${manifest["main.css"]}"`)
+              .replace('src="/main.js"', `src="/${manifest["main.js"]}"`);
             fs.writeFileSync(path.join("dist", "index.html"), updatedHtml);
           } catch (e) {
             console.error("Error processing HTML:", e);
@@ -100,7 +103,7 @@ const config = {
 if (watch) {
   esbuild
     .context(config)
-    .then(ctx => ctx.watch())
+    .then((ctx) => ctx.watch())
     .catch(() => process.exit(1));
 } else {
   esbuild.build(config).catch(() => process.exit(1));
