@@ -33,9 +33,7 @@ async def test_translate_basic():
     """Test that translation to Japanese produces different output than input"""
     test_text = "Hello, how are you?"
     result: TranslateResponse = await translate(
-        text=test_text,
-        source_lang=LANGUAGES["en"],
-        target_lang=LANGUAGES["ja"]
+        text=test_text, source_language=LANGUAGES["en"], target_language=LANGUAGES["ja"]
     )
     print(result)
 
@@ -74,8 +72,8 @@ async def test_translate_long_instructions(lang_code: str, expected_words: list[
     """Test translation of longer instructional text"""
     result = await translate(
         text=INSTRUCTIONS,
-        source_lang=LANGUAGES["en"],
-        target_lang=LANGUAGES[lang_code]
+        source_language=LANGUAGES["en"],
+        target_language=LANGUAGES[lang_code],
     )
     print(result)
 

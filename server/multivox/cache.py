@@ -54,7 +54,7 @@ def _default_key_fn(func: Callable, *args: tuple, **kwargs: dict) -> str:
 class FileCache:
     """File system based cache that stores call results."""
 
-    def __init__(self, cache_dir: str):
+    def __init__(self, cache_dir: Path):
         """Initialize cache with specified directory."""
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)

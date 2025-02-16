@@ -47,7 +47,7 @@ class ProgressMessage(BaseModel):
 
 class CSVAnalyzeRequest(BaseModel):
     content: str
-    api_key: Optional[str] = None
+    api_key: str
 
 
 class CSVAnalyzeResponse(BaseModel):
@@ -105,8 +105,9 @@ class ProcessingTask:
         """Run the actual processing in a thread"""
         try:
             if request.mode == "csv":  # CSV mode
+                assert request.field_mapping
                 _, df = read_csv(request.content)
-                process_config = CSVProcessConfig(
+                csv_config = CSVProcessConfig(
                     df=df,
                     target_language=request.target_language,
                     output_path=output_path,
@@ -114,24 +115,24 @@ class ProcessingTask:
                     include_audio=request.include_audio,
                     field_mapping=request.field_mapping,
                     progress_logger=self.log_progress,
-                    api_key=request.api_key
+                    api_key=request.api_key,
                 )
-                process_csv(process_config)
+                process_csv(csv_config)
             else:  # SRT mode
                 with tempfile.NamedTemporaryFile(suffix=".srt", mode="w") as srt:
                     srt.write(request.content)
                     srt.flush()
 
-                    process_config = SRTProcessConfig(
+                    srt_config = SRTProcessConfig(
                         srt_path=Path(srt.name),
                         output_path=output_path,
                         output_format=request.format,
                         include_audio=request.include_audio,
                         target_language=request.target_language,
                         progress_logger=self.log_progress,
-                        api_key=request.api_key
+                        api_key=request.api_key,
                     )
-                    process_srt(process_config)
+                    process_srt(srt_config)
 
             if not self.stop_event.is_set():
                 # Move file to downloads directory
@@ -165,10 +166,14 @@ class ProcessingTask:
 
 router = APIRouter(prefix="/api/flashcards")
 
+
 @router.get("/languages")
 async def get_languages():
     """Get list of supported languages"""
-    return [{"code": lang.value, "name": lang.name.title().replace('_', ' ')} for lang in FlashcardLanguage]
+    return [
+        {"code": lang.value, "name": lang.name.title().replace("_", " ")}
+        for lang in FlashcardLanguage
+    ]
 
 
 @router.post("/analyze", response_model=CSVAnalyzeResponse)
@@ -182,7 +187,7 @@ async def analyze_csv(request: CSVAnalyzeRequest):
 
         return CSVAnalyzeResponse(
             headers=df.columns.tolist(),
-            preview_rows=df.head(5).fillna('').to_dict(orient="records"),
+            preview_rows=df.head(5).fillna("").to_dict(orient="records"),
             separator=separator,
             suggestions=suggestions,
         )

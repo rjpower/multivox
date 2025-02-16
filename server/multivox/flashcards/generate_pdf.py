@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence, List
+from typing import List, Sequence
 
 from multivox.flashcards.schema import FlashCard
 from playwright.sync_api import sync_playwright
@@ -199,15 +199,11 @@ def create_flashcard_pdf(config: PDFGeneratorConfig):
         page = browser.new_page()
         page.set_content(html)
 
-        # Configure print options
-        print_options = {
-            "scale": 1.0,
-            "margin": {"top": "0", "right": "0", "bottom": "0", "left": "0"},
-            # "pageRanges": "1-",
-            "format": "Letter",
-        }
-
-        # Generate PDF
         page.wait_for_function("document.fonts.ready")
-        page.pdf(path=str(config.output_path), **print_options)
+        page.pdf(
+            path=str(config.output_path),
+            scale=1.0,
+            margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+            format="Letter",
+        )
         browser.close()

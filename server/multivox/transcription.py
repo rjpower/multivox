@@ -1,14 +1,17 @@
+import array
 import io
 import logging
 import wave
 from typing import Type
 
-from google import genai
 from google.genai import types as genai_types
+from litellm import atranscription
 from pydantic import BaseModel
 
 from multivox.config import settings
+from multivox.translation import translate
 from multivox.types import (
+    LANGUAGES,
     HintResponse,
     Language,
     TranscribeResponse,
@@ -97,6 +100,30 @@ You _must_ call `transcribe` before ending your turn.
 </INSTRUCTIONS>
 """
 
+def pcm_to_mp3(pcm_data: bytes, mime_type: str) -> bytes:
+    """Convert raw PCM data to MP3 format using rate from mime type"""
+    sample_rate = extract_sample_rate(mime_type)
+
+    # Convert bytes to array of signed 16-bit integers
+    pcm_array = array.array('h')
+    pcm_array.frombytes(pcm_data)
+
+    # Create AudioSegment from raw PCM data
+    from pydub import AudioSegment  # type: ignore
+
+    audio_segment = AudioSegment(
+        pcm_array.tobytes(),
+        frame_rate=sample_rate,
+        sample_width=2,  # 16-bit
+        channels=1  # mono
+    )
+
+    # Export as MP3
+    mp3_buffer = io.BytesIO()
+    audio_segment.export(mp3_buffer, format="mp3")
+    return mp3_buffer.getvalue()
+
+
 def extract_sample_rate(mime_type: str) -> int:
     """Extract sample rate from mime type string like 'audio/pcm;rate=16000'"""
     if ";rate=" in mime_type:
@@ -119,50 +146,45 @@ def pcm_to_wav(pcm_data: bytes, mime_type: str) -> bytes:
 
 
 async def transcribe(
-    client: genai.Client,
-    audio: genai_types.Blob,
-    language: Language | None,
+    audio_data: bytes,
+    mime_type: str,
+    source_language: Language | None,
     transcription_prompt: str = TRANSCRIPTION_PROMPT,
     model_id: str = settings.TRANSCRIPTION_MODEL_ID,
 ) -> TranscribeResponse:
-    data = audio.data
-    mime_type = audio.mime_type
-
-    # Convert PCM to WAV if needed
     if mime_type.startswith("audio/pcm"):
-        data = pcm_to_wav(data, mime_type)
+        audio_data = pcm_to_wav(audio_data, mime_type)
         mime_type = "audio/wav"
 
-    language_prompt = f"Assume the language is {language.name}.\n" if language else "\n"
-
-    response = await client.aio.models.generate_content(
-        model=model_id,
-        contents=[
-            transcription_prompt,
-            language_prompt,
-            genai_types.Part.from_bytes(
-                data=data,
-                mime_type=mime_type,
-            ),
-        ],
-        config=genai_types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_modalities=[genai_types.Modality.TEXT],
-            automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(
-                disable=True,
-                maximum_remote_calls=None,
-            ),
-        ),
+    buffer = io.BytesIO(audio_data)
+    buffer.name = "audio.wav"
+    response = await atranscription(
+        model="openai/whisper-1",
+        file=buffer,
+        language=source_language.abbreviation if source_language else None,
+        response_format="verbose_json",
+        timestamp_granularities=["word"],
+        api_key=settings.OPENAI_API_KEY,
     )
 
-    try:
-        return TranscribeResponse.model_validate_json(response.text)
-    except Exception:
-        logger.warning(f"Failed to parse {response.text} as TranscribeResponse")
-        raise
+    transcription = response.text
+
+    # Translate and chunk the response.
+    response = await translate(
+        text=response.text,
+        source_language=source_language,
+        target_language=LANGUAGES["en"],
+    )
+
+    return TranscribeResponse(
+        transcription=transcription,
+        dictionary=response.dictionary,
+        chunked=response.chunked,
+        translation=response.translation,
+    )
 
 
-def schema_from_type(model_type: Type[BaseModel]) -> dict:
+def schema_from_type(model_type: Type[BaseModel]) -> genai_types.Schema:
     """Convert a Pydantic model to a JSON schema for Gemini function declarations"""
     schema = model_type.model_json_schema()
 
@@ -220,19 +242,11 @@ def schema_from_type(model_type: Type[BaseModel]) -> dict:
                 _remove_crap(prop)
 
     _remove_crap(schema)
-    return schema
-
-
-def create_audio_blob(audio_data: bytes, sample_rate: int) -> genai_types.Blob:
-    """Create a Gemini Blob from audio data"""
-    return genai_types.Blob(
-        data=audio_data,
-        mime_type=f"audio/pcm;rate={sample_rate}"
-    )
+    return genai_types.Schema.model_validate(schema)
 
 
 def streaming_transcription_config(
-    language: Language | None,
+    language: Language,
 ) -> genai_types.LiveConnectConfig:
     """Get Gemini configuration for streaming transcription"""
     config = genai_types.LiveConnectConfig(

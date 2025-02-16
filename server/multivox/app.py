@@ -21,6 +21,7 @@ from fastapi.websockets import WebSocketState
 from google import genai
 from google.genai import live as genai_live
 from google.genai import types as genai_types
+from websockets import ConnectionClosedOK
 
 from multivox import scenarios
 from multivox.cache import default_file_cache
@@ -37,7 +38,6 @@ from multivox.scenarios import (
 from multivox.transcription import (
     STREAMING_TRANSCRIPTION_INITIAL_PROMPT,
     STREAMING_TRANSCRIPTION_PROMPT,
-    extract_sample_rate,
     streaming_transcription_config,
     transcribe,
 )
@@ -66,7 +66,7 @@ from multivox.types import (
 )
 
 ROOT_DIR = (
-    Path(os.environ.get("ROOT_DIR"))
+    Path(os.environ["ROOT_DIR"])
     if "ROOT_DIR" in os.environ
     else Path(__file__).resolve().parent.parent.parent
 )
@@ -143,7 +143,7 @@ class ChatState:
 
     def __init__(self, session: genai_live.AsyncSession, user_ws: TypedWebSocket):
         self.history: list[WebSocketMessage] = []
-        self.message_queue = asyncio.Queue()
+        self.message_queue: asyncio.Queue[WebSocketMessage] = asyncio.Queue()
         self.gemini = session
         self.user_ws = user_ws
 
@@ -292,6 +292,8 @@ class GeminiReaderTask(LongRunningTask):
                             ),
                         )
                         await self.state.handle_message(message)
+            except ConnectionClosedOK:
+                pass
             except Exception as e:
                 logger.error(f"Error processing Gemini response: {e}", exc_info=True)
                 break
@@ -315,11 +317,11 @@ class BulkTranscriptionTask(LongRunningTask):
         return [asyncio.create_task(self._process())]
 
     async def _fetch_transcript(self, audio, role):
-        blob = genai_types.Blob(
-            data=audio,
+        transcript = await transcribe(
+            audio_data=audio,
             mime_type=f"audio/pcm;rate={settings.SERVER_SAMPLE_RATE}",
+            source_language=self.language,
         )
-        transcript = await transcribe(self.client, blob, self.language)
         msg = TranscriptionWebSocketMessage(
             transcription=transcript,
             role=role,
@@ -330,8 +332,8 @@ class BulkTranscriptionTask(LongRunningTask):
     async def _fetch_translation(self, text, role):
         translation = await translate(
             text,
-            source_lang=self.language,
-            target_lang=self.language,
+            source_language=self.language,
+            target_language=self.language,
         )
         msg = TranscriptionWebSocketMessage(
             transcription=TranscribeResponse(
@@ -564,6 +566,9 @@ class ChatContext:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        for task in self.tasks:
+            task.stop()
+
         if self.gemini_ctx:
             try:
                 await asyncio.wait_for(
@@ -641,10 +646,10 @@ async def practice_session(
 async def api_translate(request: TranslateRequest) -> TranslateResponse:
     return await translate(
         request.text,
-        source_lang=(
+        source_language=(
             LANGUAGES[request.source_language] if request.source_language else None
         ),
-        target_lang=LANGUAGES[request.target_language],
+        target_language=LANGUAGES[request.target_language],
         api_key=request.api_key,
         model_id=settings.GEMINI_MODEL_ID,
     )
@@ -652,20 +657,10 @@ async def api_translate(request: TranslateRequest) -> TranslateResponse:
 
 @app.post("/api/transcribe", response_model=TranscribeResponse)
 async def api_transcribe(request: TranscribeRequest) -> TranscribeResponse:
-    client = genai.Client(api_key=request.api_key)
-    audio_bytes = request.audio
-    sample_rate = (
-        request.sample_rate
-        or extract_sample_rate(request.mime_type)
-        or SERVER_SAMPLE_RATE
-    )
-    audio = genai_types.Blob(
-        data=audio_bytes, mime_type=f"audio/pcm;rate={sample_rate}"
-    )
     return await transcribe(
-        client,
-        audio,
-        language=LANGUAGES[request.language] if request.language else None,
+        audio_data=request.audio,
+        mime_type=request.mime_type,
+        source_language=LANGUAGES[request.language] if request.language else None,
     )
 
 

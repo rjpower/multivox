@@ -153,11 +153,8 @@ AUDIO_MODELS = {
 
 
 @cache.default_file_cache.cache_fn()
-def generate_audio(term: str, language: str) -> Optional[bytes]:
+def generate_audio(term: str, language: FlashcardLanguage) -> Optional[bytes]:
     """Generate TTS audio for a term using Google Cloud Text-to-Speech API"""
-    if language not in AUDIO_MODELS:
-        return None
-
     credentials = service_account.Credentials.from_service_account_info(
         settings.GOOGLE_SERVICE_ACCOUNT_INFO
     )
@@ -197,7 +194,7 @@ class AudioData:
 
 def generate_audio_for_cards(
     items: Sequence[FlashCard],
-    language: str,
+    language: FlashcardLanguage,
     logger: Callable[[str], None],
     max_workers: int = 16,
 ) -> dict[str, AudioData]:
@@ -211,12 +208,14 @@ def generate_audio_for_cards(
                 (language, item.front_sub if item.front_sub else item.front)
             )
         if item.back:
-            items_to_process.append(("english", item.back))
+            items_to_process.append((FlashcardLanguage.ENGLISH, item.back))
 
     total = len(items_to_process)
     completed = 0
 
-    def _generate_audio_task(lang: str, term: str) -> tuple[str, Optional[bytes]]:
+    def _generate_audio_task(
+        lang: FlashcardLanguage, term: str
+    ) -> tuple[str, Optional[bytes]]:
         return term, generate_audio(term=term, language=lang)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
