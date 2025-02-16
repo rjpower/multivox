@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { ChatMessage, DictionaryEntry } from "./types";
+import { DictionaryEntry } from "./types";
 import { useAppStore } from "./store";
 import { BookmarkIcon, BookmarkSquareIcon } from "@heroicons/react/24/outline";
 import { BookmarkIcon as BookmarkSolidIcon } from "@heroicons/react/24/solid";
+import { ChatViewMessage } from "./ChatHistory";
 
 interface VocabularyItem {
   term: string;
@@ -12,7 +13,7 @@ interface VocabularyItem {
 export const PracticeVocabulary = ({
   messages,
 }: {
-  messages: Array<ChatMessage>;
+  messages: Array<ChatViewMessage>;
 }) => {
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
 

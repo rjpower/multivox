@@ -3,6 +3,8 @@ export const CLIENT_SAMPLE_RATE = 16000;
 export const SERVER_SAMPLE_RATE = 24000;
 export const BYTES_PER_SAMPLE = 2; // 16-bit = 2 bytes
 
+export type MessageRole = "user" | "assistant";                                                                                                             
+
 export interface TranslateRequest {
   text: string;
   target_language: string;
@@ -42,72 +44,6 @@ export interface Scenario {
   instructions: string;
 }
 
-// Chat message type for the chat window
-export type MessageRole = "user" | "assistant";
-export type MessageType =
-  | "initialize"
-  | "text"
-  | "audio"
-  | "transcription"
-  | "translation"
-  | "error"
-  | "hint";
-
-export interface ChatMessageBase {
-  type: MessageType;
-  role: MessageRole;
-}
-
-export interface InitializeChatMessage extends ChatMessageBase {
-  type: "initialize";
-  text: string;
-}
-
-export interface TextChatMessage extends ChatMessageBase {
-  type: "text";
-  text: string;
-}
-
-export interface TranscriptionChatMessage extends ChatMessageBase {
-  type: "transcription";
-  transcription: string;
-  chunked: string[];
-  dictionary: Record<string, DictionaryEntry>;
-  translation: string;
-}
-
-export interface AudioChatMessage extends ChatMessageBase {
-  type: "audio";
-  timestamp: number;
-  placeholder: "🔊" | "🎤"; // Different icons for playback vs recording
-}
-
-export interface HintChatMessage extends ChatMessageBase {
-  type: "hint";
-  hints: HintOption[];
-}
-
-export interface ErrorChatMessage extends ChatMessageBase {
-  type: "error";
-  text: string;
-}
-
-export interface TranslateChatMessage extends ChatMessageBase {
-  type: "translation";
-  original: string;
-  translation: string;
-  dictionary: Record<string, DictionaryEntry>;
-  chunked: string[];
-}
-
-export type ChatMessage =
-  | ErrorChatMessage
-  | InitializeChatMessage
-  | TextChatMessage
-  | TranslateChatMessage
-  | TranscriptionChatMessage
-  | AudioChatMessage
-  | HintChatMessage;
 
 export interface Language {
   code: string;

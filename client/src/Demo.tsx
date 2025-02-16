@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";                                                                                                                
 import { Practice } from "./Practice";
 import { ChatHistory } from "./ChatHistory";
-import { useAppStore } from "./store";
+import { useAppStore, usePracticeStore } from "./store";
 
 interface StateTransition {
   currentStateIndex: number;
@@ -43,31 +43,30 @@ export const Demo = () => {
         // Apply the new state
         const newState = transitions.computedStates[next].state;
         console.log(newState.practice.chatHistory.messages);
-        useAppStore.setState((s) => ({
-          practice: {
-            ...s.practice,
-            chatHistory: new ChatHistory(
-              Array.isArray(newState.practice.chatHistory.messages) 
-                ? newState.practice.chatHistory.messages 
-                : []
-            ),
-            connection: newState.practice.connection,
-            recorder: newState.practice.recorder,
-            practiceState: newState.practice.practiceState,
-            wsState: newState.practice.wsState,
-            modality: newState.practice.modality,
-            customInstructions: newState.practice.customInstructions,
-            isRecording: newState.practice.isRecording,
-            translatedInstructions: newState.practice.translatedInstructions
-          },
+        useAppStore.setState(() => ({
           systemScenarios: newState.systemScenarios || [],
           userScenarios: newState.userScenarios || [],
           languages: newState.languages,
           selectedLanguage: newState.selectedLanguage,
           geminiApiKey: newState.geminiApiKey,
           apiKeyStatus: newState.apiKeyStatus,
-          isReady: newState.isReady
+          isReady: newState.isReady,
         }));
+        usePracticeStore.setState({
+          chatHistory: new ChatHistory(
+            Array.isArray(newState.practice.chatHistory.messages) 
+              ? newState.practice.chatHistory.messages 
+              : []
+          ),
+          connection: newState.practice.connection,
+          recorder: newState.practice.recorder,
+          practiceState: newState.practice.practiceState,
+          wsState: newState.practice.wsState,
+          modality: newState.practice.modality,
+          customInstructions: newState.practice.customInstructions,
+          isRecording: newState.practice.isRecording,
+          translatedInstructions: newState.practice.translatedInstructions
+        });
         return next;
       });
     }, 100); // Transition every second

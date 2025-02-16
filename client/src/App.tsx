@@ -1,7 +1,6 @@
 import { ErrorBoundary } from "./ErrorBoundary";
 import {
   Link,
-  Navigate,
   Route,
   BrowserRouter as Router,
   Routes,
@@ -23,18 +22,33 @@ interface RequireApiKeyProps {
 
 const RequireReady = ({ children }: RequireApiKeyProps) => {
   const isReady = useAppStore((state) => state.isReady);
-  const location = useLocation();
+  const isLoading = useAppStore((state) => state.appLoading);
+  console.log(
+    "Is Ready:",
+    useAppStore((state) => state.isReady),
+    useAppStore((state) => state.appLoading),
+    useAppStore((state) => state.geminiApiKey),
+    useAppStore((state) => state.selectedLanguage)
+  );
+
+  if (isLoading) {
+    return null;
+  }
 
   if (!isReady) {
     return (
-      <Navigate
-        to="/config"
-        replace
-        state={{
-          from: location,
-          message: "Please configure your API key and language first",
-        }}
-      />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Configuration Required</h2>
+          <p className="text-gray-600 mb-4">Please configure your API key and language settings to continue</p>
+          <Link 
+            to="/config" 
+            className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+          >
+            Go to Configuration
+          </Link>
+        </div>
+      </div>
     );
   }
 
@@ -44,40 +58,26 @@ const RequireReady = ({ children }: RequireApiKeyProps) => {
 interface NavLinkProps {
   to: string;
   children: React.ReactNode;
-  disabled?: boolean;
-  className?: (props: { isActive: boolean; disabled?: boolean }) => string;
+  className?: (props: { isActive: boolean }) => string;
 }
 
-const NavLink = ({ to, children, disabled, className }: NavLinkProps) => {
+const NavLink = ({ to, children, className }: NavLinkProps) => {
   const location = useLocation();
   const isActive = location.pathname === to;
 
   const defaultClassName = ({
     isActive,
-    disabled,
   }: {
     isActive: boolean;
-    disabled?: boolean;
   }) => `
     px-4 py-2 rounded-md transition-colors
-    ${
-      isActive
-        ? "bg-indigo-600 text-white"
-        : disabled
-        ? "text-gray-400 hover:bg-gray-50 cursor-not-allowed"
-        : "text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"
-    }
+    ${isActive ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"}
   `;
 
   return (
     <Link
       to={to}
-      onClick={(e) => disabled && e.preventDefault()}
-      className={
-        className
-          ? className({ isActive, disabled })
-          : defaultClassName({ isActive, disabled })
-      }
+      className={className ? className({ isActive }) : defaultClassName({ isActive })}
     >
       {children}
     </Link>
@@ -91,18 +91,12 @@ const NavBar = () => {
         <div className="flex items-center space-x-4">
           <NavLink to="/">Home</NavLink>
           <NavLink to="/config">Config</NavLink>
-          <NavLink
-            to="/scenarios"
-            disabled={!useAppStore((state) => state.isReady)}
-          >
-            Practice
-          </NavLink>
-          <NavLink
-            to="/translate"
-            disabled={!useAppStore((state) => state.isReady)}
-          >
-            Translator
-          </NavLink>
+          {useAppStore((state) => state.isReady) && (
+            <>
+              <NavLink to="/scenarios">Practice</NavLink>
+              <NavLink to="/translate">Translator</NavLink>
+            </>
+          )}
           <NavLink to="/vocabulary">Vocabulary</NavLink>
           <NavLink to="/flashcards">Flashcards</NavLink>
         </div>

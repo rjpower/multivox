@@ -1,17 +1,16 @@
 import { ExclamationCircleIcon, CloudArrowUpIcon } from "@heroicons/react/24/outline";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  AudioChatMessage,
-  ChatMessage,
-  DictionaryEntry,
-  ErrorChatMessage,
-  HintChatMessage,
-  InitializeChatMessage,
-  MessageRole,
-  TextChatMessage,
-  TranscriptionChatMessage,
-  TranslateChatMessage,
-} from "./types";
+import { MessageRole, DictionaryEntry } from "./types";
+import { 
+  ChatViewMessage,
+  AudioViewMessage,
+  ErrorViewMessage,
+  HintViewMessage,
+  InitializeViewMessage,
+  TextViewMessage,
+  TranscriptionViewMessage,
+  TranslationViewMessage
+} from "./ChatHistory";
 
 interface MessageContainerProps {
   role: MessageRole;
@@ -87,7 +86,7 @@ const HintMessageComponent = ({
   msg,
   messageInputRef,
 }: {
-  msg: HintChatMessage;
+  msg: HintViewMessage;
   messageInputRef: React.RefObject<HTMLInputElement | null>;
 }) => {
   return (
@@ -122,7 +121,7 @@ const HintMessageComponent = ({
   );
 };
 
-const TranscriptionMessageComponent = ({ msg }: { msg: TranscriptionChatMessage }) => {
+const TranscriptionMessageComponent = ({ msg }: { msg: TranscriptionViewMessage }) => {
   const [showTranslation, setShowTranslation] = useState(false);
 
   return (
@@ -155,7 +154,7 @@ const TranscriptionMessageComponent = ({ msg }: { msg: TranscriptionChatMessage 
   );
 };
 
-const AudioMessageComponent = ({ msg }: { msg: AudioChatMessage }) => (
+const AudioMessageComponent = ({ msg }: { msg: AudioViewMessage }) => (
   <MessageContainer role={msg.role}>
     <div className={`max-w-[80%] px-4 py-2 rounded-lg ${
       msg.role === "assistant"
@@ -172,7 +171,7 @@ const AudioMessageComponent = ({ msg }: { msg: AudioChatMessage }) => (
   </MessageContainer>
 );
 
-const TranslateMessageComponent = ({ msg }: { msg: TranslateChatMessage }) => (
+const TranslateMessageComponent = ({ msg }: { msg: TranslationViewMessage }) => (
   <MessageContainer role={msg.role}>
     <div className="max-w-[80%] px-4 py-2 bg-white rounded-lg shadow">
       <div className="space-y-3">
@@ -195,7 +194,7 @@ const TranslateMessageComponent = ({ msg }: { msg: TranslateChatMessage }) => (
   </MessageContainer>
 );
 
-const InitializeMessageComponent = ({ msg }: { msg: InitializeChatMessage }) => (
+const InitializeMessageComponent = ({ msg }: { msg: InitializeViewMessage }) => (
   <MessageContainer role={msg.role}>
     <div className="max-w-[80%] px-4 py-2 bg-blue-50 text-gray-600 rounded-lg border border-blue-200">
       <div className="flex items-center gap-2 mb-2 text-blue-600">
@@ -212,7 +211,7 @@ const InitializeMessageComponent = ({ msg }: { msg: InitializeChatMessage }) => 
   </MessageContainer>
 );
 
-const TextMessageComponent = ({ msg }: { msg: TextChatMessage }) => (
+const TextMessageComponent = ({ msg }: { msg: TextViewMessage }) => (
   <MessageContainer role={msg.role}>
     <div className={`max-w-[80%] px-4 py-2 rounded-lg ${
       msg.role === "assistant"
@@ -228,7 +227,7 @@ const TextMessageComponent = ({ msg }: { msg: TextChatMessage }) => (
   </MessageContainer>
 );
 
-const ErrorMessageComponent = ({ msg }: { msg: ErrorChatMessage }) => (
+const ErrorMessageComponent = ({ msg }: { msg: ErrorViewMessage }) => (
   <MessageContainer role={msg.role}>
     <div className="max-w-[80%] px-4 py-2 bg-red-50 text-red-700 rounded-lg border border-red-200">
       <div className="flex items-center gap-2">
@@ -243,7 +242,7 @@ export const ChatMessages = ({
   messages,
   messageInputRef,
 }: {
-  messages: ChatMessage[];
+  messages: ChatViewMessage[];
   messageInputRef: React.RefObject<HTMLInputElement | null>;
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);

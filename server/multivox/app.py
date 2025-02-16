@@ -401,7 +401,6 @@ class BulkTranscriptionTask(LongRunningTask):
         return msg
 
     async def _fetch_translation(self, text, role):
-        # process text via the translate function
         translation = await translate(
             text,
             source_lang=self.language,
@@ -553,22 +552,6 @@ class StreamingTranscriptionTask(LongRunningTask):
                     MessageType.HINT,
                 ):
                     continue
-
-                # if message.type == MessageType.AUDIO:
-                #     await self.session.send(
-                #         input=genai_types.LiveClientRealtimeInput(
-                #             media_chunks=[
-                #                 create_audio_blob(
-                #                     message.audio,
-                #                     sample_rate=(
-                #                         CLIENT_SAMPLE_RATE
-                #                         if message.role == MessageRole.USER
-                #                         else SERVER_SAMPLE_RATE
-                #                     ),
-                #                 )
-                #             ]
-                #         )
-                #     )
 
                 if message.type == MessageType.TEXT:
                     await self.session.send(
@@ -730,6 +713,7 @@ async def practice_session(
 
 @app.get("/{full_path:path}")
 def serve_index(full_path: str):
+    """Render static files or the client-side app as a fall-through for all other routes."""
     if full_path.startswith("/api"):
         raise HTTPException(status_code=404, detail="File not found")
 

@@ -34,8 +34,8 @@ export const ScenarioList = ({
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {scenarios.map((scenario) => (
-            <tr key={scenario.id} className="hover:bg-gray-50">
+          {scenarios.map((scenario, index) => (
+            <tr key={`${scenario.id}-${index}`} className="hover:bg-gray-50">
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm font-medium text-gray-900">
                   {scenario.title}

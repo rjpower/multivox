@@ -29,4 +29,5 @@ VOLUME ["/app/data", "/app/downloads"]
 EXPOSE 8000
 
 ENV ROOT_DIR=/app
+ENV SECRETS_DIR=/run/secrets
 CMD ["uv", "run", "uvicorn", "multivox.app:app", "--workers=32", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*"]
