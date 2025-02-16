@@ -9,6 +9,7 @@ export interface TranslateRequest {
   text: string;
   target_language: string;
   source_language?: string;
+  api_key?: string;
 }
 
 export interface VocabularyEntry {

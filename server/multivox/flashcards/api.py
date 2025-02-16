@@ -1,5 +1,4 @@
 import enum
-import io
 import logging
 import queue
 import tempfile
@@ -8,7 +7,6 @@ import traceback
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import pandas
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from multivox.config import settings
 from multivox.flashcards.lib import (

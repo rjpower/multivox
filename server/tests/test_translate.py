@@ -17,8 +17,8 @@ def test_translate_api():
             "text": "Hello, how are you?",
             "target_language": "ja",
             "source_language": "en",
+            "api_key": os.environ["GEMINI_API_KEY"],
         },
-        params={"api_key": os.environ["GEMINI_API_KEY"]},
     )
 
     assert response.status_code == 200
@@ -56,8 +56,8 @@ async def test_translate_invalid_language():
                 "text": "Hello, how are you?",
                 "target_language": "xx",
                 "source_language": "en",
+                "api_key": os.environ["GEMINI_API_KEY"],
             },
-            params={"api_key": os.environ["GEMINI_API_KEY"]},
         )
 
 INSTRUCTIONS = list_scenarios()[0].instructions

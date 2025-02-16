@@ -1,6 +1,6 @@
 import enum
 from enum import Enum
-from typing import Callable, List, Optional, Protocol
+from typing import Callable, Optional, Protocol
 
 from pydantic import BaseModel
 

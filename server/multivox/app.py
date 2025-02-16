@@ -4,7 +4,6 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from re import M
 from typing import Sequence
 
 from fastapi import (
@@ -18,6 +17,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.websockets import WebSocketState
 from google import genai
 from google.genai import live as genai_live
 from google.genai import types as genai_types
@@ -37,7 +37,6 @@ from multivox.scenarios import (
 from multivox.transcription import (
     STREAMING_TRANSCRIPTION_INITIAL_PROMPT,
     STREAMING_TRANSCRIPTION_PROMPT,
-    create_audio_blob,
     extract_sample_rate,
     streaming_transcription_config,
     transcribe,
@@ -50,7 +49,6 @@ from multivox.types import (
     AudioWebSocketMessage,
     Chapter,
     ErrorWebSocketMessage,
-    HintRequest,
     HintResponse,
     HintWebSocketMessage,
     Language,
@@ -114,83 +112,6 @@ app.add_middleware(
 )
 
 
-@app.post("/api/translate")
-async def api_translate(
-    request: TranslateRequest,
-    api_key: str = Query(..., description="Gemini API key"),
-) -> TranslateResponse:
-    if not api_key:
-        raise HTTPException(status_code=401, detail="Gemini API key is required")
-    return await translate(
-        request.text,
-        source_lang=(
-            LANGUAGES[request.source_language] if request.source_language else None
-        ),
-        target_lang=LANGUAGES[request.target_language],
-    )
-
-
-@app.post("/api/hints")
-async def api_generate_hints(request: HintRequest) -> HintResponse:
-    """Generate possible responses to audio input"""
-    return await generate_hints(request.history, language=LANGUAGES[request.language])
-
-
-@app.post("/api/transcribe", response_model=TranscribeResponse)
-async def api_transcribe_audio(request: TranscribeRequest) -> TranscribeResponse:
-    client = genai.Client(api_key=request.api_key)
-    audio_bytes = request.audio
-    sample_rate = (
-        request.sample_rate
-        or extract_sample_rate(request.mime_type)
-        or SERVER_SAMPLE_RATE
-    )
-    audio = genai_types.Blob(
-        data=audio_bytes, mime_type=f"audio/pcm;rate={sample_rate}"
-    )
-    return await transcribe(
-        client,
-        audio,
-        language=LANGUAGES[request.language] if request.language else None,
-    )
-
-
-@app.get("/api/languages")
-def api_list_languages():
-    """Get list of supported languages"""
-    return [{"code": code, "name": lang.name} for code, lang in LANGUAGES.items()]
-
-
-@app.get("/api/chapters")
-def api_list_chapters() -> Sequence[Chapter]:
-    """Get all chapters"""
-    return list_chapters()
-
-
-@app.get("/api/chapters/{chapter_id}")
-def api_get_chapter(chapter_id: str) -> Chapter:
-    """Get a specific chapter by ID"""
-    try:
-        return get_chapter(chapter_id)
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Chapter not found")
-
-
-@app.get("/api/scenarios")
-def api_list_scenarios() -> Sequence[Scenario]:
-    """Get all conversations (for backwards compatibility)"""
-    return list_scenarios()
-
-
-@app.get("/api/scenarios/{conversation_id}")
-def api_get_scenario(conversation_id: str) -> Scenario:
-    """Get a specific conversation by ID"""
-    try:
-        return get_scenario(conversation_id)
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-
-
 class MessageBuffer:
     """Manages both text and audio content for a speaker"""
 
@@ -248,6 +169,10 @@ class ChatState:
                 return
 
         if isinstance(message, HintWebSocketMessage):
+            await self.user_ws.send_message(message)
+            return
+
+        if isinstance(message, ErrorWebSocketMessage):
             await self.user_ws.send_message(message)
             return
 
@@ -309,7 +234,9 @@ class ClientReaderTask(LongRunningTask):
         return [asyncio.create_task(self._process())]
 
     async def _process(self):
-        while self.running():
+        while (
+            self.running() and self.websocket.client_state == WebSocketState.CONNECTED
+        ):
             try:
                 message = await self.websocket.receive_message()
                 await self.state.handle_message(message)
@@ -591,7 +518,6 @@ class ChatContext:
         )
 
     async def __aenter__(self):
-        # Initialize Gemini session
         config = genai_types.LiveConnectConfig()
         config.response_modalities = [genai_types.Modality(self.modality)]
         config.speech_config = genai_types.SpeechConfig(
@@ -709,6 +635,74 @@ async def practice_session(
         await websocket.close(code=1011, reason="Internal server error")
     finally:
         await websocket.close(code=1000)
+
+
+@app.post("/api/translate")
+async def api_translate(request: TranslateRequest) -> TranslateResponse:
+    return await translate(
+        request.text,
+        source_lang=(
+            LANGUAGES[request.source_language] if request.source_language else None
+        ),
+        target_lang=LANGUAGES[request.target_language],
+        api_key=request.api_key,
+        model_id=settings.GEMINI_MODEL_ID,
+    )
+
+
+@app.post("/api/transcribe", response_model=TranscribeResponse)
+async def api_transcribe(request: TranscribeRequest) -> TranscribeResponse:
+    client = genai.Client(api_key=request.api_key)
+    audio_bytes = request.audio
+    sample_rate = (
+        request.sample_rate
+        or extract_sample_rate(request.mime_type)
+        or SERVER_SAMPLE_RATE
+    )
+    audio = genai_types.Blob(
+        data=audio_bytes, mime_type=f"audio/pcm;rate={sample_rate}"
+    )
+    return await transcribe(
+        client,
+        audio,
+        language=LANGUAGES[request.language] if request.language else None,
+    )
+
+
+@app.get("/api/languages")
+def api_list_languages():
+    """Get list of supported languages"""
+    return [{"code": code, "name": lang.name} for code, lang in LANGUAGES.items()]
+
+
+@app.get("/api/chapters")
+def api_list_chapters() -> Sequence[Chapter]:
+    """Get all chapters"""
+    return list_chapters()
+
+
+@app.get("/api/chapters/{chapter_id}")
+def api_get_chapter(chapter_id: str) -> Chapter:
+    """Get a specific chapter by ID"""
+    try:
+        return get_chapter(chapter_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+
+@app.get("/api/scenarios")
+def api_list_scenarios() -> Sequence[Scenario]:
+    """Get all conversations (for backwards compatibility)"""
+    return list_scenarios()
+
+
+@app.get("/api/scenarios/{conversation_id}")
+def api_get_scenario(conversation_id: str) -> Scenario:
+    """Get a specific conversation by ID"""
+    try:
+        return get_scenario(conversation_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Conversation not found")
 
 
 @app.get("/{full_path:path}")

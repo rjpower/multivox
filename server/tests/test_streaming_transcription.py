@@ -1,22 +1,16 @@
 import asyncio
 import base64
-import http
 import os
 import wave
 from pathlib import Path
 
 import pytest
 from google import genai
-from google.genai import types as genai_types
-from multivox.app import MessageBuffer, StreamingTranscriptionTask
+from multivox.app import StreamingTranscriptionTask
 from multivox.config import settings
-from multivox.transcription import (
-    streaming_transcription_config,
-)
 from multivox.types import (
     LANGUAGES,
     AudioWebSocketMessage,
-    ChatMessage,
     MessageRole,
     MessageType,
     TextWebSocketMessage,

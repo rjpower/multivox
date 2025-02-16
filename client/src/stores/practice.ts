@@ -1,16 +1,87 @@
 import { create } from "zustand";
-import { WebSocketMessage, WebSocketState } from "../types";
+
 import { AudioPlayer } from "../AudioPlayer";
 import { AudioRecorder } from "../AudioRecorder";
 import { ChatHistory } from "../ChatHistory";
-import { translateText, initializeWebSocket } from "../practiceUtils";
+import { TranslateRequest, WebSocketMessage, WebSocketState } from "../types";
 import { TypedWebSocket } from "../TypedWebSocket";
+import { useAppStore } from "./app";
 
 export enum PracticeState {
   WAITING = "WAITING",
   TRANSLATING = "TRANSLATING",
   CONNECTING = "CONNECTING",
   ACTIVE = "ACTIVE",
+}
+
+export async function initializeWebSocket(
+  language: string,
+  modality: string,
+  onMessage: (message: any) => void
+): Promise<TypedWebSocket> {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const apiKey = useAppStore.getState().geminiApiKey;
+  if (!apiKey) {
+    throw new Error("Gemini API key is required");
+  }
+
+  const ws = new TypedWebSocket(
+    `${protocol}//${
+      window.location.host
+    }/api/practice?target_language=${encodeURIComponent(
+      language
+    )}&modality=${modality}&api_key=${encodeURIComponent(apiKey)}`
+  );
+
+  ws.onerror = (error) => {
+    console.error("WebSocket error:", error);
+  };
+
+  ws.onclose = (event) => {
+    console.log("WebSocket closed:", event.code, event.reason);
+  };
+
+  ws.onmessage = onMessage;
+
+  return new Promise((resolve) => {
+    ws.onopen = () => {
+      console.log("WebSocket connected");
+      resolve(ws);
+    };
+  });
+}
+
+export async function translateText(
+  request: TranslateRequest
+): Promise<string> {
+  const apiKey = useAppStore.getState().geminiApiKey;
+  if (!apiKey) {
+    throw new Error("Gemini API key is required");
+  }
+
+  const response = await fetch(`/api/translate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.detail
+        ? JSON.stringify(errorData.detail)
+        : `Translation failed with status ${response.status}`
+    );
+  }
+
+  const data = await response.json();
+  if (!data || typeof data.translation !== "string") {
+    throw new Error("Invalid translation response from server");
+  }
+
+  return data.translation;
 }
 
 interface PracticeStore {
@@ -24,7 +95,11 @@ interface PracticeStore {
   connection: TypedWebSocket | null;
   recorder: AudioRecorder | null;
   audioPlayer: AudioPlayer;
-  
+  error: {
+    type: "translation" | "connection" | "recording" | null;
+    message: string | null;
+  };
+
   setPracticeState: (state: PracticeState) => void;
   setModality: (modality: "text" | "audio") => void;
   setCustomInstructions: (instructions: string | null) => void;
@@ -33,6 +108,11 @@ interface PracticeStore {
   stopRecording: () => void;
   sendMessage: (text: string) => void;
   reset: () => void;
+  setError: (
+    type: "translation" | "connection" | "recording" | null,
+    message: string | null
+  ) => void;
+  clearError: () => void;
 }
 
 function handleWebSocketMessage(
@@ -62,24 +142,38 @@ export const usePracticeStore = create<PracticeStore>()((set, get) => ({
   connection: null,
   recorder: null,
   audioPlayer: new AudioPlayer(),
+  error: {
+    type: null,
+    message: null,
+  },
 
-  setPracticeState: (state: PracticeState) =>
-    set({ practiceState: state }),
+  setPracticeState: (state: PracticeState) => set({ practiceState: state }),
 
-  setModality: (modality) =>
-    set({ modality }),
+  setModality: (modality) => set({ modality }),
 
   setCustomInstructions: (instructions) =>
     set({ customInstructions: instructions }),
 
+  setError: (
+    type: "translation" | "connection" | "recording" | null,
+    message: string | null
+  ) => set({ error: { type, message } }),
+  clearError: () => set({ error: { type: null, message: null } }),
+
   connect: async (text, language) => {
     const store = get();
     try {
-      set({ practiceState: PracticeState.TRANSLATING });
-      
+      set({
+        practiceState: PracticeState.TRANSLATING,
+        error: { type: null, message: null },
+      });
+
       const translation = await translateText({
         text,
         target_language: language,
+        api_key: useAppStore.getState().geminiApiKey!,
+      }).catch((err) => {
+        throw new Error(`Translation failed: ${err.message}`);
       });
 
       set({
@@ -112,9 +206,16 @@ export const usePracticeStore = create<PracticeStore>()((set, get) => ({
         role: "assistant",
       });
     } catch (error) {
+      const err = error as Error;
       set({
         translatedInstructions: null,
         practiceState: PracticeState.WAITING,
+        error: {
+          type: err.message.includes("Translation failed")
+            ? "translation"
+            : "connection",
+          message: err.message,
+        },
       });
       throw error;
     }
@@ -127,6 +228,7 @@ export const usePracticeStore = create<PracticeStore>()((set, get) => ({
         await store.recorder.startRecording();
         set({
           isRecording: true,
+          error: { type: null, message: null },
           chatHistory: store.chatHistory.handleMessage({
             type: "audio",
             role: "user",
@@ -135,6 +237,13 @@ export const usePracticeStore = create<PracticeStore>()((set, get) => ({
         });
       }
     } catch (err) {
+      set({
+        error: {
+          type: "recording",
+          message:
+            "Failed to access microphone. Please check your permissions.",
+        },
+      });
       console.error("Failed to start recording:", err);
     }
   },
@@ -157,10 +266,7 @@ export const usePracticeStore = create<PracticeStore>()((set, get) => ({
 
   sendMessage: (text) => {
     const store = get();
-    if (
-      !store.connection ||
-      store.connection.readyState !== WebSocket.OPEN
-    ) {
+    if (!store.connection || store.connection.readyState !== WebSocket.OPEN) {
       console.error("WebSocket not connected");
       return;
     }
@@ -182,24 +288,33 @@ export const usePracticeStore = create<PracticeStore>()((set, get) => ({
 
   reset: () => {
     const store = get();
+    // Clean up audio player
     if (typeof store.audioPlayer?.stop === "function") {
       store.audioPlayer.stop();
     }
+    // Clean up websocket connection
     if (typeof store.connection?.close === "function") {
       store.connection.close();
     }
+    // Clean up recorder
     if (typeof store.recorder?.stopRecording === "function") {
       store.recorder.stopRecording();
     }
+    // Reset all state to initial values
     set({
       isRecording: false,
-      wsState: WebSocketState.DISCONNECTED,
       practiceState: PracticeState.WAITING,
-      connection: null,
-      recorder: null,
+      wsState: WebSocketState.DISCONNECTED,
+      modality: "audio",
       translatedInstructions: null,
       customInstructions: null,
       chatHistory: new ChatHistory(),
+      connection: null,
+      recorder: null,
+      error: {
+        type: null,
+        message: null,
+      }
     });
   },
 }));

@@ -5,13 +5,4 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    secrets:
-      - GEMINI_API_KEY
-      - GOOGLE_SERVICE_ACCOUNT_INFO
     restart: unless-stopped
-
-secrets:
-  GEMINI_API_KEY:
-    file: ./secrets/GEMINI_API_KEY
-  GOOGLE_SERVICE_ACCOUNT_INFO:
-    file: ./secrets/GOOGLE_SERVICE_ACCOUNT_INFO

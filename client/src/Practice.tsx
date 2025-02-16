@@ -3,6 +3,8 @@ import {
   InformationCircleIcon,
   MicrophoneIcon,
   LanguageIcon,
+  XCircleIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -286,9 +288,56 @@ const PracticeControls = ({ onStart }: { onStart: () => Promise<void> }) => {
   );
 };
 
+const ErrorDisplay = ({ 
+  error,
+  onDismiss
+}: { 
+  error: { type: string | null; message: string | null };
+  onDismiss: () => void;
+}) => {
+  if (!error.type || !error.message) return null;
+
+  const errorTitles = {
+    translation: "Translation Error",
+    connection: "Connection Error",
+    recording: "Recording Error"
+  };
+
+  return (
+    <div className="rounded-md bg-red-50 p-4 mb-4">
+      <div className="flex">
+        <div className="flex-shrink-0">
+          <XCircleIcon className="h-5 w-5 text-red-400" />
+        </div>
+        <div className="ml-3">
+          <h3 className="text-sm font-medium text-red-800">
+            {errorTitles[error.type as keyof typeof errorTitles]}
+          </h3>
+          <div className="mt-2 text-sm text-red-700">
+            <p>{error.message}</p>
+          </div>
+        </div>
+        <div className="ml-auto pl-3">
+          <div className="-mx-1.5 -my-1.5">
+            <button
+              onClick={onDismiss}
+              className="inline-flex rounded-md bg-red-50 p-1.5 text-red-500 hover:bg-red-100"
+            >
+              <span className="sr-only">Dismiss</span>
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const Practice = () => {
   const { scenarioId = "" } = useParams<{ scenarioId: string }>();
   const navigate = useNavigate();
+  const error = usePracticeStore((state) => state.error);
+  const clearError = usePracticeStore((state) => state.clearError);
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [editableScenario, setEditableScenario] = useState<Scenario | null>(
     null
@@ -309,10 +358,10 @@ export const Practice = () => {
   const selectedLanguage = useAppStore((state) => state.selectedLanguage);
   const reset = usePracticeStore((state) => state.reset);
   useEffect(() => {
-    return () => {
-      reset();
-    };
-  }, [reset]);
+    // Reset state when scenarioId changes or component unmounts
+    reset();
+    return () => reset();
+  }, [reset, scenarioId]);
 
   useEffect(() => {
     if (
@@ -404,6 +453,8 @@ A client has entered and needs assistance.
               </div>
             )}
           </div>
+
+          <ErrorDisplay error={error} onDismiss={clearError} />
 
           <div className="flex gap-4">
             <div className="flex-1">

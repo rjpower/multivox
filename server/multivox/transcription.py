@@ -1,5 +1,4 @@
 import io
-import json
 import logging
 import wave
 from typing import Type
@@ -9,7 +8,6 @@ from google.genai import types as genai_types
 from pydantic import BaseModel
 
 from multivox.config import settings
-from multivox.hints import HINT_FORMAT
 from multivox.types import (
     HintResponse,
     Language,
@@ -119,11 +117,13 @@ def pcm_to_wav(pcm_data: bytes, mime_type: str) -> bytes:
         wav_file.writeframes(pcm_data)
     return wav_buffer.getvalue()
 
+
 async def transcribe(
     client: genai.Client,
     audio: genai_types.Blob,
     language: Language | None,
     transcription_prompt: str = TRANSCRIPTION_PROMPT,
+    model_id: str = settings.TRANSCRIPTION_MODEL_ID,
 ) -> TranscribeResponse:
     data = audio.data
     mime_type = audio.mime_type
@@ -136,7 +136,7 @@ async def transcribe(
     language_prompt = f"Assume the language is {language.name}.\n" if language else "\n"
 
     response = await client.aio.models.generate_content(
-        model=settings.TRANSCRIPTION_MODEL_ID,
+        model=model_id,
         contents=[
             transcription_prompt,
             language_prompt,
@@ -147,6 +147,11 @@ async def transcribe(
         ],
         config=genai_types.GenerateContentConfig(
             response_mime_type="application/json",
+            response_modalities=[genai_types.Modality.TEXT],
+            automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(
+                disable=True,
+                maximum_remote_calls=None,
+            ),
         ),
     )
 
@@ -155,6 +160,7 @@ async def transcribe(
     except Exception:
         logger.warning(f"Failed to parse {response.text} as TranscribeResponse")
         raise
+
 
 def schema_from_type(model_type: Type[BaseModel]) -> dict:
     """Convert a Pydantic model to a JSON schema for Gemini function declarations"""

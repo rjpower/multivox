@@ -56,10 +56,11 @@ You _must_ call `hint` before ending your turn.
 </INSTRUCTIONS>
 """
 
+
 async def generate_hints(
     history: str,
     language: Language | None,
-    hint_model: str = settings.HINT_MODEL_ID,
+    model_id: str = settings.HINT_MODEL_ID,
     hint_prompt: str = HINT_PROMPT,
 ) -> HintResponse:
     """Generate possible responses to audio input"""
@@ -72,7 +73,12 @@ async def generate_hints(
     ]
 
     response = await acompletion(
-        model=hint_model, messages=messages, response_format={"type": "json_object"}
+        model=model_id,
+        messages=messages,
+        response_format={"type": "json_object"},
+        api_key=(
+            settings.GEMINI_API_KEY if "gemini" in model_id else settings.OPENAI_API_KEY
+        ),
     )
 
     try:

@@ -1030,6 +1030,7 @@ dependencies = [
     { name = "pysrt" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "pytest-repeat" },
     { name = "pytest-xdist" },
     { name = "typer" },
     { name = "uvicorn" },
@@ -1055,6 +1056,7 @@ requires-dist = [
     { name = "pysrt", specifier = ">=1.1.2" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-asyncio", specifier = ">=0.25.3" },
+    { name = "pytest-repeat", specifier = ">=0.9.3" },
     { name = "pytest-xdist", specifier = ">=3.6.1" },
     { name = "typer", specifier = ">=0.15.1" },
     { name = "uvicorn", specifier = ">=0.34.0" },
@@ -1478,6 +1480,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f2/a8/ecbc8ede70921dd2f544ab1cadd3ff3bf842af27f87bbdea774c7baa1d38/pytest_asyncio-0.25.3.tar.gz", hash = "sha256:fc1da2cf9f125ada7e710b4ddad05518d4cee187ae9412e9ac9271003497f07a", size = 54239 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/67/17/3493c5624e48fd97156ebaec380dcaafee9506d7e2c46218ceebbb57d7de/pytest_asyncio-0.25.3-py3-none-any.whl", hash = "sha256:9e89518e0f9bd08928f97a3482fdc4e244df17529460bc038291ccaf8f85c7c3", size = 19467 },
+]
+
+[[package]]
+name = "pytest-repeat"
+version = "0.9.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/86/5e/99365eb229efff0b1bd475886150fc6db9937ab7e1bd21f6f65c1279e0eb/pytest_repeat-0.9.3.tar.gz", hash = "sha256:ffd3836dfcd67bb270bec648b330e20be37d2966448c4148c4092d1e8aba8185", size = 6272 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/49/a8/0a0aec0c2541b8baf4a0b95af2ba99abce217ee43534adf9cb7c908cf184/pytest_repeat-0.9.3-py3-none-any.whl", hash = "sha256:26ab2df18226af9d5ce441c858f273121e92ff55f5bb311d25755b8d7abdd8ed", size = 4196 },
 ]
 
 [[package]]

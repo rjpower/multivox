@@ -56,7 +56,8 @@ async def translate(
     target_lang: Language,
     system_prompt: str = TRANSLATION_SYSTEM_PROMPT,
     translation_prompt: str = TRANSLATION_PROMPT,
-    model: str = settings.TRANSLATION_MODEL_ID,
+    model_id: str = settings.TRANSLATION_MODEL_ID,
+    api_key: str = "",
 ) -> TranslateResponse:
     system_prompt = system_prompt.format(
         translation_target=target_lang.name,
@@ -72,7 +73,18 @@ async def translate(
     ]
 
     response = await acompletion(
-        model=model, messages=messages, response_format={"type": "json_object"}
+        model=model_id,
+        messages=messages,
+        response_format={"type": "json_object"},
+        api_key=(
+            api_key
+            if api_key
+            else (
+                settings.GEMINI_API_KEY
+                if "gemini" in model_id
+                else settings.OPENAI_API_KEY
+            )
+        ),
     )
 
     try:

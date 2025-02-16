@@ -1,5 +1,4 @@
 import hashlib
-import re
 import tempfile
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -12,7 +11,7 @@ from google.cloud import texttospeech
 from google.oauth2 import service_account
 from multivox import cache
 from multivox.config import settings
-from multivox.flashcards.schema import FlashCard, VocabItem
+from multivox.flashcards.schema import FlashCard, FlashcardLanguage, VocabItem
 
 # Fixed Model IDs
 DEFAULT_MODEL_ID = 1607392319
@@ -95,8 +94,6 @@ class AudioModel:
     language_code: str
     model_name: str
 
-
-from .schema import FlashcardLanguage
 
 AUDIO_MODELS = {
     FlashcardLanguage.ENGLISH: AudioModel("en-US", "en-US-Neural2-C"),

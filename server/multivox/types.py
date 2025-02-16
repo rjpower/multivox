@@ -47,6 +47,7 @@ class TranscribeResponse(BaseModel):
 
 
 class TranslateRequest(BaseModel):
+    api_key: str
     text: str
     target_language: str
     source_language: str = ""
