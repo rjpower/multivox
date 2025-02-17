@@ -65,12 +65,6 @@ from multivox.types import (
     WebSocketMessage,
 )
 
-ROOT_DIR = (
-    Path(os.environ["ROOT_DIR"])
-    if "ROOT_DIR" in os.environ
-    else Path(__file__).resolve().parent.parent.parent
-)
-
 BATCH_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 file_cache = default_file_cache
@@ -84,11 +78,10 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Mount flashcard routes
 app.include_router(flashcard_router)
 app.mount(
     "/downloads",
-    staticfiles.StaticFiles(directory="downloads", check_dir=False),
+    staticfiles.StaticFiles(directory=settings.DOWNLOAD_DIR, check_dir=False),
     name="downloads",
 )
 
@@ -650,7 +643,7 @@ async def api_translate(request: TranslateRequest) -> TranslateResponse:
             LANGUAGES[request.source_language] if request.source_language else None
         ),
         target_language=LANGUAGES[request.target_language],
-        api_key=request.api_key,
+        api_key=request.api_key if request.api_key else None,
         model_id=settings.GEMINI_MODEL_ID,
     )
 
@@ -660,6 +653,7 @@ async def api_transcribe(request: TranscribeRequest) -> TranscribeResponse:
     return await transcribe(
         audio_data=request.audio,
         mime_type=request.mime_type,
+        api_key=request.api_key,
         source_language=LANGUAGES[request.language] if request.language else None,
     )
 
@@ -706,7 +700,7 @@ def serve_index(full_path: str):
     if full_path.startswith("/api"):
         raise HTTPException(status_code=404, detail="File not found")
 
-    dist_dir = Path(ROOT_DIR / "client" / "dist")
+    dist_dir = Path(settings.ROOT_DIR / "client" / "dist")
     path = (dist_dir / full_path).resolve()
 
     # ensure path is under dist_dir

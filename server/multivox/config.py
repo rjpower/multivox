@@ -1,16 +1,29 @@
 import os
 from pathlib import Path
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ROOT_DIR = Path(__file__).parent.parent
+
+def find_root():
+    path = Path(__file__).parent
+    while not (path / "client").exists():
+        path = path.parent
+    return path
+
+
+ROOT_DIR = find_root()
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        secrets_dir=os.environ.get("SECRETS_DIR", ROOT_DIR)
+        secrets_dir=os.environ.get("SECRETS_DIR", ROOT_DIR / "secrets")
     )
+
+    ROOT_DIR: Path = ROOT_DIR
     DOWNLOAD_DIR: Path = ROOT_DIR / "downloads"
+
+    GOOGLE_SERVICE_ACCOUNT_INFO: dict
+    GEMINI_API_KEY: str
+    OPENAI_API_KEY: str
 
     LIVE_MODEL_ID: str = "gemini-2.0-flash-exp"
     TRANSCRIPTION_MODEL_ID: str = "gemini-1.5-flash"
@@ -25,8 +38,13 @@ class Settings(BaseSettings):
 
     GEMINI_API_VERSION: str = "v1alpha"
 
-    GOOGLE_SERVICE_ACCOUNT_INFO: dict = Field(default_factory=dict)
-    GEMINI_API_KEY: str = ""
-    OPENAI_API_KEY: str = ""
+    def model_post_init(self, __context) -> None:
+        super().model_post_init(__context)
+
+        # expose API keys for litellm
+        os.environ["OPENAI_API_KEY"] = self.OPENAI_API_KEY
+        os.environ["GEMINI_API_KEY"] = self.GEMINI_API_KEY
+        assert isinstance(self.GOOGLE_SERVICE_ACCOUNT_INFO, dict)
+
 
 settings = Settings()

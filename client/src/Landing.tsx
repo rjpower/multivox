@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { LockClosedIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
 import { useAppStore } from "./store";
 import { APP_NAME, CONTACT_EMAIL, GITHUB_REPO } from "./constants";
 
@@ -8,19 +9,7 @@ function geminiApiPrompt() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center space-x-4 mb-4">
           <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-            <svg
-              className="h-6 w-6 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-              />
-            </svg>
+            <LockClosedIcon className="h-6 w-6 text-blue-500" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900">
             Quick Setup Required
@@ -36,19 +25,7 @@ function geminiApiPrompt() {
           className="inline-flex items-center px-6 py-3 text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
         >
           Configure API Key
-          <svg
-            className="ml-2 -mr-1 h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 7l5 5m0 0l-5 5m5-5H6"
-            />
-          </svg>
+          <ArrowRightIcon className="ml-2 -mr-1 h-5 w-5" />
         </Link>
       </div>
     </div>
@@ -102,19 +79,7 @@ const Landing = () => {
                 className="inline-flex items-center px-6 py-3 text-lg font-medium text-blue-600 hover:text-blue-800 transition-colors"
               >
                 Start practicing
-                <svg
-                  className="ml-2 h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 7l5 5m0 0l-5 5m5-5H6"
-                  />
-                </svg>
+                <ArrowRightIcon className="ml-2 h-5 w-5" />
               </Link>
             )}
           </div>

@@ -149,6 +149,7 @@ async def transcribe(
     audio_data: bytes,
     mime_type: str,
     source_language: Language | None,
+    api_key: str | None = None,
     transcription_prompt: str = TRANSCRIPTION_PROMPT,
     model_id: str = settings.TRANSCRIPTION_MODEL_ID,
 ) -> TranscribeResponse:
@@ -164,7 +165,7 @@ async def transcribe(
         language=source_language.abbreviation if source_language else None,
         response_format="verbose_json",
         timestamp_granularities=["word"],
-        api_key=settings.OPENAI_API_KEY,
+        api_key=api_key,
     )
 
     transcription = response.text
@@ -174,6 +175,7 @@ async def transcribe(
         text=response.text,
         source_language=source_language,
         target_language=LANGUAGES["en"],
+        api_key=api_key,
     )
 
     return TranscribeResponse(

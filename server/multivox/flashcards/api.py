@@ -27,7 +27,6 @@ class GenerateRequest(BaseModel):
     mode: str
     content: str
     format: OutputFormat
-    api_key: str
     target_language: FlashcardLanguage
     include_audio: bool = False
     field_mapping: Optional[SourceMapping] = None
@@ -47,7 +46,6 @@ class ProgressMessage(BaseModel):
 
 class CSVAnalyzeRequest(BaseModel):
     content: str
-    api_key: str
 
 
 class CSVAnalyzeResponse(BaseModel):
@@ -74,8 +72,9 @@ class ProcessingTask:
             self.message_queue.put(ProgressMessage(text=text, type=type))
 
     async def run_task(self, request: GenerateRequest):
-        # Create temporary output file
+        settings.DOWNLOAD_DIR.mkdir(exist_ok=True)
         with tempfile.NamedTemporaryFile(
+            dir=settings.DOWNLOAD_DIR,
             suffix=".apkg" if request.format == OutputFormat.ANKI_PKG else ".pdf",
             delete=False,
         ) as tmp:
@@ -115,7 +114,6 @@ class ProcessingTask:
                     include_audio=request.include_audio,
                     field_mapping=request.field_mapping,
                     progress_logger=self.log_progress,
-                    api_key=request.api_key,
                 )
                 process_csv(csv_config)
             else:  # SRT mode
@@ -130,16 +128,10 @@ class ProcessingTask:
                         include_audio=request.include_audio,
                         target_language=request.target_language,
                         progress_logger=self.log_progress,
-                        api_key=request.api_key,
                     )
                     process_srt(srt_config)
 
             if not self.stop_event.is_set():
-                # Move file to downloads directory
-                settings.DOWNLOAD_DIR.mkdir(exist_ok=True)
-                final_path = settings.DOWNLOAD_DIR / output_path.name
-                output_path.rename(final_path)
-
                 self.message_queue.put(
                     ProgressMessage(
                         text="Processing complete.",
@@ -182,7 +174,7 @@ async def analyze_csv(request: CSVAnalyzeRequest):
     try:
         separator, df = read_csv(request.content)
         logger.info("Read CSV with shape: %s", df.shape)
-        suggestions = infer_field_mapping(df, api_key=request.api_key)
+        suggestions = infer_field_mapping(df)
         df = df.dropna(axis="columns", how="all")  # Only drop completely empty columns
 
         return CSVAnalyzeResponse(

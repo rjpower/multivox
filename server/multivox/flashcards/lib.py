@@ -29,7 +29,6 @@ class SRTProcessConfig(BaseModel):
     output_path: Path
     output_format: str
     target_language: FlashcardLanguage
-    api_key: str
     include_audio: bool = False
     deck_name: Optional[str] = None
     ignore_words: set[str] = set()
@@ -46,7 +45,6 @@ class CSVProcessConfig(BaseModel):
     output_path: Path
     output_format: str
     target_language: FlashcardLanguage
-    api_key: str
     include_audio: bool = False
     deck_name: Optional[str] = None
     field_mapping: SourceMapping
@@ -91,12 +89,17 @@ def load_csv_items(
 
 def _infer_missing_fields_chunk(
     chunk: Sequence[VocabItem],
-    api_key: str,
     progress_logger: ProgressLogger = logging.info,
 ) -> List[VocabItem]:
     """Process a chunk of DataFrame rows into vocabulary items"""
     complete_records = [
-        item for item in chunk if item.term and item.reading and item.meaning
+        item
+        for item in chunk
+        if item.term
+        and item.reading
+        and item.meaning
+        and item.context_native
+        and item.context_en
     ]
     incomplete_records = [item for item in chunk if item not in complete_records]
 
@@ -116,7 +119,9 @@ Fields:
 - term: the native language term
 - reading: the phonetic reading of the term if relevant -- use Hiragana or Katakana for Japanese, Pinyin for Chinese.
 - meaning: meaning of the term in English, if multiple meanings are common, separate with commas
-- context_native: a sentence in the native language that uses the term in context.
+- context_native: a sentence in the native language using `term`. 
+  this should be a simple sentence, but one that displays natural grammar.
+  for Chinese and Japanese, use Ruby annotations for word pronunciation in the appropriate format (e.g. Hiragana, Katakana, Pinyin).
 - context_en: English translation of the example sentence.
 
 Example output:
@@ -146,7 +151,6 @@ Return only valid JSON array with complete items in same format."""
         cached_completion(
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            api_key=api_key,
         )
     )
 
@@ -165,7 +169,6 @@ Return only valid JSON array with complete items in same format."""
 
 def infer_missing_fields(
     rows: Sequence[VocabItem],
-    api_key: str,
     progress_logger: ProgressLogger = logging.info,
     infer_chunk_size: int = 25,
 ):
@@ -180,9 +183,7 @@ def infer_missing_fields(
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         future_to_chunk = {
-            executor.submit(
-                _infer_missing_fields_chunk, chunk, api_key, progress_logger
-            ): chunk
+            executor.submit(_infer_missing_fields_chunk, chunk, progress_logger): chunk
             for chunk in chunks
         }
 
@@ -251,9 +252,7 @@ def process_csv(config: CSVProcessConfig):
     config.progress_logger(
         f"{len(vocab_items)} vocabulary items after filtering and dedup."
     )
-    vocab_items = infer_missing_fields(
-        vocab_items, config.api_key, config.progress_logger
-    )
+    vocab_items = infer_missing_fields(vocab_items, config.progress_logger)
     vocab_items = filter_known_vocabulary(vocab_items, config.ignore_words)
     config.progress_logger(
         f"{len(vocab_items)} vocabulary items after inference and filtering"
@@ -297,7 +296,7 @@ def extract_text_from_srt(srt_path: Path) -> List[str]:
     return text_blocks
 
 
-def analyze_srt_section(text: str, api_key: str) -> List[VocabItem]:
+def analyze_srt_section(text: str) -> List[VocabItem]:
     prompt = f"""Extract vocabulary items from the following text.
 For each vocabulary item, find an actual example sentence from the provided text that uses it.
 Return a JSON array of objects with these fields:
@@ -342,7 +341,6 @@ Return only valid JSON, no other text."""
         cached_completion(
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            api_key=api_key
         )
     )
     results = []
@@ -365,7 +363,7 @@ def analyze_vocabulary(text_blocks: List[str], config: SRTProcessConfig):
     for i in range(0, len(text_blocks), config.block_size):
         text = "\n".join(text_blocks[i : i + config.block_size])
         current_chunk = i // config.block_size + 1
-        chunk_results = analyze_srt_section(text, config.api_key)
+        chunk_results = analyze_srt_section(text)
 
         config.progress_logger(f"Processing chunk {current_chunk}/{num_chunks}")
         all_results.extend(chunk_results)
@@ -436,7 +434,7 @@ def read_csv(file_content: str) -> tuple[str, pd.DataFrame]:
     return best_separator, df
 
 
-def infer_field_mapping(df: pd.DataFrame, api_key: str) -> dict:
+def infer_field_mapping(df: pd.DataFrame) -> dict:
     """Get LLM suggestions for CSV field mapping using column letters"""
     logging.debug("Inferring field mapping for CSV data")
     preview_rows = df.head(25).fillna("").astype(str).values.tolist()
@@ -480,6 +478,5 @@ Return only valid JSON in this format:
         cached_completion(
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            api_key=api_key
         )
     )
