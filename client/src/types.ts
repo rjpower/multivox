@@ -3,7 +3,7 @@ export const CLIENT_SAMPLE_RATE = 16000;
 export const SERVER_SAMPLE_RATE = 24000;
 export const BYTES_PER_SAMPLE = 2; // 16-bit = 2 bytes
 
-export type MessageRole = "user" | "assistant";                                                                                                             
+export type MessageRole = "user" | "assistant" | "system";
 
 export interface TranslateRequest {
   text: string;
@@ -44,7 +44,6 @@ export interface Scenario {
   description: string;
   instructions: string;
 }
-
 
 export interface Language {
   code: string;
@@ -114,7 +113,6 @@ export type WebSocketMessage =
   | AudioWebSocketMessage
   | HintWebSocketMessage
   | TranslationWebSocketMessage;
-
 
 export enum WebSocketState {
   DISCONNECTED = "DISCONNECTED",

@@ -2,7 +2,7 @@ secrets/
 .aider*
 dist/
 build/
-server/downloads
+downloads
 
 # Node.js and TypeScript
 node_modules

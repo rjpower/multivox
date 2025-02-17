@@ -39,6 +39,11 @@ export async function initializeWebSocket(
 
   ws.onclose = (event) => {
     console.log("WebSocket closed:", event.code, event.reason);
+    onMessage({
+      type: "error",
+      text: "Connection lost. Please refresh the page to reconnect.",
+      role: "system"
+    });
   };
 
   ws.onmessage = onMessage;

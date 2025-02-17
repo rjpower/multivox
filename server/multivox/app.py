@@ -342,14 +342,19 @@ class BulkTranscriptionTask(LongRunningTask):
 
     async def _fetch_hint(self):
         history_items = []
+        scenario = ""
         for msg in self.state.history:
+            if msg.type == MessageType.INITIALIZE:
+                scenario = msg.text
             if msg.type == MessageType.TRANSCRIPTION:
                 history_items.append(f"> {msg.role}: {msg.transcription.transcription}")
             elif msg.type == MessageType.TEXT:
                 history_items.append(f"> {msg.role}: {msg.text}")
 
         history_prompt = "\n".join(history_items)
-        hints = await generate_hints(history_prompt, self.language)
+        hints = await generate_hints(
+            history_prompt, scenario=scenario, target_language=self.language
+        )
         msg = HintWebSocketMessage(
             role=MessageRole.ASSISTANT, hints=hints.hints, end_of_turn=True
         )
@@ -391,6 +396,7 @@ class BulkTranscriptionTask(LongRunningTask):
                 elif text:
                     msg = await self._fetch_translation(text, role)
             except Exception as e:
+                logger.exception("Error transcribing/translating audio")
                 msg = ErrorWebSocketMessage(
                     text=f"Sorry, I couldn't transcribe that audio: {e}",
                     role=role,
@@ -398,7 +404,15 @@ class BulkTranscriptionTask(LongRunningTask):
             await self.state.handle_message(msg)
 
             if msg.role == MessageRole.ASSISTANT:
-                msg = await self._fetch_hint()
+                try:
+                    msg = await self._fetch_hint()
+                except Exception as e:
+                    logger.exception("Error generating hints")
+                    msg = ErrorWebSocketMessage(
+                        role=MessageRole.ASSISTANT,
+                        text=f"Sorry, I couldn't generate hints. Error was {e}",
+                    )
+
                 await self.state.handle_message(msg)
 
 

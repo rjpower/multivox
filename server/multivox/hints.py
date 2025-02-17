@@ -7,28 +7,32 @@ from multivox.types import HintResponse, Language
 
 logger = logging.getLogger(__name__)
 
-HINT_FORMAT = """
-{
- "hints": [ {
-    "native": "<Response to the conversation, consistent with the level of the user>",
-    "translation": "<translation in idiomatic English>"
-  }]
-}
-"""
+HINT_PROMPT = """
+You are a language expert.
+You generate hints which help guide a user through a conversation.
 
-
-HINT_PROMPT = f"""
-You are a language expert. 
-
-Generate 3 natural responses to this conversation.
-Provide responses that would be appropriate in the conversation.
-Do not include any other text or explanations.
-Only provide responses suitable for the "user" role.
+You are given a list of "assistant" and "user" messages.
+Generate 3 natural responses suitable for the "user" role.
+Provide responses that would be appropriate for the "user" role.
 Do not provide responses for the "assistant".
+
+Do not include any other text or explanations.
+        
+Assume the language is {target_language.name}. 
+Output hints in {target_language.name}.
+
+<scenario>
+{scenario}
+</scenario>
 
 Output only valid JSON in this exact format:
 
-{HINT_FORMAT}
+{{ 
+  "hints": [ {{
+    "native": "<potential user message, consistent with the level of the user>",
+    "translation": "<translation in idiomatic English>"
+  }}]
+}}
 """
 
 STREAMING_HINT_PROMPT = """
@@ -59,12 +63,15 @@ You _must_ call `hint` before ending your turn.
 
 async def generate_hints(
     history: str,
-    language: Language | None,
+    scenario: str,
+    target_language: Language | None,
     model_id: str = settings.HINT_MODEL_ID,
     hint_prompt: str = HINT_PROMPT,
 ) -> HintResponse:
     """Generate possible responses to audio input"""
-    language_prompt = f"Assume the language is {language.name}.\n" if language else "\n"
+    language_prompt = hint_prompt.format(
+        scenario=scenario, target_language=target_language
+    )
     logger.info("Generating hints for: %s", history)
 
     messages = [

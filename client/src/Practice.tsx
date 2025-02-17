@@ -40,10 +40,12 @@ const ChatInterface = ({
   const messageInputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="space-y-4">
-      <ChatMessages
-        messages={chatHistory.getViewMessages()}
-        messageInputRef={messageInputRef}
-      />
+      <div className="space-y-4 mb-4">
+        <ChatMessages
+          messages={chatHistory.getViewMessages()}
+          messageInputRef={messageInputRef}
+        />
+      </div>
 
       <form
         onSubmit={(e) => {
