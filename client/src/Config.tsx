@@ -86,7 +86,7 @@ const ApiKeyInput = () => {
 
 const ConfigurationStatus = () => {
   const isReady = useAppStore((state) => state.isReady);
-  const selectedLanguage = useAppStore((state) => state.selectedLanguage);
+  const practiceLanguage = useAppStore((state) => state.practiceLanguage);
   const apiKeyStatus = useAppStore((state) => state.apiKeyStatus);
 
   return (
@@ -110,7 +110,7 @@ const ConfigurationStatus = () => {
                 {isReady ? "You're all set!" : "Configuration needed"}
               </h2>
               <p className="text-gray-600">
-                {apiKeyStatus === ApiKeyStatus.VALID && selectedLanguage
+                {apiKeyStatus === ApiKeyStatus.VALID && practiceLanguage
                   ? "You are ready to practice!"
                   : "Please configure your API key and select a language"}
               </p>
@@ -119,8 +119,8 @@ const ConfigurationStatus = () => {
 
           <div className="space-y-2 text-sm text-gray-600">
             <div className="flex items-center">
-              <StatusIcon isComplete={!!selectedLanguage} />
-              Language: {selectedLanguage ? "Selected" : "Required"}
+              <StatusIcon isComplete={!!practiceLanguage} />
+              Language: {practiceLanguage ? "Selected" : "Required"}
             </div>
             <div className="flex items-center">
               <StatusIcon isComplete={apiKeyStatus === ApiKeyStatus.VALID} />
@@ -130,7 +130,7 @@ const ConfigurationStatus = () => {
           </div>
         </div>
 
-        {apiKeyStatus === ApiKeyStatus.VALID && selectedLanguage && (
+        {apiKeyStatus === ApiKeyStatus.VALID && practiceLanguage && (
           <Link
             to="/scenarios"
             className="mt-6 w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
@@ -178,13 +178,13 @@ const ResetOptions = () => (
 
 const LanguageSelector = ({ className = "" }: { className?: string }) => {
   const languages = useAppStore((state) => state.languages);
-  const selectedLanguage = useAppStore((state) => state.selectedLanguage);
-  const setSelectedLanguage = useAppStore((state) => state.setSelectedLanguage);
+  const practiceLanguage = useAppStore((state) => state.practiceLanguage);
+  const setpracticeLanguage = useAppStore((state) => state.setpracticeLanguage);
 
   return (
     <select
-      value={selectedLanguage}
-      onChange={(e) => setSelectedLanguage(e.target.value)}
+      value={practiceLanguage}
+      onChange={(e) => setpracticeLanguage(e.target.value)}
       className={className}
     >
       <option value="" disabled>
@@ -209,6 +209,9 @@ export const Config = () => {
   const location = useLocation();
   const message = location.state?.message;
   const isLoading = useAppStore((state) => state.appLoading);
+  const nativeLanguage = useAppStore((state) => state.nativeLanguage);
+  const setNativeLanguage = useAppStore((state) => state.setNativeLanguage);
+  const languages = useAppStore((state) => state.languages);
 
   if (isLoading) {
     return (
@@ -231,10 +234,24 @@ export const Config = () => {
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="lg:w-[60%] bg-white rounded-lg shadow-md p-6">
             <form onSubmit={(e) => e.preventDefault()}>
-              <h2 className="text-sm font-medium text-gray-700 uppercase tracking-wide mb-2">
-                Practice Language
-              </h2>
               <div className="mb-8">
+                <h2 className="text-sm font-medium text-gray-700 uppercase tracking-wide mb-2">
+                  Native Language
+                </h2>
+                <select
+                  value={nativeLanguage}
+                  onChange={(e) => setNativeLanguage(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 mb-4"
+                >
+                  {languages.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
+                <h2 className="text-sm font-medium text-gray-700 uppercase tracking-wide mb-2">
+                  Practice Language
+                </h2>
                 <LanguageSelector className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                 <p className="mt-1 text-sm text-gray-500">
                   Select the language you want to practice with

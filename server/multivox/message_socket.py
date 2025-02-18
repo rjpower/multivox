@@ -50,7 +50,7 @@ class TypedWebSocket:
         try:
             return parse_websocket_message(data)
         except ValidationError as e:
-            raise ValueError(f"Invalid WebSocketMessage: {e} -- {data}")
+            raise ValueError(f"Invalid WebSocketMessage: {e} -- '{data}'")
 
     async def send_message(self, message: WebSocketMessage):
         """Send a WebSocketMessage"""

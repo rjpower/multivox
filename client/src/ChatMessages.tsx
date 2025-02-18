@@ -1,16 +1,76 @@
-import { ExclamationCircleIcon, CloudArrowUpIcon } from "@heroicons/react/24/outline";
-import React, { useEffect, useRef, useState } from "react";
-import { MessageRole, DictionaryEntry } from "./types";
-import { 
-  ChatViewMessage,
-  AudioViewMessage,
-  ErrorViewMessage,
-  HintViewMessage,
-  InitializeViewMessage,
-  TextViewMessage,
-  TranscriptionViewMessage,
-  TranslationViewMessage
-} from "./ChatHistory";
+import {
+  ExclamationCircleIcon,
+  CloudArrowUpIcon,
+  StopIcon,
+  PlayIcon,
+} from "@heroicons/react/24/outline";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  MessageRole,
+  DictionaryEntry,
+  WebSocketMessage,
+  HintOption,
+} from "./types";
+import { usePracticeStore } from "./stores/practice";
+
+// View-specific message types for the chat interface
+export interface ViewMessage {
+  role: MessageRole;
+  type: string;
+}
+
+export interface TextViewMessage extends ViewMessage {
+  type: "text";
+  text: string;
+}
+
+export interface AudioViewMessage extends ViewMessage {
+  id: string;
+  type: "audio";
+  placeholder: "🎤" | "🔊";
+  audioBuffers: string[];
+  isComplete: boolean;
+}
+
+export interface TranscriptionViewMessage extends ViewMessage {
+  type: "transcription";
+  source_text: string;
+  translated_text: string;
+  chunked: string[];
+  dictionary: Record<string, DictionaryEntry>;
+}
+
+export interface TranslationViewMessage extends ViewMessage {
+  type: "translation";
+  source_text: string;
+  translated_text: string;
+  chunked: string[];
+  dictionary: Record<string, DictionaryEntry>;
+}
+
+export interface HintViewMessage extends ViewMessage {
+  type: "hint";
+  hints: HintOption[];
+}
+
+export interface ErrorViewMessage extends ViewMessage {
+  type: "error";
+  text: string;
+}
+
+export interface InitializeViewMessage extends ViewMessage {
+  type: "initialize";
+  text: string;
+}
+
+export type ChatViewMessage =
+  | TextViewMessage
+  | AudioViewMessage
+  | TranscriptionViewMessage
+  | TranslationViewMessage
+  | HintViewMessage
+  | ErrorViewMessage
+  | InitializeViewMessage;
 
 interface MessageContainerProps {
   role: MessageRole;
@@ -43,7 +103,7 @@ const TranscriptionChunk = ({
     return <span>{term}</span>;
   }
 
-  const translation = dictionary[match].english;
+  const translation = dictionary[match].translated_text;
 
   return (
     <span
@@ -99,7 +159,7 @@ const HintMessageComponent = ({
               key={idx}
               onClick={() => {
                 if (messageInputRef.current) {
-                  messageInputRef.current.value = hint.native;
+                  messageInputRef.current.value = hint.source_text;
                   messageInputRef.current.focus();
                 }
               }}
@@ -109,9 +169,9 @@ const HintMessageComponent = ({
                      flex flex-col items-center gap-1
                      group cursor-pointer"
             >
-              <span className="font-medium">{hint.native}</span>
+              <span className="font-medium">{hint.source_text}</span>
               <span className="text-xs text-gray-500 group-hover:text-gray-700">
-                {hint.translation}
+                {hint.translated_text}
               </span>
             </button>
           ))}
@@ -121,14 +181,20 @@ const HintMessageComponent = ({
   );
 };
 
-const TranscriptionMessageComponent = ({ msg }: { msg: TranscriptionViewMessage }) => {
+const TranscriptionMessageComponent = ({
+  msg,
+}: {
+  msg: TranscriptionViewMessage;
+}) => {
   const [showTranslation, setShowTranslation] = useState(false);
 
   return (
     <MessageContainer role={msg.role}>
-      <div className={`max-w-[80%] px-4 py-2 ${
-        msg.role === "assistant" ? "text-gray-600" : "text-indigo-300"
-      } space-y-3`}>
+      <div
+        className={`max-w-[80%] px-4 py-2 ${
+          msg.role === "assistant" ? "text-gray-600" : "text-indigo-300"
+        } space-y-3`}
+      >
         <div className="text-sm leading-relaxed">
           {msg.chunked.map((term: string, idx: number) => (
             <TranscriptionChunk
@@ -138,40 +204,84 @@ const TranscriptionMessageComponent = ({ msg }: { msg: TranscriptionViewMessage 
             />
           ))}
         </div>
-        {msg.translation && (
-        <button
-          onClick={() => setShowTranslation(!showTranslation)}
-          className="text-xs text-indigo-600 hover:text-indigo-800"
-        >
-          {showTranslation ? "Hide" : "Show"} Translation
-        </button>
-      )}
-      {showTranslation && msg.translation && (
-        <div className="text-sm text-gray-600 italic">{msg.translation}</div>
-      )}
+        {msg.translated_text && (
+          <button
+            onClick={() => setShowTranslation(!showTranslation)}
+            className="text-xs text-indigo-600 hover:text-indigo-800"
+          >
+            {showTranslation ? "Hide" : "Show"} Translation
+          </button>
+        )}
+        {showTranslation && msg.translated_text && (
+          <div className="text-sm text-gray-600 italic">
+            {msg.translated_text}
+          </div>
+        )}
       </div>
     </MessageContainer>
   );
 };
 
-const AudioMessageComponent = ({ msg }: { msg: AudioViewMessage }) => (
-  <MessageContainer role={msg.role}>
-    <div className={`max-w-[80%] px-4 py-2 rounded-lg ${
-      msg.role === "assistant"
-        ? "bg-white text-gray-800 shadow"
-        : "bg-indigo-600 text-white"
-    }`}>
-      <span className="inline-flex items-center">
-        <span className="animate-[bounce_1s_ease-in-out]">
-          {msg.placeholder}
-        </span>
-        <span className="ml-1">...</span>
-      </span>
-    </div>
-  </MessageContainer>
-);
+const AudioMessageComponent = ({ msg }: { msg: AudioViewMessage }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioPlayer = usePracticeStore((state) => state.audioPlayer);
 
-const TranslateMessageComponent = ({ msg }: { msg: TranslationViewMessage }) => (
+  console.log("Is playing...", isPlaying);
+
+  const handlePlayback = async () => {
+    if (!audioPlayer || !msg.isComplete) return;
+
+    if (isPlaying) {
+      console.log("Stoppping...");
+      audioPlayer.stop();
+      setIsPlaying(false);
+    } else {
+      console.log("Starting...");
+      setIsPlaying(true);
+      await audioPlayer.playBuffers(msg.audioBuffers);
+      setIsPlaying(false);
+    }
+  };
+
+  return (
+    <MessageContainer role={msg.role}>
+      <div
+        className={`max-w-[80%] px-4 py-2 rounded-lg ${
+          msg.role === "assistant"
+            ? "bg-white text-gray-800 shadow"
+            : "bg-indigo-600 text-white"
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          {!msg.isComplete ? (
+            <span className="animate-[bounce_1s_ease-in-out]">
+              {msg.placeholder}
+            </span>
+          ) : (
+            <button
+              onClick={handlePlayback}
+              className={`p-2 rounded-full hover:bg-gray-100 ${
+                msg.role === "assistant" ? "text-gray-700" : "text-white"
+              }`}
+            >
+              {isPlaying ? (
+                <StopIcon className="h-5 w-5" />
+              ) : (
+                <PlayIcon className="h-5 w-5" />
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    </MessageContainer>
+  );
+};
+
+const TranslateMessageComponent = ({
+  msg,
+}: {
+  msg: TranslationViewMessage;
+}) => (
   <MessageContainer role={msg.role}>
     <div className="max-w-[80%] px-4 py-2 bg-white rounded-lg shadow">
       <div className="space-y-3">
@@ -182,19 +292,21 @@ const TranslateMessageComponent = ({ msg }: { msg: TranslationViewMessage }) => 
               term={term}
               dictionary={msg.dictionary || {}}
             />
-          )) || (
-            <div className="text-gray-800">{msg.original}</div>
-          )}
+          )) || <div className="text-gray-800">{msg.source_text}</div>}
         </div>
         <div className="text-sm text-gray-600 italic">
-          {msg.translation}
+          {msg.translated_text}
         </div>
       </div>
     </div>
   </MessageContainer>
 );
 
-const InitializeMessageComponent = ({ msg }: { msg: InitializeViewMessage }) => (
+const InitializeMessageComponent = ({
+  msg,
+}: {
+  msg: InitializeViewMessage;
+}) => (
   <MessageContainer role={msg.role}>
     <div className="max-w-[80%] px-4 py-2 bg-blue-50 text-gray-600 rounded-lg border border-blue-200">
       <div className="flex items-center gap-2 mb-2 text-blue-600">
@@ -213,11 +325,13 @@ const InitializeMessageComponent = ({ msg }: { msg: InitializeViewMessage }) => 
 
 const TextMessageComponent = ({ msg }: { msg: TextViewMessage }) => (
   <MessageContainer role={msg.role}>
-    <div className={`max-w-[80%] px-4 py-2 rounded-lg ${
-      msg.role === "assistant"
-        ? "bg-white text-gray-800 shadow"
-        : "bg-indigo-600 text-white"
-    }`}>
+    <div
+      className={`max-w-[80%] px-4 py-2 rounded-lg ${
+        msg.role === "assistant"
+          ? "bg-white text-gray-800 shadow"
+          : "bg-indigo-600 text-white"
+      }`}
+    >
       {msg.text.split("\n").map((line, i) => (
         <p key={i} className="whitespace-pre-wrap">
           {line}
@@ -238,13 +352,128 @@ const ErrorMessageComponent = ({ msg }: { msg: ErrorViewMessage }) => (
   </MessageContainer>
 );
 
+function processMessages(messages: WebSocketMessage[]): ChatViewMessage[] {
+  const viewMessages: ChatViewMessage[] = [];
+  let textBuffer = "";
+  let lastAudioMessage: Map<MessageRole, AudioViewMessage> = new Map();
+  let lastMessage: WebSocketMessage | null = null;
+
+  for (const message of messages) {
+    if (
+      message.type === "text" &&
+      message.role === "assistant" &&
+      !message.end_of_turn
+    ) {
+      textBuffer += message.text;
+      continue;
+    }
+
+    // We don't get an end of turn for audio itself, so we
+    // need to infer end of turn from the next message
+    if (message.type != "audio" && lastMessage?.type === "audio") {
+      const audioMessage = lastAudioMessage.get(message.role);
+      if (!audioMessage) {
+        console.log(
+          "BORK? No previous audio message found",
+          message,
+          lastMessage
+        );
+      } else {
+        audioMessage.isComplete = true;
+        lastAudioMessage.delete(message.role);
+      }
+    }
+
+    switch (message.type) {
+      case "audio":
+        if (lastAudioMessage.has(message.role)) {
+          lastAudioMessage.get(message.role)!.audioBuffers.push(message.audio);
+        } else {
+          const audioMsg = {
+            type: "audio",
+            id: `audio-${viewMessages.length}`,
+            role: message.role,
+            placeholder: message.role === "user" ? "🎤" : "🔊",
+            audioBuffers: [message.audio],
+            isComplete: false,
+          } as AudioViewMessage;
+          viewMessages.push(audioMsg);
+          lastAudioMessage.set(message.role, audioMsg);
+        }
+        break;
+
+      case "initialize":
+        viewMessages.push({
+          type: "initialize",
+          role: "assistant",
+          text: message.text,
+        });
+        break;
+
+      case "text":
+        if (message.text.trim()) {
+          viewMessages.push({
+            type: "text",
+            role: message.role,
+            text: message.text,
+          });
+        }
+        break;
+
+      case "transcription":
+        viewMessages.push({
+          type: "transcription",
+          role: message.role,
+          source_text: message.source_text,
+          translated_text: message.translated_text,
+          chunked: message.chunked || [],
+          dictionary: message.dictionary || {},
+        });
+        break;
+
+      case "translation":
+        viewMessages.push({
+          type: "translation",
+          role: message.role,
+          source_text: message.source_text,
+          translated_text: message.translated_text,
+          chunked: message.chunked || [],
+          dictionary: message.dictionary || {},
+        });
+        break;
+
+      case "hint":
+        viewMessages.push({
+          type: "hint",
+          role: message.role,
+          hints: message.hints,
+        });
+        break;
+
+      case "error":
+        viewMessages.push({
+          type: "error",
+          role: message.role,
+          text: message.text,
+        });
+        break;
+    }
+    lastMessage = message;
+  }
+  return viewMessages;
+}
+
 export const ChatMessages = ({
-  messages,
+  messages: rawMessages,
   messageInputRef,
 }: {
-  messages: ChatViewMessage[];
+  messages: WebSocketMessage[];
   messageInputRef: React.RefObject<HTMLInputElement | null>;
 }) => {
+  const viewMessages = useMemo(
+    () => processMessages(rawMessages),
+    [rawMessages]
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -253,12 +482,12 @@ export const ChatMessages = ({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [viewMessages]);
 
   return (
     <div className="p-4 bg-gray-50 rounded-lg shadow-inner min-h-[400px] max-h-[400px] overflow-y-auto">
       <div className="space-y-4">
-        {messages.map((msg, idx) => {
+        {viewMessages.map((msg, idx) => {
           switch (msg.type) {
             case "hint":
               return (
@@ -271,7 +500,7 @@ export const ChatMessages = ({
             case "transcription":
               return <TranscriptionMessageComponent key={idx} msg={msg} />;
             case "audio":
-              return <AudioMessageComponent key={idx} msg={msg} />;
+              return <AudioMessageComponent key={msg.id} msg={msg} />;
             case "translation":
               return <TranslateMessageComponent key={idx} msg={msg} />;
             case "initialize":

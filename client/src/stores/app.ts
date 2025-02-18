@@ -1,13 +1,8 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import { Language, Scenario } from "../types";
+import { Language, Scenario, VocabularyEntry } from "../types";
 
-interface SavedVocabularyItem {
-  term: string;
-  translation: string;
-  notes?: string;
-  context?: string;
-  chunks?: string[];
+interface SavedVocabularyItem extends VocabularyEntry {
   dateAdded: number;
 }
 
@@ -48,9 +43,12 @@ interface AppState {
 
   // Language
   languages: Language[];
-  selectedLanguage: string;
+  practiceLanguage: string;
   setLanguages: (languages: Language[]) => void;
-  setSelectedLanguage: (code: string) => void;
+  setpracticeLanguage: (code: string) => void;
+
+  nativeLanguage: string;
+  setNativeLanguage: (code: string) => void;
 
   // API
   geminiApiKey: string | null;
@@ -99,14 +97,19 @@ export const useAppStore = create<AppState>()(
           set({ geminiApiKey: storedApiKey, apiKeyStatus: ApiKeyStatus.VALID });
         }
 
-        console.log("Restoring selected language...");
-        const storedLanguage = localStorage.getItem("selectedLanguage");
+        console.log("Restoring language settings...");
+        const storedLanguage = localStorage.getItem("practiceLanguage");
         if (storedLanguage) {
-          get().setSelectedLanguage(storedLanguage);
+          get().setpracticeLanguage(storedLanguage);
+        }
+
+        const storedNativeLanguage = localStorage.getItem("nativeLanguage");
+        if (storedNativeLanguage) {
+          get().setNativeLanguage(storedNativeLanguage);
         }
 
         set({
-          isReady: !!(get().selectedLanguage && get().geminiApiKey),
+          isReady: !!(get().practiceLanguage && get().geminiApiKey),
         });
       } catch (error) {
         console.error("Failed to initialize store:", error);
@@ -129,7 +132,7 @@ export const useAppStore = create<AppState>()(
         add: (item: Omit<SavedVocabularyItem, "dateAdded">) => {
           const store = get().vocabulary;
           const exists = store.items.some(
-            (i: SavedVocabularyItem) => i.term === item.term
+            (i: SavedVocabularyItem) => i.source_text === item.source_text
           );
           if (!exists) {
             const newItem = { ...item, dateAdded: Date.now() };
@@ -147,7 +150,7 @@ export const useAppStore = create<AppState>()(
         remove: (term: string) => {
           const store = get().vocabulary;
           const newItems = store.items.filter(
-            (item: SavedVocabularyItem) => item.term !== term
+            (item: SavedVocabularyItem) => item.source_text !== term
           );
           localStorage.setItem("savedVocabulary", JSON.stringify(newItems));
           set((state) => ({
@@ -169,7 +172,9 @@ export const useAppStore = create<AppState>()(
         },
 
         exists: (term: string) => {
-          return get().vocabulary.items.some((item) => item.term === term);
+          return get().vocabulary.items.some(
+            (item) => item.source_text === term
+          );
         },
 
         getAll: () => get().vocabulary.items,
@@ -177,18 +182,23 @@ export const useAppStore = create<AppState>()(
 
       // Language Store
       languages: [],
-      selectedLanguage: "",
+      practiceLanguage: "",
+      nativeLanguage: "en",
       setLanguages: (languages) =>
         set({
           languages,
           appLoading: !get().systemScenarios.length,
         }),
-      setSelectedLanguage: (code) => {
+      setpracticeLanguage: (code) => {
         set((state) => ({
-          selectedLanguage: code,
+          practiceLanguage: code,
           isReady: !!(code && state.geminiApiKey),
         }));
-        localStorage.setItem("selectedLanguage", code);
+        localStorage.setItem("practiceLanguage", code);
+      },
+      setNativeLanguage: (code) => {
+        set({ nativeLanguage: code });
+        localStorage.setItem("nativeLanguage", code);
       },
 
       // API Store
@@ -215,7 +225,7 @@ export const useAppStore = create<AppState>()(
           localStorage.setItem("geminiApiKey", key);
           set((state) => ({
             apiKeyStatus: ApiKeyStatus.VALID,
-            isReady: !!(key && state.selectedLanguage),
+            isReady: !!(key && state.practiceLanguage),
           }));
         } else {
           const errorData = await response.json();

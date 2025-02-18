@@ -1,8 +1,10 @@
 import {
   ArrowLeftCircleIcon,
+  BookOpenIcon,
   InformationCircleIcon,
   MicrophoneIcon,
   LanguageIcon,
+  PaperAirplaneIcon,
   XCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -39,40 +41,33 @@ const ChatInterface = ({
 }) => {
   const messageInputRef = useRef<HTMLInputElement>(null);
   return (
-    <div className="space-y-4">
-      <div className="space-y-4 mb-4">
+    <div className="flex flex-col h-full">
+      <div className="flex-1 space-y-4 mb-4 overflow-y-auto">
         <ChatMessages
-          messages={chatHistory.getViewMessages()}
+          messages={chatHistory.getMessages()}
           messageInputRef={messageInputRef}
         />
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const input = e.currentTarget.elements.namedItem(
-            "message"
-          ) as HTMLInputElement;
-          const text = input.value.trim();
-          if (text) {
-            onSendMessage(text);
-            input.value = "";
-          }
-        }}
-        className="flex space-x-2 items-center"
-      >
-        <div className="flex-1 flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500">
-          <input
-            ref={messageInputRef}
-            type="text"
-            name="message"
-            placeholder="Type your message..."
-            className="flex-1 focus:outline-none"
-          />
+      <div className="border-t border-gray-200 bg-white px-4 py-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const input = e.currentTarget.elements.namedItem(
+              "message"
+            ) as HTMLInputElement;
+            const text = input.value.trim();
+            if (text) {
+              onSendMessage(text);
+              input.value = "";
+            }
+          }}
+          className="flex items-center gap-2"
+        >
           <button
             type="button"
             onClick={isRecording ? onStopRecording : onStartRecording}
-            className={`p-1.5 rounded-full transition-colors ${
+            className={`p-2 rounded-full transition-colors ${
               isRecording
                 ? "bg-red-100 text-red-600 hover:bg-red-200"
                 : "hover:bg-gray-100 text-gray-500 hover:text-gray-700"
@@ -82,22 +77,28 @@ const ChatInterface = ({
               className={`h-5 w-5 ${isRecording ? "animate-pulse" : ""}`}
             />
           </button>
-        </div>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          Send
-        </button>
-      </form>
+
+          <input
+            ref={messageInputRef}
+            type="text"
+            name="message"
+            placeholder="Type your message..."
+            className="flex-1 focus:outline-none"
+          />
+
+          <button
+            type="submit"
+            className="p-2 text-gray-500 hover:text-gray-700"
+          >
+            <PaperAirplaneIcon className="h-5 w-5" />
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
 
-const ScenarioEditor = ({
-  scenario,
-  onChange,
-}: ScenarioEditorProps) => {
+const ScenarioEditor = ({ scenario, onChange }: ScenarioEditorProps) => {
   return (
     <div className="space-y-6">
       <div>
@@ -145,7 +146,8 @@ const ScenarioContent = ({
   editableScenario,
   scenarioId,
   practiceState,
-  selectedLanguage,
+  practiceLanguage,
+  nativeLanguage,
   onScenarioChange,
   onStart,
 }: {
@@ -153,9 +155,14 @@ const ScenarioContent = ({
   editableScenario: Scenario | null;
   scenarioId: string;
   practiceState: PracticeState;
-  selectedLanguage: string;
+  practiceLanguage: string;
+  nativeLanguage: string;
   onScenarioChange: (updates: Partial<Scenario>) => void;
-  onStart: (instructions: string, language: string) => Promise<void>;
+  onStart: (
+    instructions: string,
+    practiceLanguage: string,
+    nativeLanguage: string
+  ) => Promise<void>;
 }) => {
   if (!scenario || practiceState !== PracticeState.WAITING) {
     return null;
@@ -172,7 +179,9 @@ const ScenarioContent = ({
         <ScenarioViewer scenario={scenario} />
       )}
       <PracticeControls
-        onStart={() => onStart(scenario.instructions, selectedLanguage)}
+        onStart={() =>
+          onStart(scenario.instructions, practiceLanguage, nativeLanguage)
+        }
       />
     </>
   );
@@ -202,7 +211,10 @@ const ChatContent = ({
       isRecording={isRecording}
       chatHistory={chatHistory}
       onStartRecording={onStartRecording}
-      onStopRecording={onStopRecording}
+      onStopRecording={() => {
+        onStopRecording();
+        onSendMessage("");
+      }}
       onSendMessage={onSendMessage}
     />
   );
@@ -220,7 +232,7 @@ const ScenarioViewer = ({ scenario }: ScenarioViewerProps) => {
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Instructions
         </label>
-        <div className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+        <div className="w-full min-h-[8rem] max-h-[12rem] overflow-y-auto px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
           {scenario.instructions}
         </div>
       </div>
@@ -234,8 +246,12 @@ const TranslatingModal = () => {
       <div className="bg-white p-6 rounded-lg shadow-xl flex items-center space-x-4">
         <LanguageIcon className="h-8 w-8 text-indigo-500 animate-spin" />
         <div>
-          <h3 className="text-lg font-medium text-gray-900">Translating Instructions</h3>
-          <p className="text-gray-500">Please wait while we prepare your practice session...</p>
+          <h3 className="text-lg font-medium text-gray-900">
+            Translating Instructions
+          </h3>
+          <p className="text-gray-500">
+            Please wait while we prepare your practice session...
+          </p>
         </div>
       </div>
     </div>
@@ -252,7 +268,7 @@ const PracticeControls = ({ onStart }: { onStart: () => Promise<void> }) => {
 
   return (
     <div className="space-y-4 mt-6">
-      <div className="flex items-center space-x-4">
+      <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
         <label className="text-sm font-medium text-gray-700">
           Response Type:
         </label>
@@ -290,10 +306,10 @@ const PracticeControls = ({ onStart }: { onStart: () => Promise<void> }) => {
   );
 };
 
-const ErrorDisplay = ({ 
+const ErrorDisplay = ({
   error,
-  onDismiss
-}: { 
+  onDismiss,
+}: {
   error: { type: string | null; message: string | null };
   onDismiss: () => void;
 }) => {
@@ -302,7 +318,7 @@ const ErrorDisplay = ({
   const errorTitles = {
     translation: "Translation Error",
     connection: "Connection Error",
-    recording: "Recording Error"
+    recording: "Recording Error",
   };
 
   return (
@@ -336,6 +352,7 @@ const ErrorDisplay = ({
 };
 
 export const Practice = () => {
+  const [isVocabVisible, setIsVocabVisible] = useState(false);
   const { scenarioId = "" } = useParams<{ scenarioId: string }>();
   const navigate = useNavigate();
   const error = usePracticeStore((state) => state.error);
@@ -357,7 +374,9 @@ export const Practice = () => {
   const userScenarios = useAppStore((state) => state.userScenarios);
   const addUserScenario = useAppStore((state) => state.addUserScenario);
   const updateUserScenario = useAppStore((state) => state.updateUserScenario);
-  const selectedLanguage = useAppStore((state) => state.selectedLanguage);
+  const practiceLanguage = useAppStore((state) => state.practiceLanguage);
+  const nativeLanguage = useAppStore((state) => state.nativeLanguage);
+
   const reset = usePracticeStore((state) => state.reset);
   useEffect(() => {
     // Reset state when scenarioId changes or component unmounts
@@ -430,7 +449,7 @@ A client has entered and needs assistance.
     <ErrorBoundary>
       <div className="min-h-screen bg-gray-100 p-4">
         <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0 mb-4">
             <button
               onClick={() => navigate("/scenarios")}
               className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
@@ -458,7 +477,15 @@ A client has entered and needs assistance.
 
           <ErrorDisplay error={error} onDismiss={clearError} />
 
-          <div className="flex gap-4">
+          <div className="flex flex-col lg:flex-row gap-4 relative">
+            <div className="absolute top-4 right-4 lg:hidden">
+              <button
+                onClick={() => setIsVocabVisible(!isVocabVisible)}
+                className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+              >
+                <BookOpenIcon className="h-5 w-5" />
+              </button>
+            </div>
             <div className="flex-1">
               <div className="bg-white rounded-lg shadow-md p-4">
                 <ScenarioContent
@@ -466,7 +493,8 @@ A client has entered and needs assistance.
                   editableScenario={editableScenario}
                   scenarioId={scenarioId}
                   practiceState={practiceState}
-                  selectedLanguage={selectedLanguage}
+                  practiceLanguage={practiceLanguage}
+                  nativeLanguage={nativeLanguage}
                   onScenarioChange={(updates) =>
                     setEditableScenario((prev) =>
                       prev ? { ...prev, ...updates } : null
@@ -484,8 +512,31 @@ A client has entered and needs assistance.
                 />
               </div>
             </div>
-            <div className="w-80 shrink-0">
-              <PracticeVocabulary messages={chatHistory.getViewMessages()} />
+            <div
+              className={`
+              fixed lg:relative top-0 right-0 h-full 
+              w-80 bg-white lg:bg-transparent
+              transform transition-transform duration-300 ease-in-out
+              ${
+                isVocabVisible
+                  ? "translate-x-0"
+                  : "translate-x-full lg:translate-x-0"
+              }
+              lg:w-80 lg:shrink-0 
+              shadow-lg lg:shadow-none
+              z-50 lg:z-auto
+            `}
+            >
+              <div className="lg:hidden flex items-center justify-between p-4 border-b">
+                <h3 className="font-medium">Vocabulary</h3>
+                <button
+                  onClick={() => setIsVocabVisible(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+              <PracticeVocabulary messages={chatHistory.getMessages()} />
             </div>
           </div>
         </div>

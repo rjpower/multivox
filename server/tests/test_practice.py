@@ -35,7 +35,7 @@ def _translate_instructions(client: TestClient, text: str, target_language: str,
     )
     assert translate_response.status_code == 200, translate_response.text
     translation = TranslateResponse.model_validate_json(translate_response.text)
-    return translation.translation
+    return translation.translated_text
 
 # Use a known scenario ID from the test data
 SCENARIO_ID = [s for s in list_scenarios() if "hotel" in s.title.lower()][0].id

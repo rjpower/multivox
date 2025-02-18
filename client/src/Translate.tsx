@@ -48,7 +48,7 @@ export const Translate = () => {
 
       // Now translate back to English
       const reverseRequest: TranslateRequest = {
-        text: data.translation,
+        text: data.translated_text,
         target_language: "en",
         api_key: apiKey,
       };
@@ -129,7 +129,7 @@ export const Translate = () => {
               <div>
                 <h3 className="font-medium text-gray-900">Translation</h3>
                 <p className="mt-2 text-gray-600 whitespace-pre-wrap">
-                  {translation.translation.replace(/\n/g, "\n")}
+                  {translation.translated_text.replace(/\n/g, "\n")}
                 </p>
               </div>
 
@@ -137,7 +137,7 @@ export const Translate = () => {
                 <div>
                   <h3 className="font-medium text-gray-900">Back to English</h3>
                   <p className="mt-2 text-gray-600 whitespace-pre-wrap">
-                    {reverseTranslation.translation.replace(/\n/g, "\n")}
+                    {reverseTranslation.translated_text.replace(/\n/g, "\n")}
                   </p>
                 </div>
               )}

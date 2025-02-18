@@ -47,7 +47,7 @@ export const Demo = () => {
           systemScenarios: newState.systemScenarios || [],
           userScenarios: newState.userScenarios || [],
           languages: newState.languages,
-          selectedLanguage: newState.selectedLanguage,
+          practiceLanguage: newState.practiceLanguage,
           geminiApiKey: newState.geminiApiKey,
           apiKeyStatus: newState.apiKeyStatus,
           isReady: newState.isReady,

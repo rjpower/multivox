@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
 
     LIVE_MODEL_ID: str = "gemini-2.0-flash-exp"
-    TRANSCRIPTION_MODEL_ID: str = "gemini-1.5-flash"
+    TRANSCRIPTION_MODEL_ID: str = "gemini-2.0-flash"
     TRANSLATION_MODEL_ID: str = "openai/gpt-4o-mini"
     HINT_MODEL_ID: str = "openai/gpt-4o-mini"
     COMPLETION_MODEL_ID: str = "gemini/gemini-2.0-flash"

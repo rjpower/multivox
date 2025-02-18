@@ -30,7 +30,7 @@ const RequireReady = ({ children }: RequireApiKeyProps) => {
     useAppStore((state) => state.isReady),
     useAppStore((state) => state.appLoading),
     useAppStore((state) => state.geminiApiKey),
-    useAppStore((state) => state.selectedLanguage)
+    useAppStore((state) => state.practiceLanguage)
   );
 
   if (isLoading) {

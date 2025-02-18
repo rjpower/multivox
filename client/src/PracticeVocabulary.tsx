@@ -1,35 +1,37 @@
 import { useState, useEffect } from "react";
-import { DictionaryEntry } from "./types";
+import { VocabularyEntry, WebSocketMessage } from "./types";
 import { useAppStore } from "./store";
 import { BookmarkIcon, BookmarkSquareIcon } from "@heroicons/react/24/outline";
 import { BookmarkIcon as BookmarkSolidIcon } from "@heroicons/react/24/solid";
-import { ChatViewMessage } from "./ChatHistory";
-
-interface VocabularyItem {
-  term: string;
-  entry: DictionaryEntry;
-}
 
 export const PracticeVocabulary = ({
   messages,
 }: {
-  messages: Array<ChatViewMessage>;
+  messages: Array<WebSocketMessage>;
 }) => {
-  const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
+  const [vocabulary, setVocabulary] = useState<VocabularyEntry[]>([]);
 
   useEffect(() => {
     // Collect unique vocabulary items from all transcription messages
-    const vocabMap = new Map<string, DictionaryEntry>();
+    const vocabMap = new Map<string, VocabularyEntry>();
 
     messages.forEach((msg) => {
       if (msg.type === "transcription" && msg.dictionary) {
         Object.entries(msg.dictionary).forEach(([term, entry]) => {
-          vocabMap.set(term, entry);
+          vocabMap.set(term, {
+            ...entry,
+            context_source: msg.source_text,
+            context_translated: msg.translated_text,
+          });
         });
       }
       if (msg.type === "translation" && msg.dictionary) {
         Object.entries(msg.dictionary).forEach(([term, entry]) => {
-          vocabMap.set(term, entry);
+          vocabMap.set(term, {
+            ...entry,
+            context_source: msg.source_text,
+            context_translated: msg.translated_text,
+          });
         });
       }
     });
@@ -39,7 +41,7 @@ export const PracticeVocabulary = ({
       .map(([term, entry]) => ({ term, entry }))
       .sort((a, b) => a.term.localeCompare(b.term));
 
-    setVocabulary(sortedVocab);
+    setVocabulary(sortedVocab.map((item) => item.entry));
   }, [messages]);
 
   if (vocabulary.length === 0) {
@@ -48,26 +50,29 @@ export const PracticeVocabulary = ({
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4 max-h-[600px] overflow-y-auto">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">Vocabulary</h3>
+      <div className="flex justify-end mb-4">
         <BookmarkAllButton vocabulary={vocabulary} />
       </div>
       <div className="space-y-3">
-        {vocabulary.map(({ term, entry }) => (
+        {vocabulary.map((entry) => (
           <div
-            key={term}
+            key={entry.source_text}
             className="group hover:bg-indigo-50 p-2 rounded-md transition-colors flex justify-between items-start"
           >
             <div className="flex-1">
-              <div className="text-md font-medium text-gray-900">{term}</div>
-              <div className="text-sm text-gray-600">{entry.english}</div>
+              <div className="text-md font-medium text-gray-900">
+                {entry.source_text}
+              </div>
+              <div className="text-sm text-gray-600">
+                {entry.translated_text}
+              </div>
               {entry.notes && (
                 <div className="text-xs text-gray-500 italic group-hover:block">
                   {entry.notes}
                 </div>
               )}
             </div>
-            <SaveVocabButton term={term} entry={entry} />
+            <SaveVocabButton entry={entry} />
           </div>
         ))}
       </div>
@@ -76,23 +81,21 @@ export const PracticeVocabulary = ({
 };
 
 interface SaveVocabButtonProps {
-  term: string;
-  entry: DictionaryEntry;
+  entry: VocabularyEntry;
 }
 
-const BookmarkAllButton = ({ vocabulary }: { vocabulary: VocabularyItem[] }) => {
+const BookmarkAllButton = ({
+  vocabulary,
+}: {
+  vocabulary: VocabularyEntry[];
+}) => {
   const add = useAppStore((state) => state.vocabulary.add);
   const exists = useAppStore((state) => state.vocabulary.exists);
-  
+
   const handleBookmarkAll = () => {
-    vocabulary.forEach(({ term, entry }) => {
-      if (!exists(term)) {
-        add({
-          term,
-          translation: entry.english,
-          notes: entry.notes,
-          context: entry.native,
-        });
+    vocabulary.forEach((entry) => {
+      if (!exists(entry.source_text)) {
+        add(entry);
       }
     });
   };
@@ -109,21 +112,16 @@ const BookmarkAllButton = ({ vocabulary }: { vocabulary: VocabularyItem[] }) => 
   );
 };
 
-const SaveVocabButton = ({ term, entry }: SaveVocabButtonProps) => {
+const SaveVocabButton = ({ entry }: SaveVocabButtonProps) => {
   const add = useAppStore((state) => state.vocabulary.add);
   const remove = useAppStore((state) => state.vocabulary.remove);
-  const isSaved = useAppStore((state) => state.vocabulary.exists(term));
+  const isSaved = useAppStore((state) => state.vocabulary.exists(entry.source_text));
 
   const handleClick = () => {
     if (isSaved) {
-      remove(term);
+      remove(entry.source_text);
     } else {
-      add({
-        term,
-        translation: entry.english,
-        notes: entry.notes,
-        context: entry.native,
-      });
+      add(entry);
     }
   };
 

@@ -12,30 +12,22 @@ export interface TranslateRequest {
   api_key?: string;
 }
 
-export interface VocabularyEntry {
-  native: string;
-  translation: string;
-  notes?: string;
-}
-
 export interface DictionaryEntry {
-  english: string;
-  native: string;
+  source_text: string;
+  translated_text: string;
   notes?: string;
 }
 
-export interface TranscribeResponse {
-  transcription: string;
-  chunked: string[];
-  dictionary: Record<string, DictionaryEntry>;
-  translation: string;
+export interface VocabularyEntry extends DictionaryEntry {
+  context_source: string;
+  context_translated: string;
 }
 
 export interface TranslateResponse {
-  translation: string;
+  source_text: string;
+  translated_text: string;
   chunked: string[];
   dictionary: Record<string, DictionaryEntry>;
-  original: string;
 }
 
 export interface Scenario {
@@ -63,8 +55,8 @@ interface BaseWebSocketMessage {
 }
 
 export interface HintOption {
-  native: string;
-  translation: string;
+  source_text: string;
+  translated_text: string;
 }
 
 export interface InitializeWebSocketMessage extends BaseWebSocketMessage {
@@ -89,7 +81,10 @@ export interface TextWebSocketMessage extends BaseWebSocketMessage {
 
 export interface TranscriptionWebSocketMessage extends BaseWebSocketMessage {
   type: "transcription";
-  transcription: TranscribeResponse;
+  source_text: string;
+  translated_text: string;
+  chunked: string[];
+  dictionary: Record<string, DictionaryEntry>;
 }
 
 export interface AudioWebSocketMessage extends BaseWebSocketMessage {
@@ -99,8 +94,8 @@ export interface AudioWebSocketMessage extends BaseWebSocketMessage {
 
 export interface TranslationWebSocketMessage extends BaseWebSocketMessage {
   type: "translation";
-  original: string;
-  translation: string;
+  source_text: string;
+  translated_text: string;
   chunked: string[];
   dictionary: Record<string, DictionaryEntry>;
 }

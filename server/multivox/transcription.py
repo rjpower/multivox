@@ -37,16 +37,16 @@ Include translations for important vocabulary, phrases, and idioms in the dictio
 Generate only a single top level object (not a list) with the following structure:
 
 {{
-    "transcription": "はい、かしこまりました。ご用をでしょうか。",
+    "source_text": "はい、かしこまりました。ご用をでしょうか。",
+    "translated_text": "Complete English translation of the full text",
     "dictionary": {{
         "<key term>": {{
-            "english": "English meaning",
             "native": "Native meaning",
+            "translation": "English meaning",
             "notes": "Optional usage notes"
         }}
     }},
     "chunked": ["はい、", "かしこまりました。", "ご用", "をでしょうか。"],
-    "translation": "Complete English translation of the full text",
 }}
 
 Only output valid JSON. Do not include any other text or explanations.
@@ -81,16 +81,16 @@ Call the `transcribe` tool with the following arguments:
 
 ```
 transcribe({{
-  transcription="はい、かしこまりました。ご用をでしょうか。",
+  source_text="はい、かしこまりました。ご用をでしょうか。",
+  translated_text="Complete English translation of the full text",
   dictionary={{
     "<key term>": {{
-        "english": "English meaning",
         "native": "Native meaning",
+        "translation": "English meaning",
         "notes": "Optional usage notes"
     }}
   }},
   chunked=["はい、", "かしこまりました。", "ご用", "をでしょうか。"],
-  translation="Complete English translation of the full text",
 }})
 ```
 
@@ -148,7 +148,8 @@ def pcm_to_wav(pcm_data: bytes, mime_type: str) -> bytes:
 async def transcribe(
     audio_data: bytes,
     mime_type: str,
-    source_language: Language | None,
+    source_language: Language,
+    target_language: Language,
     api_key: str | None = None,
     transcription_prompt: str = TRANSCRIPTION_PROMPT,
     model_id: str = settings.TRANSCRIPTION_MODEL_ID,
@@ -174,15 +175,15 @@ async def transcribe(
     response = await translate(
         text=response.text,
         source_language=source_language,
-        target_language=LANGUAGES["en"],
+        target_language=target_language,
         api_key=api_key,
     )
 
     return TranscribeResponse(
-        transcription=transcription,
+        source_text=transcription,
         dictionary=response.dictionary,
         chunked=response.chunked,
-        translation=response.translation,
+        translated_text=response.translated_text,
     )
 
 

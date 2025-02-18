@@ -37,9 +37,11 @@ async def test_translate_basic():
     )
     print(result)
 
-    assert result.translation != test_text  # Translation should be different from input
     assert (
-        "こんにちは" in result.translation or "はい" in result.translation
+        result.translated_text != test_text
+    )  # Translation should be different from input
+    assert (
+        "こんにちは" in result.translated_text or "はい" in result.translated_text
     )  # Should contain Japanese text
 
 
@@ -79,18 +81,18 @@ async def test_translate_long_instructions(lang_code: str, expected_words: list[
 
     # Check the translation is non-empty and roughly proportional in length
     # (allowing for different language characteristics)
-    assert len(result.translation) > len(INSTRUCTIONS) * 0.3
-    assert len(result.translation) < len(INSTRUCTIONS) * 2.0
+    assert len(result.translated_text) > len(INSTRUCTIONS) * 0.3
+    assert len(result.translated_text) < len(INSTRUCTIONS) * 2.0
 
     # Check that obvious English terms are not present
     english_terms = ["teacher", "lesson", "instructions", "conversation"]
     for term in english_terms:
-        assert term.lower() not in result.translation.lower()
+        assert term.lower() not in result.translated_text.lower()
 
     # Check for presence of language-specific words
     found_words = False
     for word in expected_words:
-        if word in result.translation:
+        if word in result.translated_text:
             found_words = True
             break
     assert found_words, f"Expected to find words like {expected_words} in {lang_code} translation"

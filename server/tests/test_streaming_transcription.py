@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 from google import genai
-from multivox.app import StreamingTranscriptionTask
 from multivox.config import settings
+from multivox.tasks import StreamingTranscriptionTask
 from multivox.types import (
     LANGUAGES,
     AudioWebSocketMessage,

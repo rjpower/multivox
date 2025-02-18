@@ -12,7 +12,9 @@ export class AudioPlayer {
   private convertPCMToAudioBuffer(pcmData: Uint8Array): AudioBuffer {
     // Validate input length matches our 16-bit sample expectation
     if (pcmData.length % BYTES_PER_SAMPLE !== 0) {
-      throw new Error(`Invalid PCM data length ${pcmData.length}. Must be multiple of ${BYTES_PER_SAMPLE} bytes for 16-bit samples.`);
+      throw new Error(
+        `Invalid PCM data length ${pcmData.length}. Must be multiple of ${BYTES_PER_SAMPLE} bytes for 16-bit samples.`
+      );
     }
 
     // Create an audio buffer (mono channel)
@@ -36,12 +38,12 @@ export class AudioPlayer {
     // Log some debug info about the audio data
     const maxSample = Math.max(...Array.from(channelData));
     const minSample = Math.min(...Array.from(channelData));
-    console.log('Audio buffer stats:', {
+    console.log("Audio buffer stats:", {
       sampleRate: audioBuffer.sampleRate,
       length: audioBuffer.length,
       duration: audioBuffer.duration,
       maxSample,
-      minSample
+      minSample,
     });
 
     return audioBuffer;
@@ -55,17 +57,20 @@ export class AudioPlayer {
       for (let i = 0; i < binaryString.length; i++) {
         pcmData[i] = binaryString.charCodeAt(i);
       }
-      
+
       // Convert PCM to AudioBuffer
       const audioBuffer = this.convertPCMToAudioBuffer(pcmData);
-      
+
       // Create and schedule the source
       const source = this.audioContext.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(this.audioContext.destination);
 
       // If this is the first buffer or we're restarting or if scheduled time is in the past
-      if (this.nextStartTime === 0 || this.nextStartTime < this.audioContext.currentTime) {
+      if (
+        this.nextStartTime === 0 ||
+        this.nextStartTime < this.audioContext.currentTime
+      ) {
         // If we're starting fresh or if the next scheduled time is in the past,
         // start from the current time
         this.nextStartTime = this.audioContext.currentTime;
@@ -77,11 +82,33 @@ export class AudioPlayer {
 
       // Calculate the next start time based on the current buffer's duration
       this.nextStartTime += audioBuffer.duration;
-      console.log('Scheduled audio at:', this.nextStartTime);
-
+      console.log("Scheduled audio at:", this.nextStartTime);
     } catch (error) {
-      console.error('Error processing audio:', error);
+      console.error("Error processing audio:", error);
     }
+  }
+
+  private isPlaying = false;
+
+  public playBuffers(buffers: string[]): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.isPlaying) {
+        this.stop();
+      }
+
+      this.isPlaying = true;
+
+      const lastSource = this.audioContext.createBufferSource();
+      lastSource.onended = () => {
+        this.isPlaying = false;
+        resolve();
+      };
+
+      for (const buffer of buffers) {
+        if (!this.isPlaying) break;
+        this.addAudioToQueue(buffer);
+      }
+    });
   }
 
   public stop() {
@@ -91,10 +118,11 @@ export class AudioPlayer {
     }
     this.scheduledSources = [];
     this.nextStartTime = 0;
+    this.isPlaying = false;
   }
 
   public resume() {
-    if (this.audioContext.state === 'suspended') {
+    if (this.audioContext.state === "suspended") {
       this.audioContext.resume();
     }
   }
