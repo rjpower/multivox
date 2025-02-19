@@ -7,15 +7,19 @@ from fastapi.websockets import WebSocketState
 from google import genai
 from google.genai import live as genai_live
 from google.genai import types as genai_types
+from silero_vad import get_speech_timestamps, load_silero_vad
 from websockets import ConnectionClosedOK
 
 from multivox.config import settings
-from multivox.hints import generate_hints
+from multivox.hint import generate_hints
 from multivox.message_socket import TypedWebSocket
-from multivox.transcription import (
+from multivox.transcribe import (
+    convert_to_wav,
     transcribe,
+    transcribe_and_hint,
 )
-from multivox.translation import translate
+from multivox.translate import translate
+from multivox.tts import generate_tts_audio_async
 from multivox.types import (
     CLIENT_SAMPLE_RATE,
     SERVER_SAMPLE_RATE,
@@ -30,6 +34,8 @@ from multivox.types import (
     WebSocketMessage,
 )
 
+vad_model = load_silero_vad()
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,35 +46,40 @@ class MessageBuffer:
         self.role = role
         self.sample_rate = sample_rate
         self.current_audio: bytes = b""
-        self.current_text: str = ""
         self.turn_complete = False
 
     def add_audio(self, audio: bytes):
         self.current_audio += audio
 
-    def add_text(self, text: str, end_of_turn: bool = False):
-        self.current_text += text
-        self.turn_complete = end_of_turn
-
-    def end_turn(self) -> tuple[bytes, str]:
+    def end_turn(self) -> bytes:
         audio = self.current_audio
-        text = self.current_text
         self.current_audio = b""
-        self.current_text = ""
         self.turn_complete = False
-        return audio, text
+        return audio
+
+
+class MessageSubscriber:
+    """Base class for message subscribers"""
+
+    async def handle_message(self, message: WebSocketMessage) -> None:
+        raise NotImplementedError()
 
 
 class ChatState:
-    """Holds the conversation state."""
+    """Holds the conversation state and manages message distribution."""
 
     def __init__(self, session: genai_live.AsyncSession, user_ws: TypedWebSocket):
         self.history: list[WebSocketMessage] = []
-        self.message_queue: asyncio.Queue[WebSocketMessage] = asyncio.Queue()
+        self.subscribers: list[MessageSubscriber] = []
         self.gemini = session
         self.user_ws = user_ws
 
+    def add_subscriber(self, subscriber: MessageSubscriber) -> None:
+        """Add a new message subscriber"""
+        self.subscribers.append(subscriber)
+
     async def handle_message(self, message: WebSocketMessage) -> None:
+        """Distribute message to all subscribers"""
         logger.info(
             "Handling message: %s, %s, end: %s",
             message.type,
@@ -76,46 +87,15 @@ class ChatState:
             message.end_of_turn,
         )
         self.history.append(message)
-        self.message_queue.put_nowait(message)
 
-        if message.type == MessageType.INITIALIZE:
-            await self.gemini.send(input=message.text, end_of_turn=True)
-            return
-
-        if isinstance(message, TranscriptionWebSocketMessage):
-            await self.user_ws.send_message(message)
-            return
-
-        if isinstance(message, HintWebSocketMessage):
-            await self.user_ws.send_message(message)
-            return
-
-        if isinstance(message, ErrorWebSocketMessage):
-            await self.user_ws.send_message(message)
-            return
-
-        if isinstance(message, AudioWebSocketMessage):
-            if message.role == MessageRole.USER:
-                # forward to the Gemini session
-                await self.gemini.send(
-                    input=genai_types.LiveClientRealtimeInput(
-                        media_chunks=[
-                            genai_types.Blob(
-                                data=message.audio,
-                                mime_type=f"audio/pcm;rate={settings.SERVER_SAMPLE_RATE}",
-                            )
-                        ]
-                    )
+        # Distribute to all subscribers
+        for subscriber in self.subscribers:
+            try:
+                await subscriber.handle_message(message)
+            except Exception as e:
+                logger.error(
+                    f"Error in subscriber {subscriber.__class__.__name__}: {e}"
                 )
-            else:
-                # forward to the user
-                await self.user_ws.send_message(message)
-
-        if isinstance(message, TextWebSocketMessage):
-            if message.role == MessageRole.USER:
-                await self.gemini.send(input=message.text or " ", end_of_turn=True)
-            else:
-                await self.user_ws.send_message(message)
 
 
 class LongRunningTask:
@@ -135,8 +115,8 @@ class LongRunningTask:
         raise NotImplementedError()
 
 
-class BulkTranscriptionTask(LongRunningTask):
-    """Handles transcription and hints using turn_queue"""
+class BulkTranscriptionTask(LongRunningTask, MessageSubscriber):
+    """Handles transcription and hints for assistant messages"""
 
     def __init__(
         self,
@@ -145,147 +125,122 @@ class BulkTranscriptionTask(LongRunningTask):
         native_language: Language,
         client: genai.Client,
     ):
-        super().__init__(state)
+        LongRunningTask.__init__(self, state)
         self.practice_language = practice_language
         self.native_language = native_language
         self.client = client
-        self.buffers: dict[MessageRole, MessageBuffer] = {
-            MessageRole.USER: MessageBuffer(MessageRole.USER, CLIENT_SAMPLE_RATE),
-            MessageRole.ASSISTANT: MessageBuffer(
-                MessageRole.ASSISTANT, SERVER_SAMPLE_RATE
-            ),
-        }
+        self.buffer = MessageBuffer(MessageRole.ASSISTANT, SERVER_SAMPLE_RATE)
+        state.add_subscriber(self)
 
     async def start(self):
-        return [asyncio.create_task(self._process())]
+        return []  # No background tasks needed
 
-    async def _fetch_transcript(self, audio, role):
-        transcript = await transcribe(
-            audio_data=audio,
-            mime_type=f"audio/pcm;rate={settings.SERVER_SAMPLE_RATE}",
-            source_language=self.practice_language,
-            target_language=self.native_language,
-        )
-
-        msg = TranscriptionWebSocketMessage(
-            source_text=transcript.source_text,
-            translated_text=transcript.translated_text,
-            chunked=transcript.chunked,
-            dictionary=transcript.dictionary,
-            role=role,
-            end_of_turn=True,
-        )
-        return msg
-
-    async def _fetch_translation(self, text, role):
-        translation = await translate(
-            text,
-            source_language=self.practice_language,
-            target_language=self.native_language,
-        )
-        msg = TranscriptionWebSocketMessage(
-            source_text=translation.source_text,
-            translated_text=translation.translated_text,
-            chunked=translation.chunked,
-            dictionary=translation.dictionary,
-            role=role,
-            end_of_turn=True,
-        )
-        return msg
-
-    async def _fetch_hint(self):
-        history_items = []
-        scenario = ""
-        for msg in self.state.history:
-            if msg.type == MessageType.INITIALIZE:
-                scenario = msg.text
-            if msg.type == MessageType.TRANSCRIPTION:
-                history_items.append(f"> {msg.role}: {msg.source_text}")
-            elif msg.type == MessageType.TEXT:
-                history_items.append(f"> {msg.role}: {msg.text}")
-
-        history_prompt = "\n".join(history_items)
-        hints = await generate_hints(
-            history_prompt,
-            scenario=scenario,
-            source_language=self.practice_language,
-            target_language=self.native_language,
-        )
-        msg = HintWebSocketMessage(
-            role=MessageRole.ASSISTANT, hints=hints.hints, end_of_turn=True
-        )
-        return msg
-
-    async def _process(self):
-        while self.running():
-            message = await self.state.message_queue.get()
-            if message.type in (
-                MessageType.INITIALIZE,
-                MessageType.TRANSCRIPTION,
-                MessageType.HINT,
-            ):
-                continue
-
-            if message.type == MessageType.AUDIO:
-                self.buffers[message.role].add_audio(message.audio)
-            if message.type == MessageType.TEXT:
-                self.buffers[message.role].add_text(message.text, message.end_of_turn)
-
-            audio = text = None
-            role = message.role
-            if message.end_of_turn:
-                audio, text = self.buffers[message.role].end_turn()
-
-            logger.info(
-                "transcription: Processing turn, role=%s, audio=%s, text=%s",
-                role,
-                audio and len(audio),
-                text and len(text),
-            )
-
-            if not text and not audio:
-                continue
-            
-            # We aren't transcribing the user's audio at the moment.
-            if role != MessageRole.ASSISTANT:
-                continue
-
-            try:
-                if audio:
-                    msg = await self._fetch_transcript(audio, role)
-                elif text:
-                    msg = await self._fetch_translation(text, role)
-            except Exception as e:
-                logger.exception("Error transcribing/translating audio")
-                msg = ErrorWebSocketMessage(
-                    text=f"Sorry, I couldn't transcribe that audio: {e}",
-                    role=role,
+    async def _process_turn(self, audio: bytes | None, text: str | None, role: MessageRole):
+        """Process a complete turn"""
+        try:
+            if audio:
+                transcript = await transcribe(
+                    audio_data=genai_types.Blob(
+                        data=audio,
+                        mime_type=f"audio/pcm;rate={settings.SERVER_SAMPLE_RATE}"
+                    ),
+                    source_language=self.practice_language,
+                    target_language=self.native_language,
                 )
+                msg = TranscriptionWebSocketMessage(
+                    source_text=transcript.source_text,
+                    translated_text=transcript.translated_text,
+                    chunked=transcript.chunked,
+                    dictionary=transcript.dictionary,
+                    role=role,
+                    end_of_turn=True,
+                )
+            elif text:
+                translation = await translate(
+                    text,
+                    source_language=self.practice_language,
+                    target_language=self.native_language,
+                )
+                msg = TranscriptionWebSocketMessage(
+                    source_text=translation.source_text,
+                    translated_text=translation.translated_text,
+                    chunked=translation.chunked,
+                    dictionary=translation.dictionary,
+                    role=role,
+                    end_of_turn=True,
+                )
+            else:
+                return
+
             await self.state.handle_message(msg)
 
-            if msg.role == MessageRole.ASSISTANT:
-                try:
-                    msg = await self._fetch_hint()
-                except Exception as e:
-                    logger.exception("Error generating hints")
-                    msg = ErrorWebSocketMessage(
-                        role=MessageRole.ASSISTANT,
-                        text=f"Sorry, I couldn't generate hints. Error was {e}",
-                    )
+            # Generate hints for assistant messages
+            if role == MessageRole.ASSISTANT:
+                history_items = []
+                scenario = ""
+                for hist_msg in self.state.history:
+                    if hist_msg.type == MessageType.INITIALIZE:
+                        scenario = hist_msg.text
+                    if hist_msg.type == MessageType.TRANSCRIPTION:
+                        history_items.append(f"> {hist_msg.role}: {hist_msg.source_text}")
+                    elif hist_msg.type == MessageType.TEXT:
+                        history_items.append(f"> {hist_msg.role}: {hist_msg.text}")
 
-                await self.state.handle_message(msg)
+                history_prompt = "\n".join(history_items)
+                hints = await generate_hints(
+                    history_prompt,
+                    scenario=scenario,
+                    source_language=self.practice_language,
+                    target_language=self.native_language,
+                )
+                hint_msg = HintWebSocketMessage(
+                    role=MessageRole.ASSISTANT,
+                    hints=hints.hints,
+                    end_of_turn=True,
+                )
+                await self.state.handle_message(hint_msg)
+
+        except Exception as e:
+            logger.exception("Error processing turn")
+            error_msg = ErrorWebSocketMessage(
+                text=f"Sorry, I ran into an error: {e}",
+                role=role,
+            )
+            await self.state.handle_message(error_msg)
+
+    async def handle_message(self, message: WebSocketMessage) -> None:
+        """Handle incoming messages"""
+        # Skip messages we don't need to process
+        if message.type in (MessageType.TRANSCRIPTION, MessageType.HINT):
+            return
+        if message.role != MessageRole.ASSISTANT:
+            return
+
+        # Handle audio messages
+        if message.type == MessageType.AUDIO:
+            self.buffer.add_audio(message.audio)
+            if message.end_of_turn:
+                audio = self.buffer.end_turn()
+                if audio:
+                    logger.info("Processing audio turn: %d bytes", len(audio))
+                    await self._process_turn(audio, None, message.role)
+        # Handle text messages
+        elif message.type == MessageType.TEXT and message.end_of_turn:
+            logger.info("Processing text turn: %s", message.text)
+            await self._process_turn(None, message.text, message.role)
 
 
-class GeminiReaderTask(LongRunningTask):
-    """Handles reading from Gemini and forwarding to client"""
+class GeminiReaderTask(LongRunningTask, MessageSubscriber):
+    """Reads from Gemini and publishes messages to state"""
 
     def __init__(
         self,
         state: ChatState,
         session: genai_live.AsyncSession,
     ):
-        super().__init__(state)
+        LongRunningTask.__init__(self, state)
         self.session = session
+        state.add_subscriber(self)
 
     async def start(self):
         return [asyncio.create_task(self._process())]
@@ -294,7 +249,10 @@ class GeminiReaderTask(LongRunningTask):
         while self.running():
             try:
                 async for response in self.session.receive():
-                    end_of_turn = bool(response.server_content and response.server_content.turn_complete)
+                    end_of_turn = bool(
+                        response.server_content
+                        and response.server_content.turn_complete
+                    )
                     if response.data:
                         logger.debug(
                             "Received %d bytes of audio from Gemini", len(response.data)
@@ -303,6 +261,7 @@ class GeminiReaderTask(LongRunningTask):
                             audio=base64.b64encode(response.data),
                             role=MessageRole.ASSISTANT,
                             end_of_turn=end_of_turn,
+                            mime_type=f"audio/pcm;rate={settings.SERVER_SAMPLE_RATE}",
                         )
                         await self.state.handle_message(message)
                     else:
@@ -319,19 +278,59 @@ class GeminiReaderTask(LongRunningTask):
                 logger.error(f"Error processing Gemini response: {e}", exc_info=True)
                 break
 
+    async def handle_message(self, message: WebSocketMessage) -> None:
+        """Handle messages from other components (no-op for reader)"""
+        pass
 
-class ClientReaderTask(LongRunningTask):
-    """Handles reading from client websocket and forwarding to Gemini"""
+
+class GeminiWriterTask(LongRunningTask, MessageSubscriber):
+    """Writes messages to Gemini"""
+
+    def __init__(
+        self,
+        state: ChatState,
+        session: genai_live.AsyncSession,
+    ):
+        LongRunningTask.__init__(self, state)
+        self.session = session
+        state.add_subscriber(self)
+
+    async def start(self):
+        return []  # No background tasks needed
+
+    async def handle_message(self, message: WebSocketMessage) -> None:
+        """Forward appropriate messages to Gemini"""
+        if message.role != MessageRole.USER:
+            return
+
+        if message.type == MessageType.INITIALIZE:
+            await self.session.send(input=message.text, end_of_turn=True)
+        elif isinstance(message, AudioWebSocketMessage):
+            await self.session.send(
+                input=genai_types.LiveClientRealtimeInput(
+                    media_chunks=[
+                        genai_types.Blob(
+                            data=message.audio,
+                            mime_type=message.mime_type,
+                        )
+                    ]
+                )
+            )
+        elif isinstance(message, TextWebSocketMessage):
+            await self.session.send(input=message.text or " ", end_of_turn=True)
+
+
+class UserReaderTask(LongRunningTask, MessageSubscriber):
+    """Reads from user websocket and publishes messages to state"""
 
     def __init__(
         self,
         websocket: TypedWebSocket,
         state: ChatState,
-        session: genai_live.AsyncSession,
     ):
-        super().__init__(state)
+        LongRunningTask.__init__(self, state)
         self.websocket = websocket
-        self.session = session
+        state.add_subscriber(self)
 
     async def start(self) -> list[asyncio.Task]:
         return [asyncio.create_task(self._process())]
@@ -344,10 +343,185 @@ class ClientReaderTask(LongRunningTask):
                 message = await self.websocket.receive_message()
                 await self.state.handle_message(message)
             except asyncio.CancelledError:
-                break  # exit loop upon cancellation
+                break
             except WebSocketDisconnect:
                 logger.info("Client disconnected")
-                pass
+                break
             except Exception as e:
                 logger.error(f"Error processing client message: {e}", exc_info=True)
                 break
+
+    async def handle_message(self, message: WebSocketMessage) -> None:
+        """Handle messages from other components (no-op for reader)"""
+        pass
+
+
+class UserWriterTask(LongRunningTask, MessageSubscriber):
+    """Writes messages to user websocket"""
+
+    def __init__(
+        self,
+        websocket: TypedWebSocket,
+        state: ChatState,
+    ):
+        LongRunningTask.__init__(self, state)
+        self.websocket = websocket
+        state.add_subscriber(self)
+
+    async def start(self):
+        return []  # No background tasks needed
+
+    async def handle_message(self, message: WebSocketMessage) -> None:
+        """Forward appropriate messages to user"""
+        if message.role == MessageRole.USER:
+            return
+        if message.type == MessageType.INITIALIZE:
+            # don't forward the initialize message back
+            return
+
+        await self.websocket.send_message(message)
+
+
+class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
+    """Handles transcription and hints for user messages"""
+
+    def __init__(
+        self,
+        state: ChatState,
+        practice_language: Language,
+        native_language: Language,
+        client: genai.Client,
+    ):
+        LongRunningTask.__init__(self, state)
+        self.practice_language = practice_language
+        self.native_language = native_language
+        self.client = client
+        self.buffer = MessageBuffer(MessageRole.USER, CLIENT_SAMPLE_RATE)
+        state.add_subscriber(self)
+
+    async def start(self):
+        return []  # No background tasks needed
+
+    async def _get_history(self) -> tuple[str, str]:
+        """Extract scenario and conversation history"""
+        history_items = []
+        scenario = ""
+        for msg in self.state.history:
+            if msg.type == MessageType.INITIALIZE:
+                scenario = msg.text
+            if msg.type == MessageType.TRANSCRIPTION:
+                history_items.append(f"> {msg.role.value}: {msg.source_text}")
+            elif msg.type == MessageType.TEXT:
+                history_items.append(f"> {msg.role.value}: {msg.text}")
+        return scenario, "\n".join(history_items)
+
+    async def _generate_and_send_tts(self, text: str) -> None:
+        """Generate TTS audio and send it as a message"""
+        try:
+            audio_response = await generate_tts_audio_async(text, self.practice_language)
+            if audio_response:
+                audio_msg = AudioWebSocketMessage(
+                    audio=base64.b64encode(audio_response.data),
+                    role=MessageRole.ASSISTANT,
+                    end_of_turn=True,
+                    mime_type="audio/mp3",
+                )
+                await self.state.handle_message(audio_msg)
+        except Exception:
+            logger.exception("Error generating audio")
+
+    async def _process_turn(self, audio: bytes | None):
+        """Process a complete turn from the user"""
+        scenario, history = await self._get_history()
+
+        audio_data = None
+        if audio:
+            audio_data = genai_types.Blob(
+                data=audio,
+                mime_type=f"audio/pcm;rate={settings.SERVER_SAMPLE_RATE}",
+            )
+
+        try:
+            response = await transcribe_and_hint(
+                scenario=scenario,
+                history=history,
+                audio_data=audio_data,
+                source_language=self.practice_language,
+                target_language=self.native_language,
+            )
+
+            # TODO: if we had an audio sample, we need to add the users message
+            # in text to the history
+
+            # Start TTS generation in background
+            tts_task = asyncio.create_task(
+                self._generate_and_send_tts(response.response_text)
+            )
+
+            # Send transcription while TTS generates
+            transcription = TranscriptionWebSocketMessage(
+                role=MessageRole.ASSISTANT,
+                source_text=response.response_text,
+                dictionary=response.dictionary,
+                chunked=response.chunked,
+                translated_text=response.translated_text,
+                end_of_turn=True,
+            )
+            await self.state.handle_message(transcription)
+
+            hint = HintWebSocketMessage(
+                role=MessageRole.ASSISTANT,
+                hints=response.hints,
+                end_of_turn=True,
+            )
+            await self.state.handle_message(hint)
+
+            # Let TTS task run in background
+            await tts_task
+
+        except Exception as e:
+            logger.exception("Error processing turn")
+            msg = ErrorWebSocketMessage(
+                text=f"Sorry, I ran into an error when responding: {e}",
+                role=MessageRole.ASSISTANT,
+            )
+            await self.state.handle_message(msg)
+
+    async def handle_message(self, message: WebSocketMessage) -> None:
+        """Handle incoming messages"""
+        # Skip messages we don't need to process
+        if message.type in (MessageType.TRANSCRIPTION, MessageType.HINT):
+            return
+        if message.role == MessageRole.ASSISTANT:
+            return
+
+        # Handle initialization separately
+        if message.type == MessageType.INITIALIZE:
+            await self._process_turn(None)
+            return
+
+        if message.type == MessageType.AUDIO:
+            self.buffer.add_audio(message.audio)
+
+        # Check if we have a complete turn
+        end_of_turn = message.end_of_turn
+
+        # For audio, use VAD to detect speech boundaries
+        if len(self.buffer.current_audio) > 0:
+            buffer_wav = convert_to_wav(
+                genai_types.Blob(
+                    data=self.buffer.current_audio,
+                    mime_type=f"audio/pcm;rate={settings.SERVER_SAMPLE_RATE}",
+                )
+            )
+            timestamps = get_speech_timestamps(
+                buffer_wav, vad_model, return_seconds=True
+            )
+            start_ts = [ts for ts in timestamps if ts["start"]]
+            end_ts = [ts for ts in timestamps if ts["end"]]
+            end_of_turn = start_ts and end_ts
+
+        # Process the turn if complete
+        if end_of_turn:
+            audio = self.buffer.end_turn()
+            await self._process_turn(audio)

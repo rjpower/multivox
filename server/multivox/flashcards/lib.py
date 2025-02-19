@@ -15,12 +15,12 @@ from multivox.flashcards.generate_anki import (
 )
 from multivox.flashcards.generate_pdf import PDFGeneratorConfig, create_flashcard_pdf
 from multivox.flashcards.schema import (
-    FlashcardLanguage,
     OutputFormat,
     ProgressLogger,
     SourceMapping,
     VocabItem,
 )
+from multivox.types import Language
 from pydantic import BaseModel
 
 
@@ -28,7 +28,7 @@ class SRTProcessConfig(BaseModel):
     srt_path: Path
     output_path: Path
     output_format: str
-    target_language: FlashcardLanguage
+    target_language: Language
     include_audio: bool = False
     deck_name: Optional[str] = None
     ignore_words: set[str] = set()
@@ -44,7 +44,7 @@ class CSVProcessConfig(BaseModel):
     df: pd.DataFrame
     output_path: Path
     output_format: str
-    target_language: FlashcardLanguage
+    target_language: Language
     include_audio: bool = False
     deck_name: Optional[str] = None
     field_mapping: SourceMapping

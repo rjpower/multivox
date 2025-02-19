@@ -52,6 +52,8 @@ export class AudioRecorder {
           type: "audio",
           audio: base64,
           role: "user",
+          mime_type: "audio/pcm",
+          end_of_turn: false,
         });
       };
 

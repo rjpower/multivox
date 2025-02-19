@@ -1,6 +1,6 @@
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useEffect } from "react";
 import { create } from "zustand";
+import { useAppStore } from "./store";
 
 const EXAMPLE_JAPANESE_WORDS = `山
 空
@@ -90,7 +90,6 @@ interface UploadStore {
   format: "apkg" | "pdf";
   includeAudio: boolean;
   targetLanguage: string;
-  languages: Array<{ code: string; name: string }>;
   isFormValid: () => boolean;
   showModal: () => void;
   hideModal: () => void;
@@ -103,14 +102,12 @@ interface UploadStore {
   setFormat: (format: "apkg" | "pdf") => void;
   setIncludeAudio: (include: boolean) => void;
   setTargetLanguage: (lang: string) => void;
-  setLanguages: (langs: Array<{ code: string; name: string }>) => void;
   logMessage: (text: string, type?: "error" | "success" | undefined) => void;
   scrollToBottom: () => void;
   clearMessages: () => void;
   setCsvPreview: (preview: any) => void;
   startGeneration: () => void;
   cleanup: () => void;
-  fetchLanguages: () => Promise<void>;
 }
 
 export const useUploadStore = create<UploadStore>((set, get) => ({
@@ -128,7 +125,6 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
   format: "pdf",
   includeAudio: false,
   targetLanguage: "",
-  languages: [],
 
   isFormValid: () => {
     const state = get();
@@ -151,7 +147,6 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
   setFormat: (format: "apkg" | "pdf") => set({ format }),
   setIncludeAudio: (include: boolean) => set({ includeAudio: include }),
   setTargetLanguage: (lang: string) => set({ targetLanguage: lang }),
-  setLanguages: (langs) => set({ languages: langs }),
   showModal: () => set({ modalVisible: true }),
   cleanup: () => {
     const { websocket } = get();
@@ -203,14 +198,6 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
   },
   clearMessages: () => set({ messages: [] }),
   setCsvPreview: (preview) => set({ csvPreview: preview }),
-  fetchLanguages: async () => {
-    const response = await fetch("/api/flashcards/languages");
-    const data = await response.json();
-    set({ languages: data });
-    if (data.length > 0) {
-      set({ targetLanguage: data[1].code });
-    }
-  },
   startGeneration: () => {
     const state = get();
     state.setSubmitting(true);
@@ -307,7 +294,9 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
         {downloadUrl && (
           <div className="p-4 bg-green-50 border-t border-b border-green-200">
             <div className="flex justify-between items-center">
-              <span className="text-green-700 font-medium">Processing complete!</span>
+              <span className="text-green-700 font-medium">
+                Processing complete!
+              </span>
               <a
                 href={downloadUrl}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
@@ -592,10 +581,10 @@ const initialFieldMapping = {
 interface FormatSettingsProps {}
 
 const FormatSettings: React.FC<FormatSettingsProps> = () => {
+  const languages = useAppStore((state) => state.languages);
   const format = useUploadStore((state) => state.format);
   const targetLanguage = useUploadStore((state) => state.targetLanguage);
   const includeAudio = useUploadStore((state) => state.includeAudio);
-  const languages = useUploadStore((state) => state.languages);
   const setFormat = useUploadStore((state) => state.setFormat);
   const setTargetLanguage = useUploadStore((state) => state.setTargetLanguage);
   const setIncludeAudio = useUploadStore((state) => state.setIncludeAudio);
@@ -816,10 +805,6 @@ const InputTypeSelector = () => {
 };
 
 const FlashcardGenerator = () => {
-  useEffect(() => {
-    useUploadStore.getState().fetchLanguages();
-  }, []);
-
   const isFormValid = useUploadStore((state) => state.isFormValid());
   const modalVisible = useUploadStore((state) => state.modalVisible);
   const messages = useUploadStore((state) => state.messages);

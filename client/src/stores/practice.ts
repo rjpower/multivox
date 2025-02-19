@@ -136,7 +136,10 @@ function handleWebSocketMessage(
     if (message.type == "audio") {
       const store = usePracticeStore.getState();
       if (store.audioPlayer) {
-        store.audioPlayer.addAudioToQueue(message.audio);
+        store.audioPlayer.addAudioToQueue({
+          data: message.audio,
+          mime_type: message.mime_type,
+        });
       }
     }
     set((state) => ({
@@ -217,15 +220,17 @@ export const usePracticeStore = create<PracticeStore>()(
             practiceState: PracticeState.ACTIVE,
             chatHistory: store.chatHistory.handleMessage({
               type: "initialize",
-              role: "assistant",
+              role: "system",
               text: translation,
+              end_of_turn: true,
             }),
           });
 
           ws.send({
             type: "initialize",
+            role: "system",
             text: translation,
-            role: "assistant",
+            end_of_turn: true,
           });
         } catch (error) {
           const err = error as Error;
@@ -255,6 +260,8 @@ export const usePracticeStore = create<PracticeStore>()(
                 type: "audio",
                 role: "user",
                 audio: "",
+                mime_type: "audio/pcm",
+                end_of_turn: false,
               }),
             });
           }
@@ -280,6 +287,7 @@ export const usePracticeStore = create<PracticeStore>()(
               type: "audio",
               role: "user",
               audio: "",
+              mime_type: "audio/pcm",
               end_of_turn: true,
             }),
           });

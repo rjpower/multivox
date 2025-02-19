@@ -26,7 +26,8 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
 
     LIVE_MODEL_ID: str = "gemini-2.0-flash-exp"
-    TRANSCRIPTION_MODEL_ID: str = "gemini-2.0-flash"
+    TRANSCRIBE_AND_HINT_MODEL_ID: str = "gemini/gemini-2.0-flash"
+    TRANSCRIPTION_MODEL_ID: str = "openai/whisper-1"
     TRANSLATION_MODEL_ID: str = "openai/gpt-4o-mini"
     HINT_MODEL_ID: str = "openai/gpt-4o-mini"
     COMPLETION_MODEL_ID: str = "gemini/gemini-2.0-flash"
@@ -47,4 +48,4 @@ class Settings(BaseSettings):
         assert isinstance(self.GOOGLE_SERVICE_ACCOUNT_INFO, dict)
 
 
-settings = Settings()
+settings = Settings()  # type: ignore

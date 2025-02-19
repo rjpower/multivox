@@ -1,5 +1,10 @@
 import { SERVER_SAMPLE_RATE, BYTES_PER_SAMPLE } from "./types";
 
+export type Base64AudioBuffer = {
+  data: string; // audio data encoded in base64
+  mime_type: string;
+};
+
 export class AudioPlayer {
   private audioContext: AudioContext;
   private scheduledSources: AudioBufferSourceNode[] = [];
@@ -7,6 +12,20 @@ export class AudioPlayer {
 
   constructor() {
     this.audioContext = new AudioContext({ sampleRate: SERVER_SAMPLE_RATE });
+  }
+
+  private async loadAudioBuffer(
+    audioData: Uint8Array,
+    mimeType: string
+  ): Promise<AudioBuffer> {
+    try {
+      // Use the Web Audio API's decodeAudioData to handle various formats
+      const arrayBuffer = audioData.buffer;
+      return await this.audioContext.decodeAudioData(arrayBuffer);
+    } catch (error) {
+      console.error("Error decoding audio data:", error);
+      throw new Error(`Failed to decode audio data of type ${mimeType}`);
+    }
   }
 
   private convertPCMToAudioBuffer(pcmData: Uint8Array): AudioBuffer {
@@ -49,17 +68,23 @@ export class AudioPlayer {
     return audioBuffer;
   }
 
-  public async addAudioToQueue(audioData: string) {
+  public async addAudioToQueue(audioData: Base64AudioBuffer) {
     try {
       // Convert base64 to ArrayBuffer
-      const binaryString = atob(audioData);
-      const pcmData = new Uint8Array(binaryString.length);
+      const binaryString = atob(audioData.data);
+      const rawData = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
-        pcmData[i] = binaryString.charCodeAt(i);
+        rawData[i] = binaryString.charCodeAt(i);
       }
 
       // Convert PCM to AudioBuffer
-      const audioBuffer = this.convertPCMToAudioBuffer(pcmData);
+      let audioBuffer: AudioBuffer | null = null;
+      if (audioData.mime_type === "audio/pcm") {
+        audioBuffer = this.convertPCMToAudioBuffer(rawData);
+      } else {
+        // mp3, wav etc
+        audioBuffer = await this.loadAudioBuffer(rawData, audioData.mime_type);
+      }
 
       // Create and schedule the source
       const source = this.audioContext.createBufferSource();
@@ -81,7 +106,7 @@ export class AudioPlayer {
       this.scheduledSources.push(source);
 
       // Calculate the next start time based on the current buffer's duration
-      this.nextStartTime += audioBuffer.duration;
+      this.nextStartTime += audioBuffer!.duration;
       console.log("Scheduled audio at:", this.nextStartTime);
     } catch (error) {
       console.error("Error processing audio:", error);
@@ -90,7 +115,7 @@ export class AudioPlayer {
 
   private isPlaying = false;
 
-  public playBuffers(buffers: string[]): Promise<void> {
+  public playBuffers(buffers: Base64AudioBuffer[]): Promise<void> {
     return new Promise((resolve) => {
       if (this.isPlaying) {
         this.stop();

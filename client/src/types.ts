@@ -51,7 +51,7 @@ export interface LanguageSelectorProps {
 // Websocket messages
 interface BaseWebSocketMessage {
   role: MessageRole;
-  end_of_turn?: boolean;
+  end_of_turn: boolean;
 }
 
 export interface HintOption {
@@ -60,6 +60,7 @@ export interface HintOption {
 }
 
 export interface InitializeWebSocketMessage extends BaseWebSocketMessage {
+  role: "system";
   type: "initialize";
   text: string;
 }
@@ -90,6 +91,7 @@ export interface TranscriptionWebSocketMessage extends BaseWebSocketMessage {
 export interface AudioWebSocketMessage extends BaseWebSocketMessage {
   type: "audio";
   audio: string; // Base64 encoded audio data
+  mime_type: string;
 }
 
 export interface TranslationWebSocketMessage extends BaseWebSocketMessage {

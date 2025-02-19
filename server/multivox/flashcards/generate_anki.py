@@ -1,17 +1,14 @@
 import hashlib
 import tempfile
-import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Optional, Sequence
+from typing import Callable, List, Sequence
 
 import genanki
-from google.cloud import texttospeech
-from google.oauth2 import service_account
-from multivox import cache
-from multivox.config import settings
-from multivox.flashcards.schema import FlashCard, FlashcardLanguage, VocabItem
+from multivox.flashcards.schema import FlashCard, VocabItem
+from multivox.tts import TTSAudio, generate_tts_audio_sync
+from multivox.types import LANGUAGES, Language
 
 # Fixed Model IDs
 DEFAULT_MODEL_ID = 1607392319
@@ -95,96 +92,6 @@ class AudioModel:
     model_name: str
 
 
-AUDIO_MODELS = {
-    FlashcardLanguage.ENGLISH: AudioModel("en-US", "en-US-Neural2-C"),
-    FlashcardLanguage.JAPANESE: AudioModel("ja-JP", "ja-JP-Neural2-B"),
-    FlashcardLanguage.SPANISH: AudioModel("es-ES", "es-ES-Neural"),
-    FlashcardLanguage.CHINESE: AudioModel("cmn-CN", "cmn-CN-Standard-A"),
-    FlashcardLanguage.ARABIC: AudioModel("ar-XA", "ar-XA-Neural2-A"),
-    FlashcardLanguage.BASQUE: AudioModel("eu-ES", "eu-ES-Standard-A"),
-    FlashcardLanguage.BENGALI: AudioModel("bn-IN", "bn-IN-Neural2-A"),
-    FlashcardLanguage.BULGARIAN: AudioModel("bg-BG", "bg-BG-Standard-A"),
-    FlashcardLanguage.CATALAN: AudioModel("ca-ES", "ca-ES-Standard-A"),
-    FlashcardLanguage.CZECH: AudioModel("cs-CZ", "cs-CZ-Wavenet-A"),
-    FlashcardLanguage.DANISH: AudioModel("da-DK", "da-DK-Neural2-D"),
-    FlashcardLanguage.DUTCH_BE: AudioModel("nl-BE", "nl-BE-Standard-A"),
-    FlashcardLanguage.DUTCH_NL: AudioModel("nl-NL", "nl-NL-Neural2-A"),
-    FlashcardLanguage.FILIPINO: AudioModel("fil-PH", "fil-PH-Neural2-A"),
-    FlashcardLanguage.FINNISH: AudioModel("fi-FI", "fi-FI-Wavenet-A"),
-    FlashcardLanguage.FRENCH_CA: AudioModel("fr-CA", "fr-CA-Neural2-A"),
-    FlashcardLanguage.FRENCH_FR: AudioModel("fr-FR", "fr-FR-Neural2-A"),
-    FlashcardLanguage.GALICIAN: AudioModel("gl-ES", "gl-ES-Standard-A"),
-    FlashcardLanguage.GERMAN: AudioModel("de-DE", "de-DE-Neural2-A"),
-    FlashcardLanguage.GREEK: AudioModel("el-GR", "el-GR-Neural2-A"),
-    FlashcardLanguage.GUJARATI: AudioModel("gu-IN", "gu-IN-Wavenet-A"),
-    FlashcardLanguage.HEBREW: AudioModel("he-IL", "he-IL-Neural2-A"),
-    FlashcardLanguage.HINDI: AudioModel("hi-IN", "hi-IN-Neural2-A"),
-    FlashcardLanguage.HUNGARIAN: AudioModel("hu-HU", "hu-HU-Wavenet-A"),
-    FlashcardLanguage.INDONESIAN: AudioModel("id-ID", "id-ID-Wavenet-A"),
-    FlashcardLanguage.ITALIAN: AudioModel("it-IT", "it-IT-Neural2-A"),
-    FlashcardLanguage.KANNADA: AudioModel("kn-IN", "kn-IN-Wavenet-A"),
-    FlashcardLanguage.KOREAN: AudioModel("ko-KR", "ko-KR-Neural2-A"),
-    FlashcardLanguage.LATVIAN: AudioModel("lv-LV", "lv-LV-Standard-A"),
-    FlashcardLanguage.LITHUANIAN: AudioModel("lt-LT", "lt-LT-Standard-A"),
-    FlashcardLanguage.MALAY: AudioModel("ms-MY", "ms-MY-Wavenet-A"),
-    FlashcardLanguage.MALAYALAM: AudioModel("ml-IN", "ml-IN-Wavenet-A"),
-    FlashcardLanguage.MANDARIN_CN: AudioModel("cmn-CN", "cmn-CN-Neural2-A"),
-    FlashcardLanguage.MANDARIN_TW: AudioModel("cmn-TW", "cmn-TW-Wavenet-A"),
-    FlashcardLanguage.MARATHI: AudioModel("mr-IN", "mr-IN-Wavenet-A"),
-    FlashcardLanguage.NORWEGIAN: AudioModel("nb-NO", "nb-NO-Wavenet-A"),
-    FlashcardLanguage.POLISH: AudioModel("pl-PL", "pl-PL-Wavenet-A"),
-    FlashcardLanguage.PORTUGUESE_BR: AudioModel("pt-BR", "pt-BR-Neural2-A"),
-    FlashcardLanguage.PORTUGUESE_PT: AudioModel("pt-PT", "pt-PT-Wavenet-A"),
-    FlashcardLanguage.PUNJABI: AudioModel("pa-IN", "pa-IN-Wavenet-A"),
-    FlashcardLanguage.ROMANIAN: AudioModel("ro-RO", "ro-RO-Wavenet-A"),
-    FlashcardLanguage.RUSSIAN: AudioModel("ru-RU", "ru-RU-Neural2-A"),
-    FlashcardLanguage.SERBIAN: AudioModel("sr-RS", "sr-RS-Standard-A"),
-    FlashcardLanguage.SLOVAK: AudioModel("sk-SK", "sk-SK-Wavenet-A"),
-    FlashcardLanguage.SPANISH_ES: AudioModel("es-ES", "es-ES-Neural2-A"),
-    FlashcardLanguage.SPANISH_US: AudioModel("es-US", "es-US-Neural2-A"),
-    FlashcardLanguage.SWEDISH: AudioModel("sv-SE", "sv-SE-Wavenet-A"),
-    FlashcardLanguage.TAMIL: AudioModel("ta-IN", "ta-IN-Wavenet-A"),
-    FlashcardLanguage.TELUGU: AudioModel("te-IN", "te-IN-Standard-A"),
-    FlashcardLanguage.THAI: AudioModel("th-TH", "th-TH-Neural2-C"),
-    FlashcardLanguage.TURKISH: AudioModel("tr-TR", "tr-TR-Neural2-A"),
-    FlashcardLanguage.UKRAINIAN: AudioModel("uk-UA", "uk-UA-Wavenet-A"),
-    FlashcardLanguage.VIETNAMESE: AudioModel("vi-VN", "vi-VN-Neural2-A"),
-}
-
-
-@cache.default_file_cache.cache_fn()
-def generate_audio(term: str, language: FlashcardLanguage) -> Optional[bytes]:
-    """Generate TTS audio for a term using Google Cloud Text-to-Speech API"""
-    credentials = service_account.Credentials.from_service_account_info(
-        settings.GOOGLE_SERVICE_ACCOUNT_INFO
-    )
-    tts_client = texttospeech.TextToSpeechClient(credentials=credentials)
-
-    voice = texttospeech.VoiceSelectionParams(
-        language_code=AUDIO_MODELS[language].language_code,
-        name=AUDIO_MODELS[language].model_name,
-    )
-
-    audio_config = texttospeech.AudioConfig(
-        audio_encoding=texttospeech.AudioEncoding.MP3,
-        speaking_rate=0.8,
-        pitch=0.0,
-    )
-
-    synthesis_input = texttospeech.SynthesisInput(text=term)
-
-    try:
-        response = tts_client.synthesize_speech(
-            input=synthesis_input,
-            voice=voice,
-            audio_config=audio_config,
-        )
-        return response.audio_content
-    except Exception as e:
-        print(f"Google TTS API error for term '{term}': {str(e)}")
-        return None
-
-
 # we might include audio for back & context later
 @dataclass
 class AudioData:
@@ -194,7 +101,7 @@ class AudioData:
 
 def generate_audio_for_cards(
     items: Sequence[FlashCard],
-    language: FlashcardLanguage,
+    language: Language,
     logger: Callable[[str], None],
     max_workers: int = 16,
 ) -> dict[str, AudioData]:
@@ -208,39 +115,30 @@ def generate_audio_for_cards(
                 (language, item.front_sub if item.front_sub else item.front)
             )
         if item.back:
-            items_to_process.append((FlashcardLanguage.ENGLISH, item.back))
+            items_to_process.append((LANGUAGES["en"], item.back))
 
     total = len(items_to_process)
     completed = 0
 
-    def _generate_audio_task(
-        lang: FlashcardLanguage, term: str
-    ) -> tuple[str, Optional[bytes]]:
-        return term, generate_audio(term=term, language=lang)
-
+    # Process items with thread pool
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks
-        future_to_term = {
-            executor.submit(_generate_audio_task, lang, term): term
-            for (lang, term) in items_to_process
-        }
+        futures = {}
+        for lang, term in items_to_process:
+            future = executor.submit(generate_tts_audio_sync, lang, term)
+            futures[term] = future
 
-        # Process completed tasks as they finish
-        for future in as_completed(future_to_term):
-            term = future_to_term[future]
-            completed += 1
-
-            logger(
-                f"Generated audio {term} -- {completed}/{total} ({completed/total*100:.1f}%)"
-            )
-
+        # Process results as they complete
+        for term, future in futures.items():
             try:
-                term, audio_data = future.result()
-                if audio_data:
-                    audio_mapping[term] = AudioData(term, audio_data)
+                tts_audio: TTSAudio = future.result()
+                completed += 1
+                logger(
+                    f"Generated audio {tts_audio.text} -- {completed}/{total} ({completed/total*100:.1f}%)"
+                )
+                if tts_audio.data:
+                    audio_mapping[term] = AudioData(tts_audio.text, tts_audio.data)
             except Exception as e:
-                stack = traceback.format_exc()
-                logger(f"Error generating audio for {term}: {str(e)} -- \n{stack}")
+                logger(f"Error generating audio for {term}: {e}")
 
     logger(f"Completed audio generation for {completed} terms")
     return audio_mapping
@@ -251,8 +149,8 @@ def create_anki_package(
     vocab_items: List[VocabItem],
     deck_name: str,
     audio_mapping: dict[str, AudioData],
-    target_language: str,
-    source_language: str = "English",
+    target_language: Language,
+    source_language: Language = LANGUAGES["en"],
     logger: Callable[[str], None] = print,
 ) -> genanki.Package:
     # Initialize models with fixed IDs

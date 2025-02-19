@@ -1,4 +1,5 @@
 import asyncio
+import enum
 import logging
 import os
 from datetime import datetime
@@ -35,14 +36,17 @@ from multivox.scenarios import (
 from multivox.tasks import (
     BulkTranscriptionTask,
     ChatState,
-    ClientReaderTask,
     GeminiReaderTask,
+    GeminiWriterTask,
     LongRunningTask,
+    TranscribeAndHintTask,
+    UserReaderTask,
+    UserWriterTask,
 )
-from multivox.transcription import (
+from multivox.transcribe import (
     transcribe,
 )
-from multivox.translation import translate
+from multivox.translate import translate
 from multivox.types import (
     LANGUAGES,
     Chapter,
@@ -70,8 +74,8 @@ for handler in root_logger.handlers[:]:
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(
     logging.Formatter(
-        fmt="%(filename)s:%(funcName)s:%(lineno)d:%(asctime)s.%(msecs)03d:%(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        fmt="%(filename)s:%(lineno)d %(asctime)s.%(msecs)03d:%(message)s",
+        datefmt="%Y:%m:%d:%H:%M:%S",
     )
 )
 root_logger.addHandler(console_handler)
@@ -107,6 +111,11 @@ app.add_middleware(
 )
 
 
+class AudioMode(enum.Enum):
+    LIVE = "live"
+    STEP_BY_STEP = "step-by-step"
+
+
 class ChatContext(pydantic.BaseModel):
     """Manages state for entire chat session including message history"""
 
@@ -125,6 +134,8 @@ class ChatContext(pydantic.BaseModel):
     aio_tasks: list[asyncio.Task] = pydantic.Field(default_factory=list)
     tasks: list[LongRunningTask] = pydantic.Field(default_factory=list)
     modality: str = "audio"
+
+    mode: AudioMode = AudioMode.STEP_BY_STEP
 
     def model_post_init(self, __context) -> None:
         super().model_post_init(__context)
@@ -152,24 +163,42 @@ class ChatContext(pydantic.BaseModel):
             ]
         )
 
-        self.gemini_ctx = self.client.aio.live.connect(
-            model=settings.LIVE_MODEL_ID, config=config
-        )
-        self.gemini_session = await self.gemini_ctx.__aenter__()
         self.state = ChatState(self.gemini_session, self.websocket)
 
-        self.tasks.extend(
-            [
-                ClientReaderTask(self.websocket, self.state, self.gemini_session),
-                GeminiReaderTask(self.state, self.gemini_session),
-                BulkTranscriptionTask(
-                    self.state,
-                    practice_language=self.practice_language,
-                    native_language=self.native_language,
-                    client=self.client,
-                ),
-            ]
-        )
+        if self.mode == AudioMode.LIVE:
+            self.gemini_ctx = self.client.aio.live.connect(
+                model=settings.LIVE_MODEL_ID, config=config
+            )
+            self.gemini_session = await self.gemini_ctx.__aenter__()
+            # Live mode tasks
+            self.tasks.extend(
+                [
+                    UserReaderTask(self.websocket, self.state),
+                    UserWriterTask(self.websocket, self.state),
+                    GeminiReaderTask(self.state, self.gemini_session),
+                    GeminiWriterTask(self.state, self.gemini_session),
+                    BulkTranscriptionTask(
+                        self.state,
+                        practice_language=self.practice_language,
+                        native_language=self.native_language,
+                        client=self.client,
+                    ),
+                ]
+            )
+        else:
+            # Step-by-step mode tasks
+            self.tasks.extend(
+                [
+                    UserReaderTask(self.websocket, self.state),
+                    UserWriterTask(self.websocket, self.state),
+                    TranscribeAndHintTask(
+                        self.state,
+                        native_language=self.native_language,
+                        practice_language=self.practice_language,
+                        client=self.client,
+                    ),
+                ]
+            )
 
         # Start all tasks and collect their asyncio tasks
         self.aio_tasks = []
@@ -272,8 +301,7 @@ async def api_translate(request: TranslateRequest) -> TranslateResponse:
 @app.post("/api/transcribe", response_model=TranscribeResponse)
 async def api_transcribe(request: TranscribeRequest) -> TranscribeResponse:
     return await transcribe(
-        audio_data=request.audio,
-        mime_type=request.mime_type,
+        audio_data=genai_types.Blob(data=request.audio, mime_type=request.mime_type),
         api_key=request.api_key,
         source_language=LANGUAGES[request.source_language],
         target_language=LANGUAGES[request.target_language],

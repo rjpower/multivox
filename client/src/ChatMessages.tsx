@@ -12,6 +12,7 @@ import {
   HintOption,
 } from "./types";
 import { usePracticeStore } from "./stores/practice";
+import { Base64AudioBuffer } from "./AudioPlayer";
 
 // View-specific message types for the chat interface
 export interface ViewMessage {
@@ -28,7 +29,7 @@ export interface AudioViewMessage extends ViewMessage {
   id: string;
   type: "audio";
   placeholder: "🎤" | "🔊";
-  audioBuffers: string[];
+  audioBuffers: Base64AudioBuffer[];
   isComplete: boolean;
 }
 
@@ -368,16 +369,15 @@ function processMessages(messages: WebSocketMessage[]): ChatViewMessage[] {
       continue;
     }
 
-    // We don't get an end of turn for audio itself, so we
+    // We don't get usually get an end of turn for audio itself, so we
     // need to infer end of turn from the next message
-    if (message.type != "audio" && lastMessage?.type === "audio") {
+    if (
+      message.type != "audio" &&
+      lastMessage?.type === "audio" &&
+      !lastMessage.end_of_turn
+    ) {
       const audioMessage = lastAudioMessage.get(message.role);
       if (!audioMessage) {
-        console.log(
-          "BORK? No previous audio message found",
-          message,
-          lastMessage
-        );
       } else {
         audioMessage.isComplete = true;
         lastAudioMessage.delete(message.role);
@@ -387,15 +387,24 @@ function processMessages(messages: WebSocketMessage[]): ChatViewMessage[] {
     switch (message.type) {
       case "audio":
         if (lastAudioMessage.has(message.role)) {
-          lastAudioMessage.get(message.role)!.audioBuffers.push(message.audio);
+          lastAudioMessage.get(message.role)!.isComplete = message.end_of_turn;
+          lastAudioMessage.get(message.role)!.audioBuffers.push({
+            data: message.audio,
+            mime_type: message.mime_type,
+          });
         } else {
           const audioMsg = {
             type: "audio",
             id: `audio-${viewMessages.length}`,
             role: message.role,
             placeholder: message.role === "user" ? "🎤" : "🔊",
-            audioBuffers: [message.audio],
-            isComplete: false,
+            audioBuffers: [
+              {
+                data: message.audio,
+                mime_type: message.mime_type,
+              },
+            ],
+            isComplete: message.end_of_turn,
           } as AudioViewMessage;
           viewMessages.push(audioMsg);
           lastAudioMessage.set(message.role, audioMsg);

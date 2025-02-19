@@ -17,7 +17,8 @@ from multivox.flashcards.lib import (
     process_srt,
     read_csv,
 )
-from multivox.flashcards.schema import FlashcardLanguage, OutputFormat, SourceMapping
+from multivox.flashcards.schema import OutputFormat, SourceMapping
+from multivox.types import LANGUAGES
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ class GenerateRequest(BaseModel):
     mode: str
     content: str
     format: OutputFormat
-    target_language: FlashcardLanguage
+    target_language: str
     include_audio: bool = False
     field_mapping: Optional[SourceMapping] = None
 
@@ -108,7 +109,7 @@ class ProcessingTask:
                 _, df = read_csv(request.content)
                 csv_config = CSVProcessConfig(
                     df=df,
-                    target_language=request.target_language,
+                    target_language=LANGUAGES[request.target_language],
                     output_path=output_path,
                     output_format=request.format,
                     include_audio=request.include_audio,
@@ -126,7 +127,7 @@ class ProcessingTask:
                         output_path=output_path,
                         output_format=request.format,
                         include_audio=request.include_audio,
-                        target_language=request.target_language,
+                        target_language=LANGUAGES[request.target_language],
                         progress_logger=self.log_progress,
                     )
                     process_srt(srt_config)
@@ -157,15 +158,6 @@ class ProcessingTask:
 
 
 router = APIRouter(prefix="/api/flashcards")
-
-
-@router.get("/languages")
-async def get_languages():
-    """Get list of supported languages"""
-    return [
-        {"code": lang.value, "name": lang.name.title().replace("_", " ")}
-        for lang in FlashcardLanguage
-    ]
 
 
 @router.post("/analyze", response_model=CSVAnalyzeResponse)
