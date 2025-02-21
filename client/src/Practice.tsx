@@ -244,7 +244,6 @@ const ChatContent = () => {
       onStartRecording={startRecording}
       onStopRecording={() => {
         stopRecording();
-        sendMessage("");
       }}
       onSendMessage={sendMessage}
     />

@@ -374,7 +374,7 @@ function processMessages(messages: WebSocketMessage[]): ChatViewMessage[] {
       case "initialize":
         viewMessages.push({
           type: "initialize",
-          role: "assistant",
+          role: message.role,
           text: message.text,
         });
         break;

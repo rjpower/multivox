@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import io
 import logging
 import wave
@@ -104,7 +105,8 @@ async def transcribe_and_hint(
         audio_data = convert_to_wav(
             genai_types.Blob(data=request.audio, mime_type=request.mime_type or "audio/pcm")
         )
-        with open("/tmp/test.wav", "wb") as f:
+        hash = hashlib.md5(audio_data.data).hexdigest()
+        with open(f"/tmp/test-{hash}.wav", "wb") as f:
             f.write(audio_data.data)
 
     system_prompt = (

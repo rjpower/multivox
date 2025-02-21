@@ -38,7 +38,6 @@ async def translate(
         model=request.model_id,
         messages=messages,
         response_format={"type": "json_object"},
-        api_key=request.api_key,
     )
 
     content = response.choices[0].message.content  # type: ignore

@@ -92,7 +92,7 @@ class ChatState(pydantic.BaseModel):
 
     async def handle_message(self, message: WebSocketMessage) -> None:
         """Distribute message to all subscribers"""
-        logger.info(
+        logger.debug(
             "Handling message: %s, %s, end: %s",
             message.type,
             message.role,
@@ -473,7 +473,7 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
                 TranscribeAndHintRequest(
                     scenario=scenario,
                     history=history,
-                    audio=audio,
+                    audio=base64.b64encode(audio) if audio else None,
                     mime_type=(
                         f"audio/pcm;rate={settings.CLIENT_SAMPLE_RATE}"
                         if audio
@@ -484,24 +484,24 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
                 )
             )
 
-            # TODO: if we had an audio sample, we need to add the users message
-            # in text to the history
-            await self.state.handle_message(
-                TranscriptionWebSocketMessage(
-                    role=MessageRole.USER,
-                    source_text=response.transcription,
-                    dictionary={},
-                    chunked=[],
-                    translated_text="",
-                    end_of_turn=True,
-                )
-            )
-
             # Start TTS generation in background
             if self.state.modality == "audio":
                 tts_task = asyncio.create_task(
                     self._generate_and_send_tts(response.response_text)
                 )
+
+            # if we had an audio sample, send it to the user
+            # and add it to our history
+            user_msg = TranscriptionWebSocketMessage(
+                role=MessageRole.USER,
+                source_text=response.transcription,
+                dictionary={},
+                chunked=[response.transcription],
+                translated_text="",
+                end_of_turn=True,
+            )
+            logger.info("Sending %s", user_msg)
+            await self.state.handle_message(user_msg)
 
             # Send transcription while TTS generates
             transcription = TranscriptionWebSocketMessage(
