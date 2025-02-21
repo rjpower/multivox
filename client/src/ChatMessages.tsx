@@ -227,19 +227,15 @@ const AudioMessageComponent = ({ msg }: { msg: AudioViewMessage }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const audioPlayer = usePracticeStore((state) => state.audioPlayer);
 
-  console.log("Is playing...", isPlaying);
-
   const handlePlayback = async () => {
     if (!audioPlayer || !msg.isComplete) return;
 
     if (isPlaying) {
-      console.log("Stoppping...");
       audioPlayer.stop();
       setIsPlaying(false);
     } else {
-      console.log("Starting...");
       setIsPlaying(true);
-      await audioPlayer.playBuffers(msg.audioBuffers);
+      await audioPlayer.playAudioBlocking(msg.audioBuffers);
       setIsPlaying(false);
     }
   };
@@ -355,60 +351,24 @@ const ErrorMessageComponent = ({ msg }: { msg: ErrorViewMessage }) => (
 
 function processMessages(messages: WebSocketMessage[]): ChatViewMessage[] {
   const viewMessages: ChatViewMessage[] = [];
-  let textBuffer = "";
-  let lastAudioMessage: Map<MessageRole, AudioViewMessage> = new Map();
-  let lastMessage: WebSocketMessage | null = null;
 
   for (const message of messages) {
-    if (
-      message.type === "text" &&
-      message.role === "assistant" &&
-      !message.end_of_turn
-    ) {
-      textBuffer += message.text;
-      continue;
-    }
-
-    // We don't get usually get an end of turn for audio itself, so we
-    // need to infer end of turn from the next message
-    if (
-      message.type != "audio" &&
-      lastMessage?.type === "audio" &&
-      !lastMessage.end_of_turn
-    ) {
-      const audioMessage = lastAudioMessage.get(message.role);
-      if (!audioMessage) {
-      } else {
-        audioMessage.isComplete = true;
-        lastAudioMessage.delete(message.role);
-      }
-    }
-
     switch (message.type) {
       case "audio":
-        if (lastAudioMessage.has(message.role)) {
-          lastAudioMessage.get(message.role)!.isComplete = message.end_of_turn;
-          lastAudioMessage.get(message.role)!.audioBuffers.push({
-            data: message.audio,
-            mime_type: message.mime_type,
-          });
-        } else {
-          const audioMsg = {
-            type: "audio",
-            id: `audio-${viewMessages.length}`,
-            role: message.role,
-            placeholder: message.role === "user" ? "🎤" : "🔊",
-            audioBuffers: [
-              {
-                data: message.audio,
-                mime_type: message.mime_type,
-              },
-            ],
-            isComplete: message.end_of_turn,
-          } as AudioViewMessage;
-          viewMessages.push(audioMsg);
-          lastAudioMessage.set(message.role, audioMsg);
-        }
+        const audioMsg = {
+          type: "audio",
+          id: `audio-${viewMessages.length}`,
+          role: message.role,
+          placeholder: message.role === "user" ? "🎤" : "🔊",
+          audioBuffers: [
+            {
+              data: message.audio,
+              mime_type: message.mime_type,
+            },
+          ],
+          isComplete: message.end_of_turn,
+        } as AudioViewMessage;
+        viewMessages.push(audioMsg);
         break;
 
       case "initialize":
@@ -467,7 +427,6 @@ function processMessages(messages: WebSocketMessage[]): ChatViewMessage[] {
         });
         break;
     }
-    lastMessage = message;
   }
   return viewMessages;
 }

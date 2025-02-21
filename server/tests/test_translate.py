@@ -3,37 +3,18 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 from multivox.app import app, translate
-from multivox.scenarios import list_scenarios
-from multivox.types import LANGUAGES, TranslateResponse
-
-
-def test_translate_api():
-    """Test the translation API endpoint"""
-    client = TestClient(app)
-
-    response = client.post(
-        "/api/translate",
-        json={
-            "text": "Hello, how are you?",
-            "target_language": "ja",
-            "source_language": "en",
-            "api_key": os.environ["GEMINI_API_KEY"],
-        },
-    )
-
-    assert response.status_code == 200
-    data = response.json()
-    assert "translation" in data
-    assert isinstance(data["translation"], str)
-    assert len(data["translation"]) > 0
-    assert data["translation"] != "Hello, how are you?"
+from multivox.types import TranslateRequest, TranslateResponse
 
 
 async def test_translate_basic():
     """Test that translation to Japanese produces different output than input"""
     test_text = "Hello, how are you?"
     result: TranslateResponse = await translate(
-        text=test_text, source_language=LANGUAGES["en"], target_language=LANGUAGES["ja"]
+        TranslateRequest(
+            text=test_text,
+            source_language="en",
+            target_language="ja",
+        ),
     )
     print(result)
 
@@ -60,7 +41,11 @@ async def test_translate_invalid_language():
             },
         )
 
-INSTRUCTIONS = list_scenarios()[0].instructions
+
+INSTRUCTIONS = """
+You are a hotel clerk.
+Check the customer, ask their name etc. etc.
+"""
 
 
 # Test data mapping languages to expected words in translation
@@ -69,13 +54,16 @@ TRANSLATION_TEST_CASES = [
     ("es", ["gerente", "tienda", "cliente"]),
 ]
 
+
 @pytest.mark.parametrize("lang_code,expected_words", TRANSLATION_TEST_CASES)
 async def test_translate_long_instructions(lang_code: str, expected_words: list[str]):
     """Test translation of longer instructional text"""
     result = await translate(
-        text=INSTRUCTIONS,
-        source_language=LANGUAGES["en"],
-        target_language=LANGUAGES[lang_code],
+        TranslateRequest(
+            text=INSTRUCTIONS,
+            source_language="en",
+            target_language=lang_code,
+        )
     )
     print(result)
 
@@ -95,4 +83,6 @@ async def test_translate_long_instructions(lang_code: str, expected_words: list[
         if word in result.translated_text:
             found_words = True
             break
-    assert found_words, f"Expected to find words like {expected_words} in {lang_code} translation"
+    assert (
+        found_words
+    ), f"Expected to find words like {expected_words} in {lang_code} translation"

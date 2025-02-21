@@ -1,7 +1,11 @@
 import asyncio
 import base64
+import io
 import logging
 
+import pydantic
+import torch
+import torchaudio
 from fastapi import WebSocketDisconnect
 from fastapi.websockets import WebSocketState
 from google import genai
@@ -25,12 +29,16 @@ from multivox.types import (
     SERVER_SAMPLE_RATE,
     AudioWebSocketMessage,
     ErrorWebSocketMessage,
+    HintRequest,
     HintWebSocketMessage,
     Language,
     MessageRole,
     MessageType,
     TextWebSocketMessage,
+    TranscribeAndHintRequest,
+    TranscribeRequest,
     TranscriptionWebSocketMessage,
+    TranslateRequest,
     WebSocketMessage,
 )
 
@@ -65,14 +73,18 @@ class MessageSubscriber:
         raise NotImplementedError()
 
 
-class ChatState:
+class ChatState(pydantic.BaseModel):
     """Holds the conversation state and manages message distribution."""
 
-    def __init__(self, session: genai_live.AsyncSession, user_ws: TypedWebSocket):
-        self.history: list[WebSocketMessage] = []
-        self.subscribers: list[MessageSubscriber] = []
-        self.gemini = session
-        self.user_ws = user_ws
+    model_config = pydantic.ConfigDict(
+        arbitrary_types_allowed=True,
+    )
+
+    modality: str
+    user_ws: TypedWebSocket
+    session: genai_live.AsyncSession | None
+    history: list[WebSocketMessage] = pydantic.Field(default_factory=list)
+    subscribers: list[MessageSubscriber] = pydantic.Field(default_factory=list)
 
     def add_subscriber(self, subscriber: MessageSubscriber) -> None:
         """Add a new message subscriber"""
@@ -92,9 +104,10 @@ class ChatState:
         for subscriber in self.subscribers:
             try:
                 await subscriber.handle_message(message)
-            except Exception as e:
-                logger.error(
-                    f"Error in subscriber {subscriber.__class__.__name__}: {e}"
+            except Exception:
+                logger.exception(
+                    f"Error in subscriber {subscriber.__class__.__name__}",
+                    stack_info=True,
                 )
 
 
@@ -140,12 +153,12 @@ class BulkTranscriptionTask(LongRunningTask, MessageSubscriber):
         try:
             if audio:
                 transcript = await transcribe(
-                    audio_data=genai_types.Blob(
-                        data=audio,
-                        mime_type=f"audio/pcm;rate={settings.SERVER_SAMPLE_RATE}"
-                    ),
-                    source_language=self.practice_language,
-                    target_language=self.native_language,
+                    TranscribeRequest(
+                        audio=audio,
+                        mime_type=f"audio/pcm;rate={settings.SERVER_SAMPLE_RATE}",
+                        source_language=self.practice_language.abbreviation,
+                        target_language=self.native_language.abbreviation,
+                    )
                 )
                 msg = TranscriptionWebSocketMessage(
                     source_text=transcript.source_text,
@@ -157,9 +170,11 @@ class BulkTranscriptionTask(LongRunningTask, MessageSubscriber):
                 )
             elif text:
                 translation = await translate(
-                    text,
-                    source_language=self.practice_language,
-                    target_language=self.native_language,
+                    TranslateRequest(
+                        text=text,
+                        source_language=self.practice_language.abbreviation,
+                        target_language=self.native_language.abbreviation,
+                    )
                 )
                 msg = TranscriptionWebSocketMessage(
                     source_text=translation.source_text,
@@ -188,10 +203,12 @@ class BulkTranscriptionTask(LongRunningTask, MessageSubscriber):
 
                 history_prompt = "\n".join(history_items)
                 hints = await generate_hints(
-                    history_prompt,
-                    scenario=scenario,
-                    source_language=self.practice_language,
-                    target_language=self.native_language,
+                    HintRequest(
+                        history=history_prompt,
+                        scenario=scenario,
+                        source_language=self.practice_language.abbreviation,
+                        target_language=self.native_language.abbreviation,
+                    )
                 )
                 hint_msg = HintWebSocketMessage(
                     role=MessageRole.ASSISTANT,
@@ -382,6 +399,23 @@ class UserWriterTask(LongRunningTask, MessageSubscriber):
         await self.websocket.send_message(message)
 
 
+def wav_to_tensor(
+    wav_file: genai_types.Blob, sampling_rate: int = 16000
+) -> torch.Tensor:
+    """Convert a WAV file to a PyTorch tensor"""
+    assert wav_file.data
+    wav, sr = torchaudio.load(io.BytesIO(wav_file.data), format="wav")
+
+    if wav.size(0) > 1:
+        wav = wav.mean(dim=0, keepdim=True)
+
+    if sr != sampling_rate:
+        transform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=sampling_rate)
+        wav = transform(wav)
+
+    return wav.squeeze(0)
+
+
 class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
     """Handles transcription and hints for user messages"""
 
@@ -434,29 +468,40 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
         """Process a complete turn from the user"""
         scenario, history = await self._get_history()
 
-        audio_data = None
-        if audio:
-            audio_data = genai_types.Blob(
-                data=audio,
-                mime_type=f"audio/pcm;rate={settings.SERVER_SAMPLE_RATE}",
-            )
-
         try:
             response = await transcribe_and_hint(
-                scenario=scenario,
-                history=history,
-                audio_data=audio_data,
-                source_language=self.practice_language,
-                target_language=self.native_language,
+                TranscribeAndHintRequest(
+                    scenario=scenario,
+                    history=history,
+                    audio=audio,
+                    mime_type=(
+                        f"audio/pcm;rate={settings.CLIENT_SAMPLE_RATE}"
+                        if audio
+                        else None
+                    ),
+                    source_language=self.practice_language.abbreviation,
+                    target_language=self.native_language.abbreviation,
+                )
             )
 
             # TODO: if we had an audio sample, we need to add the users message
             # in text to the history
+            await self.state.handle_message(
+                TranscriptionWebSocketMessage(
+                    role=MessageRole.USER,
+                    source_text=response.transcription,
+                    dictionary={},
+                    chunked=[],
+                    translated_text="",
+                    end_of_turn=True,
+                )
+            )
 
             # Start TTS generation in background
-            tts_task = asyncio.create_task(
-                self._generate_and_send_tts(response.response_text)
-            )
+            if self.state.modality == "audio":
+                tts_task = asyncio.create_task(
+                    self._generate_and_send_tts(response.response_text)
+                )
 
             # Send transcription while TTS generates
             transcription = TranscriptionWebSocketMessage(
@@ -476,8 +521,8 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
             )
             await self.state.handle_message(hint)
 
-            # Let TTS task run in background
-            await tts_task
+            if self.state.modality == "audio":
+                await tts_task
 
         except Exception as e:
             logger.exception("Error processing turn")
@@ -507,19 +552,33 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
         end_of_turn = message.end_of_turn
 
         # For audio, use VAD to detect speech boundaries
-        if len(self.buffer.current_audio) > 0:
+        # We need about a second of buffer at the end to reliably handle
+        # the end of speech. We assume we have 1 channel at 16 bit PCM.
+        SPEECH_BUFFER = 1.0 * 2 * CLIENT_SAMPLE_RATE
+        if len(self.buffer.current_audio) > SPEECH_BUFFER:
             buffer_wav = convert_to_wav(
                 genai_types.Blob(
                     data=self.buffer.current_audio,
-                    mime_type=f"audio/pcm;rate={settings.SERVER_SAMPLE_RATE}",
+                    mime_type=f"audio/pcm;rate={settings.CLIENT_SAMPLE_RATE}",
                 )
             )
-            timestamps = get_speech_timestamps(
-                buffer_wav, vad_model, return_seconds=True
+            buffer_tensor = wav_to_tensor(
+                buffer_wav, sampling_rate=settings.CLIENT_SAMPLE_RATE
             )
-            start_ts = [ts for ts in timestamps if ts["start"]]
-            end_ts = [ts for ts in timestamps if ts["end"]]
-            end_of_turn = start_ts and end_ts
+            timestamps = get_speech_timestamps(
+                buffer_tensor, vad_model, return_seconds=False
+            )
+            end_ts = [ts["end"] for ts in timestamps if ts["end"]]
+
+            # we want to ignore the end if it's at the end of our buffer
+            # this is currently a hack - we divide the buffer length by
+            # 2 to get the sample count and compare
+            if end_ts:
+                last_ts = end_ts[-1]
+                buffer_ts = len(self.buffer.current_audio) // 2
+                if last_ts < buffer_ts - SPEECH_BUFFER:
+                    logger.info("Hit - TS: %s, buffer %s", last_ts, buffer_ts)
+                    end_of_turn = True
 
         # Process the turn if complete
         if end_of_turn:

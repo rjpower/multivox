@@ -1,5 +1,4 @@
 import base64
-import os
 import pathlib
 
 import pytest
@@ -7,18 +6,25 @@ from fastapi.testclient import TestClient
 from google.genai import types as genai_types
 from multivox.app import app
 from multivox.transcribe import transcribe_and_hint
-from multivox.types import Language, TranscribeResponse
+from multivox.types import Language, TranscribeAndHintRequest, TranscribeResponse
 
 
 @pytest.fixture
-def audio_data() -> genai_types.Blob:
+def namae_wa() -> genai_types.Blob:
+    """Load test audio file as a Blob"""
+    audio_path = pathlib.Path(__file__).parent / "data" / "namae_wa.wav"
+    with open(audio_path, "rb") as f:
+        raw_audio = f.read()
+    return genai_types.Blob(data=raw_audio, mime_type="audio/wav")
+
+
+@pytest.fixture
+def checkin() -> genai_types.Blob:
     """Load test audio file as a Blob"""
     audio_path = pathlib.Path(__file__).parent / "data" / "checkin.wav"
     with open(audio_path, "rb") as f:
-        # Skip WAV header (44 bytes)
-        f.seek(44)
         raw_audio = f.read()
-    return genai_types.Blob(data=raw_audio, mime_type="audio/pcm;rate=16000")
+    return genai_types.Blob(data=raw_audio, mime_type="audio/wav")
 
 
 @pytest.fixture
@@ -32,56 +38,65 @@ def languages() -> tuple[Language, Language]:
 
 @pytest.mark.asyncio
 async def test_transcribe_and_hint_conversation_flow(
-    audio_data: genai_types.Blob,
+    namae_wa: genai_types.Blob,
+    checkin: genai_types.Blob,
     languages: tuple[Language, Language],
 ) -> None:
     """Test transcribe_and_hint in a conversation flow"""
     source_lang, target_lang = languages
-    api_key = os.environ["GEMINI_API_KEY"]
-    
+
     # Initial scenario
     scenario = "You are checking into a hotel in Japan"
     history = ""
 
+    assert namae_wa.data
+    assert len(namae_wa.data) > 1000
+
     # First transcription
     response1 = await transcribe_and_hint(
-        scenario=scenario,
-        history=history,
-        audio_data=audio_data,
-        source_language=source_lang,
-        target_language=target_lang,
-        api_key=api_key,
+        TranscribeAndHintRequest(
+            scenario=scenario,
+            history=history,
+            audio=base64.b64encode(checkin.data),
+            mime_type=checkin.mime_type,
+            source_language=source_lang.abbreviation,
+            target_language=target_lang.abbreviation,
+        )
     )
 
     print(response1)
 
-    assert response1.source_text
+    assert response1.transcription
     assert response1.translated_text
     assert response1.chunked
     assert response1.dictionary
-    
+
     # Update history with first exchange
-    history += f"\nUser: {response1.source_text}\nAssistant: {response1.translated_text}"
+    history += (
+        f"\nUser: {response1.transcription}\nAssistant: {response1.translated_text}"
+    )
 
     # Second transcription with updated history
     response2 = await transcribe_and_hint(
-        scenario=scenario,
-        history=history,
-        audio_data=audio_data,
-        source_language=source_lang,
-        target_language=target_lang,
-        api_key=api_key,
+        TranscribeAndHintRequest(
+            scenario=scenario,
+            history=history,
+            audio=base64.b64encode(namae_wa.data),
+            mime_type=namae_wa.mime_type,
+            source_language=source_lang.abbreviation,
+            target_language=target_lang.abbreviation,
+        )
     )
 
     print(response2)
 
-    assert response2.source_text
+    assert response2.transcription
     assert response2.translated_text
     assert response2.chunked
     assert response2.dictionary
-    
+
     # Verify responses are different
-    assert response1.source_text != response2.source_text
+    assert response1.transcription != response2.transcription
     assert response1.translated_text != response2.translated_text
 
 
@@ -109,7 +124,6 @@ def test_transcribe_endpoint(sample_rate):
             "sample_rate": sample_rate,
             "source_language": "ja",
             "target_language": "en",
-            "api_key": os.environ["GEMINI_API_KEY"],
         },
     )
 

@@ -10,7 +10,6 @@ import {
   WebSocketState,
 } from "../types";
 import { TypedWebSocket } from "../TypedWebSocket";
-import { useAppStore } from "./app";
 import { devtools } from "zustand/middleware";
 
 export enum PracticeState {
@@ -27,11 +26,6 @@ export async function initializeWebSocket(
   onMessage: (message: any) => void
 ): Promise<TypedWebSocket> {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const apiKey = useAppStore.getState().geminiApiKey;
-  if (!apiKey) {
-    throw new Error("Gemini API key is required");
-  }
-
   const ws = new TypedWebSocket(
     `${protocol}//${
       window.location.host
@@ -39,7 +33,7 @@ export async function initializeWebSocket(
       practiceLanguage
     )}&native_language=${encodeURIComponent(
       nativeLanauge
-    )}&modality=${modality}&api_key=${encodeURIComponent(apiKey)}`
+    )}&modality=${modality}`
   );
 
   ws.onerror = (error) => {
@@ -68,11 +62,6 @@ export async function initializeWebSocket(
 export async function translateText(
   request: TranslateRequest
 ): Promise<string> {
-  const apiKey = useAppStore.getState().geminiApiKey;
-  if (!apiKey) {
-    throw new Error("Gemini API key is required");
-  }
-
   const response = await fetch(`/api/translate`, {
     method: "POST",
     headers: {
@@ -195,7 +184,8 @@ export const usePracticeStore = create<PracticeStore>()(
             text,
             source_language: "en",
             target_language: practiceLanguage,
-            api_key: useAppStore.getState().geminiApiKey!,
+            need_chunks: false,
+            need_dictionary: false,
           }).catch((err) => {
             throw new Error(`Translation failed: ${err.message}`);
           });

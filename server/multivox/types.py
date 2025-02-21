@@ -3,6 +3,9 @@ from typing import Annotated, Literal, Optional, Union
 
 from pydantic import Base64Bytes, BaseModel, Discriminator, Field, RootModel
 
+from multivox.config import settings
+from multivox.prompts import HINT_PROMPT, TRANSLATION_PROMPT, TRANSLATION_SYSTEM_PROMPT
+
 
 class Language(BaseModel):
     abbreviation: str
@@ -55,6 +58,15 @@ class HintOption(BaseModel):
     translated_text: str
 
 
+class HintRequest(BaseModel):
+    history: str
+    scenario: str
+    source_language: str
+    target_language: str
+    model_id: str = settings.HINT_MODEL_ID
+    hint_prompt: str = HINT_PROMPT
+    api_key: Optional[str] = None
+
 class HintResponse(BaseModel):
     hints: list[HintOption]
 
@@ -66,16 +78,24 @@ class DictionaryEntry(BaseModel):
 
 
 class TranscribeRequest(BaseModel):
-    api_key: str
-    audio: Base64Bytes
-    mime_type: str
+    api_key: Optional[str] = None
+    audio: Optional[Base64Bytes] = None
+    mime_type: Optional[str] = None
     sample_rate: Optional[int] = None
-
-    # Language of the audio
     source_language: str = ""
-
-    # Language to translate into
     target_language: str
+    scenario: Optional[str] = None
+    history: Optional[str] = None
+
+
+class TranscribeAndHintRequest(BaseModel):
+    scenario: str
+    history: str
+    audio: Optional[Base64Bytes] = None
+    mime_type: Optional[str] = None
+    source_language: str
+    target_language: str
+    model_id: str = settings.TRANSCRIBE_AND_HINT_MODEL_ID
 
 
 class TranscribeResponse(BaseModel):
@@ -86,10 +106,14 @@ class TranscribeResponse(BaseModel):
 
 
 class TranslateRequest(BaseModel):
-    api_key: str
     text: str
     source_language: str = "en"
     target_language: str
+    model_id: str = settings.TRANSLATION_MODEL_ID
+    system_prompt: str = TRANSLATION_SYSTEM_PROMPT
+    translation_prompt: str = TRANSLATION_PROMPT
+    need_chunks: bool = True
+    need_dictionary: bool = True
 
 
 class TranslateResponse(BaseModel):
@@ -201,6 +225,7 @@ WebSocketMessage = Annotated[
         AudioWebSocketMessage,
         HintWebSocketMessage,
         TranslateWebSocketMessage,
+        ErrorWebSocketMessage,
     ],
     Discriminator("type"),
 ]

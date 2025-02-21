@@ -1,7 +1,6 @@
 import {
   ArrowLeftCircleIcon,
   BookOpenIcon,
-  InformationCircleIcon,
   MicrophoneIcon,
   LanguageIcon,
   PaperAirplaneIcon,
@@ -16,11 +15,6 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { PracticeVocabulary } from "./PracticeVocabulary";
 import { PracticeState, useAppStore, usePracticeStore } from "./store";
 import { type Scenario } from "./types";
-
-interface ScenarioEditorProps {
-  scenario: Scenario;
-  onChange: (updates: Partial<Scenario>) => void;
-}
 
 interface ScenarioViewerProps {
   scenario: Scenario;
@@ -98,7 +92,21 @@ const ChatInterface = ({
   );
 };
 
-const ScenarioEditor = ({ scenario, onChange }: ScenarioEditorProps) => {
+const ScenarioEditor = () => {
+  const { scenarioId = "" } = useParams<{ scenarioId: string }>();
+  const userScenarios = useAppStore((state) => state.userScenarios);
+  const updateUserScenario = useAppStore((state) => state.updateUserScenario);
+
+  const editableScenario = userScenarios.find((s) => s.id === scenarioId);
+
+  const handleChange = (updates: Partial<Scenario>) => {
+    if (scenarioId) {
+      updateUserScenario({ ...editableScenario!, ...updates });
+    }
+  };
+
+  if (!editableScenario) return null;
+
   return (
     <div className="space-y-6">
       <div>
@@ -107,8 +115,8 @@ const ScenarioEditor = ({ scenario, onChange }: ScenarioEditorProps) => {
         </label>
         <input
           type="text"
-          value={scenario.title}
-          onChange={(e) => onChange({ title: e.target.value })}
+          value={editableScenario.title}
+          onChange={(e) => handleChange({ title: e.target.value })}
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           placeholder="Give your scenario a descriptive title"
         />
@@ -119,8 +127,8 @@ const ScenarioEditor = ({ scenario, onChange }: ScenarioEditorProps) => {
           Description
         </label>
         <textarea
-          value={scenario.description}
-          onChange={(e) => onChange({ description: e.target.value })}
+          value={editableScenario.description}
+          onChange={(e) => handleChange({ description: e.target.value })}
           rows={3}
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           placeholder="Briefly describe the purpose and goals of this practice scenario"
@@ -132,8 +140,8 @@ const ScenarioEditor = ({ scenario, onChange }: ScenarioEditorProps) => {
           Instructions
         </label>
         <textarea
-          value={scenario.instructions}
-          onChange={(e) => onChange({ instructions: e.target.value })}
+          value={editableScenario.instructions}
+          onChange={(e) => handleChange({ instructions: e.target.value })}
           className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>
@@ -141,67 +149,90 @@ const ScenarioEditor = ({ scenario, onChange }: ScenarioEditorProps) => {
   );
 };
 
-const ScenarioContent = ({
-  scenario,
-  editableScenario,
-  scenarioId,
-  practiceState,
-  practiceLanguage,
-  nativeLanguage,
-  onScenarioChange,
-  onStart,
-}: {
-  scenario: Scenario | null;
-  editableScenario: Scenario | null;
-  scenarioId: string;
-  practiceState: PracticeState;
-  practiceLanguage: string;
-  nativeLanguage: string;
-  onScenarioChange: (updates: Partial<Scenario>) => void;
-  onStart: (
-    instructions: string,
-    practiceLanguage: string,
-    nativeLanguage: string
-  ) => Promise<void>;
-}) => {
-  if (!scenario || practiceState !== PracticeState.WAITING) {
+const ScenarioContent = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const practiceState = usePracticeStore((state) => state.practiceState);
+  const connect = usePracticeStore((state) => state.connect);
+  const practiceLanguage = useAppStore((state) => state.practiceLanguage);
+  const nativeLanguage = useAppStore((state) => state.nativeLanguage);
+  const { scenarioId = "" } = useParams<{ scenarioId: string }>();
+
+  const userScenarios = useAppStore((state) => state.userScenarios);
+  const userScenario = userScenarios.find((s) => s.id === scenarioId);
+
+  const systemScenarios = useAppStore((state) => state.systemScenarios);
+  const systemScenario = systemScenarios.find((s) => s.id === scenarioId);
+
+  const setUserScenario = useAppStore((state) => state.updateUserScenario);
+
+  useEffect(() => {
+    const initializeScenario = async () => {
+      if (
+        scenarioId.startsWith("custom-") &&
+        !userScenarios.find((s) => s.id === scenarioId)
+      ) {
+        const newScenario = {
+          id: scenarioId,
+          title: "Custom Practice Scenario",
+          description: "Description for your personal practice scenario.",
+          instructions: `<Instructions for the assistant>, e.g.          
+You are a local real-estate agent specializing in rentals.
+You help clients find local apartments suitable for them.
+You walk through the process of identifying appropriate apartments, scheduling viewings, and negotiating leases.
+
+A client has entered and needs assistance.
+`,
+        };
+        await setUserScenario(newScenario);
+      }
+      setIsLoading(false);
+    };
+
+    initializeScenario();
+  }, [scenarioId, userScenarios, setUserScenario]);
+
+  if (practiceState !== PracticeState.WAITING) {
     return null;
+  }
+
+  const scenario = userScenario || systemScenario;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (scenario === undefined) {
+    return <div>Failed to find matching scenario for {scenarioId}</div>;
   }
 
   return (
     <>
-      {scenarioId.startsWith("custom-") && editableScenario ? (
-        <ScenarioEditor
-          scenario={editableScenario}
-          onChange={(updates) => onScenarioChange(updates)}
-        />
+      {scenarioId.startsWith("custom-") ? (
+        <ScenarioEditor />
       ) : (
         <ScenarioViewer scenario={scenario} />
       )}
       <PracticeControls
         onStart={() =>
-          onStart(scenario.instructions, practiceLanguage, nativeLanguage)
+          connect(scenario.instructions, practiceLanguage, nativeLanguage)
         }
       />
     </>
   );
 };
 
-const ChatContent = ({
-  practiceState,
-  isRecording,
-  chatHistory,
-  onStartRecording,
-  onStopRecording,
-  onSendMessage,
-}: {
-  practiceState: PracticeState;
-  isRecording: boolean;
-  chatHistory: ChatHistory;
-  onStartRecording: () => Promise<void>;
-  onStopRecording: () => void;
-  onSendMessage: (text: string) => void;
-}) => {
+const ChatContent = () => {
+  const practiceState = usePracticeStore((state) => state.practiceState);
+  const isRecording = usePracticeStore((state) => state.isRecording);
+  const chatHistory = usePracticeStore((state) => state.chatHistory);
+  const startRecording = usePracticeStore((state) => state.startRecording);
+  const stopRecording = usePracticeStore((state) => state.stopRecording);
+  const sendMessage = usePracticeStore((state) => state.sendMessage);
+
   if (practiceState === PracticeState.WAITING) {
     return null;
   }
@@ -210,12 +241,12 @@ const ChatContent = ({
     <ChatInterface
       isRecording={isRecording}
       chatHistory={chatHistory}
-      onStartRecording={onStartRecording}
+      onStartRecording={startRecording}
       onStopRecording={() => {
-        onStopRecording();
-        onSendMessage("");
+        stopRecording();
+        sendMessage("");
       }}
-      onSendMessage={onSendMessage}
+      onSendMessage={sendMessage}
     />
   );
 };
@@ -357,25 +388,7 @@ export const Practice = () => {
   const navigate = useNavigate();
   const error = usePracticeStore((state) => state.error);
   const clearError = usePracticeStore((state) => state.clearError);
-  const [scenario, setScenario] = useState<Scenario | null>(null);
-  const [editableScenario, setEditableScenario] = useState<Scenario | null>(
-    null
-  );
-  const [saveSuccess, setSaveSuccess] = useState(false);
-
-  const isRecording = usePracticeStore((state) => state.isRecording);
   const chatHistory = usePracticeStore((state) => state.chatHistory);
-  const startRecording = usePracticeStore((state) => state.startRecording);
-  const stopRecording = usePracticeStore((state) => state.stopRecording);
-  const sendMessage = usePracticeStore((state) => state.sendMessage);
-  const connect = usePracticeStore((state) => state.connect);
-
-  const systemScenarios = useAppStore((state) => state.systemScenarios);
-  const userScenarios = useAppStore((state) => state.userScenarios);
-  const addUserScenario = useAppStore((state) => state.addUserScenario);
-  const updateUserScenario = useAppStore((state) => state.updateUserScenario);
-  const practiceLanguage = useAppStore((state) => state.practiceLanguage);
-  const nativeLanguage = useAppStore((state) => state.nativeLanguage);
 
   const reset = usePracticeStore((state) => state.reset);
   useEffect(() => {
@@ -383,57 +396,6 @@ export const Practice = () => {
     reset();
     return () => reset();
   }, [reset, scenarioId]);
-
-  useEffect(() => {
-    if (
-      scenarioId.startsWith("custom-") &&
-      !userScenarios.find((s) => s.id === scenarioId)
-    ) {
-      const newScenario = {
-        id: scenarioId,
-        title: "Custom Practice Scenario",
-        description: "Description for your personal practice scenario.",
-        instructions: `<Instructions for the assistant>, e.g.          
-You are a local real-estate agent specializing in rentals.
-You help clients find local apartments suitable for them.
-You walk through the process of identifying appropriate apartments, scheduling viewings, and negotiating leases.
-
-A client has entered and needs assistance.
-`,
-      };
-      setScenario(newScenario);
-      setEditableScenario(newScenario);
-    } else {
-      const found =
-        systemScenarios.find((s) => s.id === scenarioId) ||
-        userScenarios.find((s) => s.id === scenarioId);
-      setScenario(found || null);
-      if (found && scenarioId.startsWith("custom-")) {
-        setEditableScenario(found);
-      }
-    }
-  }, [scenarioId, systemScenarios, userScenarios]);
-
-  const handleSave = () => {
-    if (!editableScenario) return;
-
-    const scenarioToSave = {
-      id: scenarioId,
-      title: editableScenario.title,
-      description: editableScenario.description,
-      instructions: editableScenario.instructions,
-    };
-
-    if (!userScenarios.find((s) => s.id === scenarioId)) {
-      addUserScenario(scenarioToSave);
-    } else {
-      updateUserScenario(scenarioId, scenarioToSave);
-    }
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2000);
-  };
-
-  const practiceState = usePracticeStore((state) => state.practiceState);
 
   const isTranslating = usePracticeStore(
     (state) => state.practiceState === PracticeState.TRANSLATING
@@ -457,22 +419,6 @@ A client has entered and needs assistance.
               <ArrowLeftCircleIcon className="h-5 w-5" />
               <span>Back to scenarios</span>
             </button>
-            {scenarioId.startsWith("custom-") && (
-              <div className="flex items-center gap-2">
-                {saveSuccess && (
-                  <span className="text-green-600 text-sm">
-                    Saved successfully!
-                  </span>
-                )}
-                <button
-                  onClick={handleSave}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2"
-                >
-                  <InformationCircleIcon className="h-5 w-5" />
-                  <span>Save Scenario</span>
-                </button>
-              </div>
-            )}
           </div>
 
           <ErrorDisplay error={error} onDismiss={clearError} />
@@ -488,28 +434,8 @@ A client has entered and needs assistance.
             </div>
             <div className="flex-1">
               <div className="bg-white rounded-lg shadow-md p-4">
-                <ScenarioContent
-                  scenario={scenario}
-                  editableScenario={editableScenario}
-                  scenarioId={scenarioId}
-                  practiceState={practiceState}
-                  practiceLanguage={practiceLanguage}
-                  nativeLanguage={nativeLanguage}
-                  onScenarioChange={(updates) =>
-                    setEditableScenario((prev) =>
-                      prev ? { ...prev, ...updates } : null
-                    )
-                  }
-                  onStart={connect}
-                />
-                <ChatContent
-                  practiceState={practiceState}
-                  isRecording={isRecording}
-                  chatHistory={chatHistory}
-                  onStartRecording={startRecording}
-                  onStopRecording={stopRecording}
-                  onSendMessage={sendMessage}
-                />
+                <ScenarioContent />
+                <ChatContent />
               </div>
             </div>
             <div

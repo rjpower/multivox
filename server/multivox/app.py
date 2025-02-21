@@ -28,9 +28,7 @@ from multivox.config import settings
 from multivox.flashcards.api import router as flashcard_router
 from multivox.message_socket import TypedWebSocket
 from multivox.scenarios import (
-    get_chapter,
     get_scenario,
-    list_chapters,
     list_scenarios,
 )
 from multivox.tasks import (
@@ -49,7 +47,6 @@ from multivox.transcribe import (
 from multivox.translate import translate
 from multivox.types import (
     LANGUAGES,
-    Chapter,
     Language,
     Scenario,
     TranscribeRequest,
@@ -124,7 +121,7 @@ class ChatContext(pydantic.BaseModel):
     websocket: TypedWebSocket
     practice_language: Language
     native_language: Language
-    api_key: str
+    api_key: str | None = None
 
     client: genai.Client | None = None
     gemini_ctx: object | None = None
@@ -133,16 +130,17 @@ class ChatContext(pydantic.BaseModel):
 
     aio_tasks: list[asyncio.Task] = pydantic.Field(default_factory=list)
     tasks: list[LongRunningTask] = pydantic.Field(default_factory=list)
-    modality: str = "audio"
 
-    mode: AudioMode = AudioMode.STEP_BY_STEP
+    interaction_mode: AudioMode = AudioMode.STEP_BY_STEP
+    modality: str = "audio"
 
     def model_post_init(self, __context) -> None:
         super().model_post_init(__context)
-        self.client = genai.Client(
-            api_key=self.api_key,
-            http_options={"api_version": settings.GEMINI_API_VERSION},
-        )
+        if self.api_key:
+            self.client = genai.Client(
+                api_key=self.api_key,
+                http_options={"api_version": settings.GEMINI_API_VERSION},
+            )
 
     async def __aenter__(self):
         config = genai_types.LiveConnectConfig()
@@ -163,9 +161,16 @@ class ChatContext(pydantic.BaseModel):
             ]
         )
 
-        self.state = ChatState(self.gemini_session, self.websocket)
+        self.state = ChatState(
+            session=self.gemini_session,
+            user_ws=self.websocket,
+            modality=self.modality,
+        )
 
-        if self.mode == AudioMode.LIVE:
+        if self.interaction_mode == AudioMode.LIVE:
+            assert self.gemini_session is not None
+            assert self.client is not None
+            assert self.gemini_ctx is not None
             self.gemini_ctx = self.client.aio.live.connect(
                 model=settings.LIVE_MODEL_ID, config=config
             )
@@ -219,7 +224,6 @@ class ChatContext(pydantic.BaseModel):
             except Exception:
                 logger.warning("Timed out closing Gemini session")
 
-        # Cancel and await all tasks
         for task in self.aio_tasks:
             task.cancel()
         await asyncio.gather(*self.aio_tasks, return_exceptions=True)
@@ -243,7 +247,6 @@ async def practice_session(
     native_language: str = Query(
         ..., description="Language to use for hints and translations"
     ),
-    api_key: str = Query(..., description="Gemini API key."),
     modality: str = Query("audio", description="Response modality (audio/text)"),
 ):
     if practice_language not in LANGUAGES:
@@ -256,10 +259,6 @@ async def practice_session(
         await raw_websocket.close(
             code=1008, reason=f"Unsupported native language: {native_language}"
         )
-
-    if not api_key:
-        await raw_websocket.close(code=1008, reason="Missing Gemini API key")
-        return
 
     websocket = TypedWebSocket(raw_websocket)
 
@@ -275,7 +274,6 @@ async def practice_session(
             websocket=websocket,
             practice_language=LANGUAGES[practice_language],
             native_language=LANGUAGES[native_language],
-            api_key=api_key,
             modality=modality,
         ) as ctx:
             await ctx.run()
@@ -290,43 +288,18 @@ async def practice_session(
 
 @app.post("/api/translate")
 async def api_translate(request: TranslateRequest) -> TranslateResponse:
-    return await translate(
-        request.text,
-        source_language=LANGUAGES[request.source_language],
-        target_language=LANGUAGES[request.target_language],
-        model_id=settings.TRANSLATION_MODEL_ID,
-    )
+    return await translate(request)
 
 
 @app.post("/api/transcribe", response_model=TranscribeResponse)
 async def api_transcribe(request: TranscribeRequest) -> TranscribeResponse:
-    return await transcribe(
-        audio_data=genai_types.Blob(data=request.audio, mime_type=request.mime_type),
-        api_key=request.api_key,
-        source_language=LANGUAGES[request.source_language],
-        target_language=LANGUAGES[request.target_language],
-    )
+    return await transcribe(request)
 
 
 @app.get("/api/languages")
 def api_list_languages():
     """Get list of supported languages"""
     return [{"code": code, "name": lang.name} for code, lang in LANGUAGES.items()]
-
-
-@app.get("/api/chapters")
-def api_list_chapters() -> Sequence[Chapter]:
-    """Get all chapters"""
-    return list_chapters()
-
-
-@app.get("/api/chapters/{chapter_id}")
-def api_get_chapter(chapter_id: str) -> Chapter:
-    """Get a specific chapter by ID"""
-    try:
-        return get_chapter(chapter_id)
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Chapter not found")
 
 
 @app.get("/api/scenarios")

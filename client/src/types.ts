@@ -9,6 +9,8 @@ export interface TranslateRequest {
   text: string;
   target_language: string;
   source_language?: string;
+  need_chunks?: boolean;
+  need_dictionary?: boolean;
   api_key?: string;
 }
 

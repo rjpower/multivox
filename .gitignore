@@ -31,3 +31,5 @@ build/
 *.env
 secrets.ini
 cache/
+
+.mypy_cache/

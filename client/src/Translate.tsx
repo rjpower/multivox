@@ -4,6 +4,8 @@ import { useAppStore } from "./store";
 
 export const Translate = () => {
   const [inputText, setInputText] = useState("");
+  const languages = useAppStore((state) => state.languages);
+  const [sourceLanguage, setSourceLanguage] = useState("en");
   const [targetLanguage, setTargetLanguage] = useState("ja");
   const [translation, setTranslation] = useState<TranslateResponse | null>(
     null
@@ -20,15 +22,12 @@ export const Translate = () => {
     setError(null);
 
     try {
-      const apiKey = useAppStore.getState().geminiApiKey;
-      if (!apiKey) {
-        throw new Error("Gemini API key is required");
-      }
-
       const request: TranslateRequest = {
         text: inputText,
+        source_language: sourceLanguage,
         target_language: targetLanguage,
-        api_key: apiKey,
+        need_chunks: true,
+        need_dictionary: true,
       };
 
       const response = await fetch("/api/translate", {
@@ -46,11 +45,12 @@ export const Translate = () => {
       const data: TranslateResponse = await response.json();
       setTranslation(data);
 
-      // Now translate back to English
       const reverseRequest: TranslateRequest = {
         text: data.translated_text,
-        target_language: "en",
-        api_key: apiKey,
+        source_language: targetLanguage,
+        target_language: sourceLanguage,
+        need_chunks: true,
+        need_dictionary: true,
       };
 
       const reverseResponse = await fetch("/api/translate", {
@@ -82,21 +82,40 @@ export const Translate = () => {
         </h1>
 
         <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Target Language
-            </label>
-            <select
-              value={targetLanguage}
-              onChange={(e) => setTargetLanguage(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            >
-              <option value="ja">Japanese</option>
-              <option value="es">Spanish</option>
-              <option value="fr">French</option>
-              <option value="de">German</option>
-              <option value="it">Italian</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Source Language
+              </label>
+              <select
+                value={sourceLanguage}
+                onChange={(e) => setSourceLanguage(e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              >
+                {languages.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Target Language
+              </label>
+              <select
+                value={targetLanguage}
+                onChange={(e) => setTargetLanguage(e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              >
+                {languages.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -125,7 +144,7 @@ export const Translate = () => {
           )}
 
           {translation && (
-            <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+            <div className="space-y-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
               <div>
                 <h3 className="font-medium text-gray-900">Translation</h3>
                 <p className="mt-2 text-gray-600 whitespace-pre-wrap">
@@ -135,7 +154,9 @@ export const Translate = () => {
 
               {reverseTranslation && (
                 <div>
-                  <h3 className="font-medium text-gray-900">Back to English</h3>
+                  <h3 className="font-medium text-gray-900">
+                    Back to {sourceLanguage}
+                  </h3>
                   <p className="mt-2 text-gray-600 whitespace-pre-wrap">
                     {reverseTranslation.translated_text.replace(/\n/g, "\n")}
                   </p>

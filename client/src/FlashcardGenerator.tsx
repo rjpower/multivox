@@ -1,6 +1,7 @@
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { create } from "zustand";
 import { useAppStore } from "./store";
+import { useFlashcardStore } from "./stores/flashcards";
+import React from "react";
 
 const EXAMPLE_JAPANESE_WORDS = `山
 空
@@ -56,6 +57,7 @@ export interface FlashcardGenerateRequest {
   mode: "csv" | "srt";
   include_audio: boolean;
   field_mapping?: FlashcardFieldMapping | null;
+  source_language: string;
   target_language: string;
 }
 
@@ -75,180 +77,6 @@ export interface Message {
   url?: string;
 }
 
-interface UploadStore {
-  modalVisible: boolean;
-  messages: Message[];
-  spinner: boolean;
-  submitting: boolean;
-  downloadUrl: string | null;
-  csvPreview: any | null;
-  websocket: WebSocket | null;
-  content: string;
-  analyzeError: string | null;
-  inputMode: "csv" | "srt";
-  fieldMapping: typeof initialFieldMapping;
-  format: "apkg" | "pdf";
-  includeAudio: boolean;
-  targetLanguage: string;
-  isFormValid: () => boolean;
-  showModal: () => void;
-  hideModal: () => void;
-  setSubmitting: (flag: boolean) => void;
-  setSpinner: (flag: boolean) => void;
-  setContent: (content: string) => void;
-  setAnalyzeError: (error: string | null) => void;
-  setInputMode: (mode: "csv" | "srt") => void;
-  setFieldMapping: (mapping: typeof initialFieldMapping) => void;
-  setFormat: (format: "apkg" | "pdf") => void;
-  setIncludeAudio: (include: boolean) => void;
-  setTargetLanguage: (lang: string) => void;
-  logMessage: (text: string, type?: "error" | "success" | undefined) => void;
-  scrollToBottom: () => void;
-  clearMessages: () => void;
-  setCsvPreview: (preview: any) => void;
-  startGeneration: () => void;
-  cleanup: () => void;
-}
-
-export const useUploadStore = create<UploadStore>((set, get) => ({
-  downloadUrl: "",
-  modalVisible: false,
-  messages: [],
-  spinner: true,
-  submitting: false,
-  csvPreview: null,
-  websocket: null,
-  content: "",
-  analyzeError: null,
-  inputMode: "csv",
-  fieldMapping: initialFieldMapping,
-  format: "pdf",
-  includeAudio: false,
-  targetLanguage: "",
-
-  isFormValid: () => {
-    const state = get();
-    if (!state.content || !state.targetLanguage) return false;
-
-    if (state.inputMode === "csv") {
-      // For CSV mode, require analysis and field mapping
-      if (!state.csvPreview) return false;
-      // At minimum need term field mapped
-      if (!state.fieldMapping.term_field) return false;
-    }
-
-    return true;
-  },
-
-  setContent: (content: string) => set({ content }),
-  setAnalyzeError: (error: string | null) => set({ analyzeError: error }),
-  setInputMode: (mode: "csv" | "srt") => set({ inputMode: mode }),
-  setFieldMapping: (mapping) => set({ fieldMapping: mapping }),
-  setFormat: (format: "apkg" | "pdf") => set({ format }),
-  setIncludeAudio: (include: boolean) => set({ includeAudio: include }),
-  setTargetLanguage: (lang: string) => set({ targetLanguage: lang }),
-  showModal: () => set({ modalVisible: true }),
-  cleanup: () => {
-    const { websocket } = get();
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.close();
-    }
-    // Reset everything except content
-    set({
-      websocket: null,
-      submitting: false,
-      spinner: true,
-      messages: [],
-      downloadUrl: null,
-      csvPreview: null,
-      analyzeError: null,
-      fieldMapping: initialFieldMapping,
-      modalVisible: false,
-      inputMode: "csv",
-      format: "pdf",
-      includeAudio: false,
-    });
-  },
-  hideModal: () => {
-    get().cleanup();
-  },
-  setSubmitting: (submitting) => set({ submitting }),
-  setSpinner: (spinner: boolean) => set({ spinner }),
-  logMessage: (text, type?) => {
-    set((state) => {
-      const timestamp = new Date().toISOString();
-      const newState = {
-        messages: [...state.messages, { timestamp, text, type }].slice(-100),
-      };
-      // Schedule scroll after state update
-      setTimeout(() => {
-        const container = document.getElementById("message-container");
-        if (container) {
-          container.scrollTop = container.scrollHeight;
-        }
-      }, 0);
-      return newState;
-    });
-  },
-  scrollToBottom: () => {
-    const container = document.getElementById("message-container");
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
-  },
-  clearMessages: () => set({ messages: [] }),
-  setCsvPreview: (preview) => set({ csvPreview: preview }),
-  startGeneration: () => {
-    const state = get();
-    state.setSubmitting(true);
-    state.showModal();
-    state.clearMessages();
-    state.logMessage("Starting processing...");
-
-    try {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const ws = new WebSocket(
-        `${protocol}//${window.location.host}/api/flashcards/generate`
-      );
-      set({ websocket: ws });
-
-      ws.onopen = () => {
-        set({ spinner: false });
-        const request: FlashcardGenerateRequest = {
-          content: state.content,
-          format: state.format,
-          include_audio: state.includeAudio,
-          target_language: state.targetLanguage,
-          mode: state.inputMode,
-          field_mapping:
-            state.inputMode === "csv"
-              ? {
-                  term: state.fieldMapping.term_field,
-                  reading: state.fieldMapping.reading_field,
-                  meaning: state.fieldMapping.meaning_field,
-                  context_native: state.fieldMapping.context_native_field,
-                  context_en: state.fieldMapping.context_en_field,
-                }
-              : null,
-        };
-        ws.send(JSON.stringify(request));
-      };
-
-      ws.onmessage = (msg) => {
-        const data = JSON.parse(msg.data);
-        state.logMessage(data.text, data.type);
-        if (data.url) {
-          set({ downloadUrl: data.url });
-        }
-        set({ spinner: data.type !== "success" });
-      };
-    } catch (err: any) {
-      state.logMessage(`Error: ${err.message}`, "error");
-      state.setSubmitting(false);
-    }
-  },
-}));
-
 interface ProcessingModalProps {
   visible: boolean;
   messages: Message[];
@@ -263,18 +91,15 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
   spinner,
   onClose,
 }) => {
-  if (!visible) return null;
+  const downloadUrl = useFlashcardStore((state) => state.downloadUrl);
 
-  const downloadUrl = useUploadStore((state) => state.downloadUrl);
-  const handleClose = () => {
-    onClose();
-  };
+  if (!visible) return null;
 
   return (
     <>
       <div
         className="fixed inset-0 bg-black opacity-60 z-40"
-        onClick={handleClose}
+        onClick={onClose}
       ></div>
       <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded shadow-lg z-50">
         <div className="flex items-center justify-between p-4 bg-gray-100 border-b">
@@ -284,7 +109,7 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
               <div className="w-6 h-6 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
             )}
             <button
-              onClick={handleClose}
+              onClick={onClose}
               className="text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-full p-1"
             >
               <XMarkIcon className="w-5 h-5" />
@@ -308,43 +133,42 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
             </div>
           </div>
         )}
-        <div
-          className="p-4 h-72 overflow-y-auto text-sm"
-          id="message-container"
-        >
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`mb-1 ${
-                msg.type === "error"
-                  ? "text-red-600"
-                  : msg.type === "success"
-                  ? "text-green-600"
-                  : "text-gray-800"
-              }`}
-            >
-              <span className="mr-2 text-gray-500 text-xs">
-                {new Date(msg.timestamp).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </span>
-              <>
-                <span dangerouslySetInnerHTML={{ __html: msg.text }} />
-                {msg.type === "success" && msg.url && (
-                  <a
-                    href={msg.url}
-                    className="ml-2 text-blue-600 hover:text-blue-800 underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Download
-                  </a>
-                )}
-              </>
-            </div>
-          ))}
+        <div className="p-4 h-72 overflow-y-auto text-sm flex flex-col-reverse">
+          <div className="flex flex-col">
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className={`mb-1 ${
+                  msg.type === "error"
+                    ? "text-red-600"
+                    : msg.type === "success"
+                    ? "text-green-600"
+                    : "text-gray-800"
+                }`}
+              >
+                <span className="mr-2 text-gray-500 text-xs">
+                  {new Date(msg.timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })}
+                </span>
+                <>
+                  <span dangerouslySetInnerHTML={{ __html: msg.text }} />
+                  {msg.type === "success" && msg.url && (
+                    <a
+                      href={msg.url}
+                      className="ml-2 text-blue-600 hover:text-blue-800 underline"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Download
+                    </a>
+                  )}
+                </>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </>
@@ -478,7 +302,6 @@ const FieldMappingForm = ({
               setFieldMapping({ ...fieldMapping, term_field: value })
             }
             options={headers}
-            required
           />
           <FieldSelect
             label="Reading Field"
@@ -581,17 +404,14 @@ const initialFieldMapping = {
 interface FormatSettingsProps {}
 
 const FormatSettings: React.FC<FormatSettingsProps> = () => {
-  const languages = useAppStore((state) => state.languages);
-  const format = useUploadStore((state) => state.format);
-  const targetLanguage = useUploadStore((state) => state.targetLanguage);
-  const includeAudio = useUploadStore((state) => state.includeAudio);
-  const setFormat = useUploadStore((state) => state.setFormat);
-  const setTargetLanguage = useUploadStore((state) => state.setTargetLanguage);
-  const setIncludeAudio = useUploadStore((state) => state.setIncludeAudio);
+  const format = useFlashcardStore((state) => state.format);
+  const includeAudio = useFlashcardStore((state) => state.includeAudio);
+  const setFormat = useFlashcardStore((state) => state.setFormat);
+  const setIncludeAudio = useFlashcardStore((state) => state.setIncludeAudio);
 
   return (
-    <div className="mb-6 flex space-x-4">
-      <div className="flex-1">
+    <div className="mb-6 space-y-4">
+      <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Output Format
         </label>
@@ -602,25 +422,6 @@ const FormatSettings: React.FC<FormatSettingsProps> = () => {
         >
           <option value="apkg">Anki Deck (.apkg)</option>
           <option value="pdf">PDF Document</option>
-        </select>
-      </div>
-
-      <div className="flex-1">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Target Language
-        </label>
-        <select
-          value={targetLanguage}
-          onChange={(e) => setTargetLanguage(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          required
-        >
-          <option value="">Select Language</option>
-          {languages.map((lang) => (
-            <option key={lang.code} value={lang.code}>
-              {lang.name}
-            </option>
-          ))}
         </select>
       </div>
 
@@ -642,9 +443,9 @@ const FormatSettings: React.FC<FormatSettingsProps> = () => {
 };
 
 const ContentInput = () => {
-  const content = useUploadStore((state) => state.content);
-  const inputMode = useUploadStore((state) => state.inputMode);
-  const setContent = useUploadStore((state) => state.setContent);
+  const content = useFlashcardStore((state) => state.content);
+  const inputMode = useFlashcardStore((state) => state.inputMode);
+  const setContent = useFlashcardStore((state) => state.setContent);
 
   return (
     <div>
@@ -664,15 +465,17 @@ const ContentInput = () => {
 };
 
 const CSVAnalysisSection = () => {
-  const inputMode = useUploadStore((state) => state.inputMode);
-  const analyzeError = useUploadStore((state) => state.analyzeError);
-  const csvPreview = useUploadStore((state) => state.csvPreview);
-  const fieldMapping = useUploadStore((state) => state.fieldMapping);
-  const setContent = useUploadStore((state) => state.setContent);
-  const setAnalyzeError = useUploadStore((state) => state.setAnalyzeError);
-  const setCsvPreview = useUploadStore((state) => state.setCsvPreview);
-  const setFieldMapping = useUploadStore((state) => state.setFieldMapping);
-  const content = useUploadStore((state) => state.content);
+  const practiceLanguage = useAppStore((state) => state.practiceLanguage);
+  const nativeLanguage = useAppStore((state) => state.nativeLanguage);
+  const inputMode = useFlashcardStore((state) => state.inputMode);
+  const analyzeError = useFlashcardStore((state) => state.analyzeError);
+  const csvPreview = useFlashcardStore((state) => state.csvPreview);
+  const fieldMapping = useFlashcardStore((state) => state.fieldMapping);
+  const setContent = useFlashcardStore((state) => state.setContent);
+  const setAnalyzeError = useFlashcardStore((state) => state.setAnalyzeError);
+  const setCsvPreview = useFlashcardStore((state) => state.setCsvPreview);
+  const setFieldMapping = useFlashcardStore((state) => state.setFieldMapping);
+  const content = useFlashcardStore((state) => state.content);
 
   const handleAnalyze = async () => {
     if (!content) {
@@ -686,7 +489,11 @@ const CSVAnalysisSection = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ 
+          content,
+          source_language: practiceLanguage,
+          target_language: nativeLanguage
+        }),
       });
       if (!res.ok) {
         throw new Error(`Server error: ${res.status}`);
@@ -763,8 +570,8 @@ const CSVAnalysisSection = () => {
 };
 
 const InputTypeSelector = () => {
-  const inputMode = useUploadStore((state) => state.inputMode);
-  const setInputMode = useUploadStore((state) => state.setInputMode);
+  const inputMode = useFlashcardStore((state) => state.inputMode);
+  const setInputMode = useFlashcardStore((state) => state.setInputMode);
 
   return (
     <div className="mb-6">
@@ -805,18 +612,21 @@ const InputTypeSelector = () => {
 };
 
 const FlashcardGenerator = () => {
-  const isFormValid = useUploadStore((state) => state.isFormValid());
-  const modalVisible = useUploadStore((state) => state.modalVisible);
-  const messages = useUploadStore((state) => state.messages);
-  const spinner = useUploadStore((state) => state.spinner);
-  const submitting = useUploadStore((state) => state.submitting);
-  const hideModal = useUploadStore((state) => state.hideModal);
-  const setSpinner = useUploadStore((state) => state.setSpinner);
-  const startGeneration = useUploadStore((state) => state.startGeneration);
+  const isFormValid = useFlashcardStore((state) => state.isFormValid());
+  const modalVisible = useFlashcardStore((state) => state.modalVisible);
+  const messages = useFlashcardStore((state) => state.messages);
+  const spinner = useFlashcardStore((state) => state.spinner);
+  const submitting = useFlashcardStore((state) => state.submitting);
+  const hideModal = useFlashcardStore((state) => state.hideModal);
+  const setSpinner = useFlashcardStore((state) => state.setSpinner);
+  const startGeneration = useFlashcardStore((state) => state.startGeneration);
+
+  const practiceLanguage = useAppStore((state) => state.practiceLanguage);
+  const nativeLanguage = useAppStore((state) => state.nativeLanguage);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    startGeneration();
+    startGeneration(practiceLanguage, nativeLanguage);
   };
 
   return (

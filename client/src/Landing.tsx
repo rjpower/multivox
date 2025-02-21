@@ -3,7 +3,7 @@ import { LockClosedIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
 import { useAppStore } from "./store";
 import { APP_NAME, CONTACT_EMAIL, GITHUB_REPO } from "./constants";
 
-function geminiApiPrompt() {
+function configPrompt() {
   return (
     <div className="max-w-2xl mx-auto mb-16">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -16,15 +16,14 @@ function geminiApiPrompt() {
           </h2>
         </div>
         <p className="text-gray-600 mb-6">
-          To get started, you'll need to configure your Gemini API key. Your API
-          key is stored locally in your browser and is never stored on the
-          server. It is only used to make API calls to Google's Gemini service.
+          To get started, you'll need to specify your preferred native language
+          and practice language.
         </p>
         <Link
           to="/config"
           className="inline-flex items-center px-6 py-3 text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
         >
-          Configure API Key
+          Configure Language Settings
           <ArrowRightIcon className="ml-2 -mr-1 h-5 w-5" />
         </Link>
       </div>
@@ -32,8 +31,7 @@ function geminiApiPrompt() {
   );
 }
 const Landing = () => {
-  const geminiApiKey = useAppStore((state) => state.geminiApiKey);
-
+  const isReady = useAppStore((state) => state.isReady);
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
@@ -71,8 +69,8 @@ const Landing = () => {
           </div>
 
           <div className="text-center mt-12">
-            {!geminiApiKey ? (
-              geminiApiPrompt()
+            {!isReady ? (
+              configPrompt()
             ) : (
               <Link
                 to="/scenarios"

@@ -2,7 +2,7 @@ import importlib.resources
 import json
 from typing import List, Sequence
 
-from multivox.types import Chapter, Scenario
+from multivox.types import Scenario
 
 SYSTEM_INSTRUCTIONS = """
 You are an expert language teacher who is leading a role-play exercise.
@@ -37,41 +37,21 @@ Reply only to the user from this point onward.
 """
 
 
-def load_chapters() -> List[Chapter]:
+def load_scenarios() -> List[Scenario]:
     f = (importlib.resources.files("multivox") / "scenarios.json").open("r")
-    chapters = [Chapter.model_validate(c) for c in json.load(f)["chapters"]]
-    return chapters
+    return [Scenario.model_validate(m) for m in json.load(f)]
 
 
-CHAPTERS = load_chapters()
-
-
-def list_chapters() -> Sequence[Chapter]:
-    """Return all chapters"""
-    return CHAPTERS
-
+SCENARIOS = load_scenarios()
 
 def list_scenarios() -> Sequence[Scenario]:
     """Return all conversations from all chapters (for backwards compatibility)"""
-    return [
-        conversation
-        for chapter in CHAPTERS
-        for conversation in chapter.conversations
-    ]
-
-
-def get_chapter(chapter_id: str) -> Chapter:
-    """Get a specific chapter by ID"""
-    for chapter in CHAPTERS:
-        if chapter.id == chapter_id:
-            return chapter
-    raise KeyError(f"Chapter not found: {chapter_id}")
+    return SCENARIOS
 
 
 def get_scenario(conversation_id: str) -> Scenario:
     """Get a specific conversation by ID"""
-    for chapter in CHAPTERS:
-        for conversation in chapter.conversations:
-            if conversation.id == conversation_id:
-                return conversation
+    for s in SCENARIOS:
+        if s.id == conversation_id:
+            return s
     raise KeyError(f"Conversation not found: {conversation_id}")

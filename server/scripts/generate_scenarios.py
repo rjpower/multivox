@@ -121,7 +121,7 @@ Output only valid JSON in this exact format:
 """
 
 
-@file_cache()
+@file_cache.cache_fn()
 def generate_chapter_list(
     model=CHAPTER_LIST_MODEL_ID, prompt=CHAPTERS_LIST_PROMPT
 ) -> List[Chapter]:
@@ -136,7 +136,7 @@ def generate_chapter_list(
     return [Chapter.model_validate(c) for c in json.loads(response_text)["chapters"]]
 
 
-@file_cache()
+@file_cache.cache_fn()
 def generate_chapter_conversations(
     chapter: Chapter,
     prompt: str = CHAPTER_EXPANSION_PROMPT,

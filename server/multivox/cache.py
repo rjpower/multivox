@@ -5,13 +5,12 @@ import json
 import logging
 import pickle
 from pathlib import Path
-from typing import Awaitable, Callable, List, Optional, TypeVar
+from typing import Any, Awaitable, Callable, List, Optional, cast
 
 import litellm
 
 from multivox.config import settings
 
-T = TypeVar('T')
 logger = logging.getLogger(__name__)
 
 
@@ -50,7 +49,6 @@ def _default_key_fn(func: Callable, *args: tuple, **kwargs: dict) -> str:
 
     return ":".join(key_parts)
 
-
 class FileCache:
     """File system based cache that stores call results."""
 
@@ -64,14 +62,16 @@ class FileCache:
         hash_key = hashlib.md5(key.encode()).hexdigest()
         return self.cache_dir / f"{hash_key}.pkl"
 
-    def cache_fn(self, key_fn: Optional[Callable] = None):
+    def cache_fn[
+        F: Callable[..., Any]
+    ](self, key_fn: Optional[Callable] = None) -> Callable[[F], F]:
         """Decorator that caches function results using the provided key function."""
         if key_fn is None:
             key_fn = _default_key_fn
 
-        def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        def decorator(func: F) -> F:
             @functools.wraps(func)
-            def wrapper(*args, **kwargs) -> T:
+            def wrapper(*args, **kwargs) -> Any:
                 cache_key = key_fn(func, *args, **kwargs)
                 cache_path = self._get_cache_path(cache_key)
                 hash_key = hashlib.md5(cache_key.encode()).hexdigest()
@@ -84,18 +84,21 @@ class FileCache:
                 result = func(*args, **kwargs)
                 cache_path.write_bytes(pickle.dumps(result))
                 return result
-            return wrapper
+
+            return cast(F, wrapper)
 
         return decorator
 
-    def cache_fn_async(self, key_fn: Optional[Callable] = None):
+    def cache_fn_async[
+        F: Callable[..., Awaitable[Any]]
+    ](self, key_fn: Optional[Callable] = None) -> Callable[[F], F]:
         """Decorator that caches async function results using the provided key function."""
         if key_fn is None:
             key_fn = _default_key_fn
 
-        def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
+        def decorator(func: F) -> F:
             @functools.wraps(func)
-            async def wrapper(*args, **kwargs) -> T:
+            async def wrapper(*args, **kwargs) -> Any:
                 cache_key = key_fn(func, *args, **kwargs)
                 cache_path = self._get_cache_path(cache_key)
                 hash_key = hashlib.md5(cache_key.encode()).hexdigest()
@@ -108,7 +111,8 @@ class FileCache:
                 result = await func(*args, **kwargs)
                 cache_path.write_bytes(pickle.dumps(result))
                 return result
-            return wrapper
+
+            return cast(F, wrapper)
 
         return decorator
 

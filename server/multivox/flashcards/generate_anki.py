@@ -112,19 +112,18 @@ def generate_audio_for_cards(
     for item in items:
         if item.front:
             items_to_process.append(
-                (language, item.front_sub if item.front_sub else item.front)
+                (item.front_sub if item.front_sub else item.front, language)
             )
         if item.back:
-            items_to_process.append((LANGUAGES["en"], item.back))
+            items_to_process.append((item.back, LANGUAGES["en"]))
 
     total = len(items_to_process)
     completed = 0
 
-    # Process items with thread pool
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {}
-        for lang, term in items_to_process:
-            future = executor.submit(generate_tts_audio_sync, lang, term)
+        for term, lang in items_to_process:
+            future = executor.submit(generate_tts_audio_sync, term, lang)
             futures[term] = future
 
         # Process results as they complete

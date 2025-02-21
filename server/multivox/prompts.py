@@ -141,17 +141,17 @@ Your job is to:
 
 Once again, you are given:
 
-History + Audio
+History + Audio Sample
 
 You produce 
 
-Transcription
+Transcription of the audio sample
 Assistant Response
 Hints for the User based on History, Transcription and Assistant Response
 
 Description of each field:
 
-* `transcription`: Transcription of the user audio in the source language
+* `transcription`: Transcription of the user audio in the source language. You must include this field if you detect any speech.
 * `response_text`: A natural assistant response in the source language
 * `translated_text`: Translation of the assistant response in the target language
 * `dictionary`: Definitions of all terms in the _assistant response_ except trivial words. Each term should have a translation and usage notes in the target language.

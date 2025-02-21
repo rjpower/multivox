@@ -28,6 +28,7 @@ class SRTProcessConfig(BaseModel):
     srt_path: Path
     output_path: Path
     output_format: str
+    source_language: Language
     target_language: Language
     include_audio: bool = False
     deck_name: Optional[str] = None
@@ -44,6 +45,7 @@ class CSVProcessConfig(BaseModel):
     df: pd.DataFrame
     output_path: Path
     output_format: str
+    source_language: Language
     target_language: Language
     include_audio: bool = False
     deck_name: Optional[str] = None
@@ -210,9 +212,6 @@ def process_srt(config: SRTProcessConfig):
 
     config.progress_logger("Analyzing vocabulary")
     vocab_items = analyze_vocabulary(text_blocks, config)
-
-    # Filter known words and duplicates
-    vocab_items = filter_known_vocabulary(vocab_items, config.ignore_words)
     vocab_items = remove_duplicate_terms(vocab_items)
 
     audio_mapping = {}
@@ -247,15 +246,11 @@ def process_csv(config: CSVProcessConfig):
 
     vocab_items = load_csv_items(config.df, config.field_mapping)
     config.progress_logger(f"Loaded {len(vocab_items)} vocabulary items")
-    vocab_items = filter_known_vocabulary(vocab_items, config.ignore_words)
+    vocab_items = infer_missing_fields(vocab_items, config.progress_logger)
+    config.progress_logger(f"{len(vocab_items)} vocabulary items after inference.")
     vocab_items = remove_duplicate_terms(vocab_items)
     config.progress_logger(
         f"{len(vocab_items)} vocabulary items after filtering and dedup."
-    )
-    vocab_items = infer_missing_fields(vocab_items, config.progress_logger)
-    vocab_items = filter_known_vocabulary(vocab_items, config.ignore_words)
-    config.progress_logger(
-        f"{len(vocab_items)} vocabulary items after inference and filtering"
     )
 
     if config.include_audio:
@@ -296,16 +291,16 @@ def extract_text_from_srt(srt_path: Path) -> List[str]:
     return text_blocks
 
 
-def analyze_srt_section(text: str) -> List[VocabItem]:
-    prompt = f"""Extract vocabulary items from the following text.
+def analyze_srt_section(text: str, source_lang: Language, target_lang: Language) -> List[VocabItem]:
+    prompt = f"""Extract vocabulary items from the following {source_lang.name} text.
 For each vocabulary item, find an actual example sentence from the provided text that uses it.
 Return a JSON array of objects with these fields:
 
-* term: The native language term
-* reading: The reading of the term (e.g. Hiragana or Katakana for Japanese, Pinyin for Chinese)
-* meaning: The English meaning of the term
-* context_native: The native example sentence with the term in context
-* context_en: The English translation of the example sentence
+* term: The {source_lang.name} term
+* reading: The reading/pronunciation of the term (e.g. Hiragana/Katakana for Japanese, Pinyin for Chinese)
+* meaning: The {target_lang.name} meaning of the term
+* context_native: A {source_lang.name} sentence using the term in context
+* context_en: The {target_lang.name} translation of the sentence
 
 [
 {{
@@ -363,25 +358,13 @@ def analyze_vocabulary(text_blocks: List[str], config: SRTProcessConfig):
     for i in range(0, len(text_blocks), config.block_size):
         text = "\n".join(text_blocks[i : i + config.block_size])
         current_chunk = i // config.block_size + 1
-        chunk_results = analyze_srt_section(text)
+        chunk_results = analyze_srt_section(text, config.source_language, config.target_language)
 
         config.progress_logger(f"Processing chunk {current_chunk}/{num_chunks}")
         all_results.extend(chunk_results)
 
     config.progress_logger("Vocabulary analysis complete")
     return all_results
-
-
-def filter_known_vocabulary(
-    vocab_items: List[VocabItem], ignore_words: set = set()
-) -> List[VocabItem]:
-    """Remove vocabulary items that are already known or should be ignored"""
-    kept = []
-    for item in vocab_items:
-        if item.term in ignore_words or item.meaning in ignore_words:
-            continue
-        kept.append(item)
-    return kept
 
 
 def remove_duplicate_terms(vocab_items: List[VocabItem]) -> List[VocabItem]:
@@ -434,7 +417,7 @@ def read_csv(file_content: str) -> tuple[str, pd.DataFrame]:
     return best_separator, df
 
 
-def infer_field_mapping(df: pd.DataFrame) -> dict:
+def infer_field_mapping(df: pd.DataFrame, source_language: Language, target_language: Language) -> dict:
     """Get LLM suggestions for CSV field mapping using column letters"""
     logging.debug("Inferring field mapping for CSV data")
     preview_rows = df.head(25).fillna("").astype(str).values.tolist()
@@ -445,13 +428,13 @@ def infer_field_mapping(df: pd.DataFrame) -> dict:
     prompt = f"""Analyze this CSV data and suggest mappings for a vocabulary flashcard system.
 The system has the following fields:
 
-* term: the native word or phrase
+* term: the {source_language.name} word or phrase
 * reading: the pronunciation of the term, e.g. Hiragana or Katakana for Japanese, Pinyin for Chinese, etc.
-* meaning: the English translation of the term
-* context_native: a native sentence using the term
-* context_en: the English translation of the sentence
+* meaning: the {target_language.name} translation of the term
+* context_native: a {source_language.name} sentence using the term
+* context_en: the {target_language.name} translation of the sentence
 
-Only "term" is mandatory, and should be the native word or phrase.
+One of "term" or "meaning" is mandatory. "term" must be a {source_language.name} word or phrase.  "meaning" must be a {target_language.name} word or phrase.
 If you don't have a value for a field, leave it blank.
 
 The columns are labeled with letters (A, B, C, etc.).

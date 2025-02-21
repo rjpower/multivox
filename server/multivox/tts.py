@@ -52,7 +52,7 @@ async def generate_tts_audio_async(term: str, language: Language) -> TTSAudio | 
 
 
 @default_file_cache.cache_fn()
-async def generate_tts_audio_sync(term: str, language: Language) -> TTSAudio | None:
+def generate_tts_audio_sync(term: str, language: Language) -> TTSAudio | None:
     """Generate TTS audio for text using Google Cloud Text-to-Speech API"""
     if not language.tts_language_code or not language.tts_voice_name:
         return None
@@ -60,7 +60,7 @@ async def generate_tts_audio_sync(term: str, language: Language) -> TTSAudio | N
     credentials = service_account.Credentials.from_service_account_info(
         settings.GOOGLE_SERVICE_ACCOUNT_INFO
     )
-    tts_client = texttospeech.TextToSpeechAsyncClient(credentials=credentials)
+    tts_client = texttospeech.TextToSpeechClient(credentials=credentials)
 
     voice = texttospeech.VoiceSelectionParams(
         language_code=language.tts_language_code,
@@ -76,7 +76,7 @@ async def generate_tts_audio_sync(term: str, language: Language) -> TTSAudio | N
     synthesis_input = texttospeech.SynthesisInput(text=term)
 
     try:
-        response = await tts_client.synthesize_speech(
+        response = tts_client.synthesize_speech(
             input=synthesis_input,
             voice=voice,
             audio_config=audio_config,

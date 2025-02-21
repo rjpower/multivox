@@ -25,19 +25,12 @@ interface RequireApiKeyProps {
 const RequireReady = ({ children }: RequireApiKeyProps) => {
   const isReady = useAppStore((state) => state.isReady);
   const isLoading = useAppStore((state) => state.appLoading);
-  console.log(
-    "Is Ready:",
-    useAppStore((state) => state.isReady),
-    useAppStore((state) => state.appLoading),
-    useAppStore((state) => state.geminiApiKey),
-    useAppStore((state) => state.practiceLanguage)
-  );
 
   if (isLoading) {
     return null;
   }
 
-  if (!isReady) {
+  if (!isReady()) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -124,23 +117,41 @@ const NavBar = () => {
             mobileMenuOpen ? "block" : "hidden"
           } lg:hidden mt-4 space-y-2 pb-3`}
         >
-          <NavLink to="/" onNavigate={() => setMobileMenuOpen(false)}>Home</NavLink>
-          <NavLink to="/config" onNavigate={() => setMobileMenuOpen(false)}>Config</NavLink>
-          {isReady && (
+          <NavLink to="/" onNavigate={() => setMobileMenuOpen(false)}>
+            Home
+          </NavLink>
+          <NavLink to="/config" onNavigate={() => setMobileMenuOpen(false)}>
+            Config
+          </NavLink>
+          {isReady() && (
             <>
-              <NavLink to="/scenarios" onNavigate={() => setMobileMenuOpen(false)}>Practice</NavLink>
-              <NavLink to="/translate" onNavigate={() => setMobileMenuOpen(false)}>Translator</NavLink>
+              <NavLink
+                to="/scenarios"
+                onNavigate={() => setMobileMenuOpen(false)}
+              >
+                Practice
+              </NavLink>
+              <NavLink
+                to="/translate"
+                onNavigate={() => setMobileMenuOpen(false)}
+              >
+                Translator
+              </NavLink>
             </>
           )}
-          <NavLink to="/vocabulary" onNavigate={() => setMobileMenuOpen(false)}>Vocabulary</NavLink>
-          <NavLink to="/flashcards" onNavigate={() => setMobileMenuOpen(false)}>Flashcards</NavLink>
+          <NavLink to="/vocabulary" onNavigate={() => setMobileMenuOpen(false)}>
+            Vocabulary
+          </NavLink>
+          <NavLink to="/flashcards" onNavigate={() => setMobileMenuOpen(false)}>
+            Flashcards
+          </NavLink>
         </div>
 
         {/* Desktop menu */}
         <div className="hidden lg:flex items-center space-x-4">
           <NavLink to="/">Home</NavLink>
           <NavLink to="/config">Config</NavLink>
-          {isReady && (
+          {isReady() && (
             <>
               <NavLink to="/scenarios">Practice</NavLink>
               <NavLink to="/translate">Translator</NavLink>

@@ -1,23 +1,25 @@
-import base64
 import datetime
 import io
 import logging
 import wave
 
+from google import genai
 from google.genai import types as genai_types
-from litellm import acompletion, atranscription
+from litellm import atranscription
 
 from multivox.config import settings
 from multivox.prompts import (
     TRANSCRIBE_AND_HINT_PROMPT,
-    TRANSCRIPTION_PROMPT,
 )
 from multivox.scenarios import SYSTEM_INSTRUCTIONS
 from multivox.translate import translate
 from multivox.types import (
-    Language,
+    LANGUAGES,
+    TranscribeAndHintRequest,
     TranscribeAndHintResponse,
+    TranscribeRequest,
     TranscribeResponse,
+    TranslateRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,34 +51,32 @@ def convert_to_wav(pcm_data: genai_types.Blob) -> genai_types.Blob:
 
 
 async def transcribe(
-    audio_data: genai_types.Blob,
-    source_language: Language,
-    target_language: Language,
-    api_key: str | None = None,
-    transcription_prompt: str = TRANSCRIPTION_PROMPT,
+    request: TranscribeRequest,
     model_id: str = settings.TRANSCRIPTION_MODEL_ID,
 ) -> TranscribeResponse:
-    audio_data = convert_to_wav(audio_data)
+    audio_blob = genai_types.Blob(data=request.audio, mime_type=request.mime_type)
+    audio_data = convert_to_wav(audio_blob)
 
     buffer = io.BytesIO(audio_data.data)
     buffer.name = "audio.wav"
     response = await atranscription(
         model=model_id,
         file=buffer,
-        language=source_language.abbreviation if source_language else None,
+        language=request.source_language if request.source_language else None,
         response_format="verbose_json",
         timestamp_granularities=["word"],
-        # api_key=api_key,
+        api_key=request.api_key,
     )
 
     transcription = response.text
 
     # Translate and chunk the response.
     response = await translate(
-        text=response.text,
-        source_language=source_language,
-        target_language=target_language,
-        # api_key=api_key,
+        TranslateRequest(
+            text=response.text,
+            source_language=request.source_language,
+            target_language=request.target_language,
+        )
     )
 
     return TranscribeResponse(
@@ -88,21 +88,31 @@ async def transcribe(
 
 
 async def transcribe_and_hint(
-    scenario: str,
-    history: str,
-    audio_data: genai_types.Blob,
-    source_language: Language,
-    target_language: Language,
-    model_id: str = settings.TRANSCRIBE_AND_HINT_MODEL_ID,
-    system_prompt: str = SYSTEM_INSTRUCTIONS,
-    api_key: str | None = None,
+    request: TranscribeAndHintRequest,
 ) -> TranscribeAndHintResponse:
     """Transcribe audio and generate hints for the conversation in a single model call"""
-    if isinstance(audio_data, genai_types.Blob):
-        audio_data = convert_to_wav(audio_data)
+    source_language = LANGUAGES[request.source_language]
+    target_language = LANGUAGES[request.target_language]
+    client = genai.Client(
+        api_key=settings.GEMINI_API_KEY,
+        http_options={"api_version": settings.GEMINI_API_VERSION},
+    )
 
-    # Then use LLM to analyze transcription and generate hints
-    system_prompt = system_prompt.format(
+    audio_data = None
+
+    if request.audio:
+        audio_data = convert_to_wav(
+            genai_types.Blob(data=request.audio, mime_type=request.mime_type or "audio/pcm")
+        )
+        with open("/tmp/test.wav", "wb") as f:
+            f.write(audio_data.data)
+
+    system_prompt = (
+        "You are an expert at transcription. Transcribe this Japanese audio sample."
+    )
+
+    # Format system prompt
+    system_prompt = SYSTEM_INSTRUCTIONS.format(
         practice_language=source_language.name,
         today=datetime.date.today().strftime("%Y-%m-%d"),
     )
@@ -112,53 +122,34 @@ async def transcribe_and_hint(
         target_language=target_language,
     )
 
-    logger.info(f"History: {history}")
-
     user_content = [
-        {
-            "type": "text",
-            "text": f"<SCENARIO>\n{scenario}\n</SCENARIO>",
-        },
-        {
-            "type": "text",
-            "text": f"<HISTORY>\n{history}\n</HISTORY>",
-        },
+        f"<SCENARIO>\n{request.scenario}\n</SCENARIO>",
+        f"<HISTORY>\n{request.history}\n</HISTORY>",
     ]
 
     if audio_data:
         user_content.append(
-            {
-                "type": "input_audio",
-                "input_audio": {
-                    "data": base64.b64encode(audio_data.data),
-                    "format": "wav",
-                },
-            }
+            genai_types.Part.from_bytes(
+                data=audio_data.data,
+                mime_type="audio/wav",
+            )
         )
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {
-            "role": "user",
-            "content": user_content,
-        },
-    ]
-
-    llm_response = await acompletion(
-        model=model_id,
-        messages=messages,
-        response_format={"type": "json_object"},
-        api_key=api_key,
+    response = client.models.generate_content(
+        model=request.model_id,
+        contents=user_content,
+        config=genai_types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            response_mime_type="application/json",
+        ),
     )
 
-    content = llm_response.choices[0].message.content  # type: ignore
-
     try:
-        return TranscribeAndHintResponse.model_validate_json(content)
+        return TranscribeAndHintResponse.model_validate_json(response.text)
     except Exception:
         logger.exception(
             "Failed to parse transcribe and hint response: %s",
-            content,
+            response.text,
             stack_info=True,
         )
         raise

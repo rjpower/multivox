@@ -68,70 +68,64 @@ export class AudioPlayer {
     return audioBuffer;
   }
 
-  public async addAudioToQueue(audioData: Base64AudioBuffer) {
-    try {
-      // Convert base64 to ArrayBuffer
-      const binaryString = atob(audioData.data);
-      const rawData = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        rawData[i] = binaryString.charCodeAt(i);
-      }
-
-      // Convert PCM to AudioBuffer
-      let audioBuffer: AudioBuffer | null = null;
-      if (audioData.mime_type === "audio/pcm") {
-        audioBuffer = this.convertPCMToAudioBuffer(rawData);
-      } else {
-        // mp3, wav etc
-        audioBuffer = await this.loadAudioBuffer(rawData, audioData.mime_type);
-      }
-
-      // Create and schedule the source
-      const source = this.audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(this.audioContext.destination);
-
-      // If this is the first buffer or we're restarting or if scheduled time is in the past
-      if (
-        this.nextStartTime === 0 ||
-        this.nextStartTime < this.audioContext.currentTime
-      ) {
-        // If we're starting fresh or if the next scheduled time is in the past,
-        // start from the current time
-        this.nextStartTime = this.audioContext.currentTime;
-      }
-
-      // Schedule this buffer to play at the exact time the previous one ends
-      source.start(this.nextStartTime);
-      this.scheduledSources.push(source);
-
-      // Calculate the next start time based on the current buffer's duration
-      this.nextStartTime += audioBuffer!.duration;
-      console.log("Scheduled audio at:", this.nextStartTime);
-    } catch (error) {
-      console.error("Error processing audio:", error);
+  private async decodeAudioData(
+    audioData: Base64AudioBuffer
+  ): Promise<AudioBuffer> {
+    // Convert base64 to ArrayBuffer
+    const binaryString = atob(audioData.data);
+    const rawData = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      rawData[i] = binaryString.charCodeAt(i);
     }
+
+    // Handle PCM or other formats
+    return audioData.mime_type === "audio/pcm"
+      ? this.convertPCMToAudioBuffer(rawData)
+      : await this.loadAudioBuffer(rawData, audioData.mime_type);
   }
 
-  private isPlaying = false;
+  public async addAudioToQueue(audioData: Base64AudioBuffer): Promise<void> {
+    const audioBuffer = await this.decodeAudioData(audioData);
 
-  public playBuffers(buffers: Base64AudioBuffer[]): Promise<void> {
-    return new Promise((resolve) => {
-      if (this.isPlaying) {
-        this.stop();
-      }
+    const source = this.audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(this.audioContext.destination);
 
-      this.isPlaying = true;
+    // Reset or update the next start time
+    if (this.nextStartTime <= this.audioContext.currentTime) {
+      this.nextStartTime = this.audioContext.currentTime;
+    }
 
-      const lastSource = this.audioContext.createBufferSource();
-      lastSource.onended = () => {
-        this.isPlaying = false;
-        resolve();
-      };
+    console.log("Scheduled audio buffer:", audioBuffer);
+    source.start(this.nextStartTime);
+    this.scheduledSources.push(source);
+    this.nextStartTime += audioBuffer.duration;
+  }
+
+  // Add `buffers` to the audio queue and return a promise that resolves when all buffers have been played.
+  public playAudioBlocking(buffers: Base64AudioBuffer[]): Promise<void> {
+    return new Promise(async (resolve) => {
+      console.log("Playing audio buffers:", buffers);
+      this.stop();
 
       for (const buffer of buffers) {
-        if (!this.isPlaying) break;
-        this.addAudioToQueue(buffer);
+        await this.addAudioToQueue(buffer);
+      }
+
+      console.log("Scheduled audio buffers:", this.scheduledSources);
+
+      // Listen for the last buffer to complete
+      if (this.scheduledSources.length > 0) {
+        console.log("Listening for last audio buffer to complete.");
+        const lastSource =
+          this.scheduledSources[this.scheduledSources.length - 1];
+        lastSource.addEventListener("ended", () => {
+          console.log("All audio buffers played.");
+          resolve();
+        });
+      } else {
+        console.log("No audio buffers to play.");
+        resolve();
       }
     });
   }
@@ -143,7 +137,6 @@ export class AudioPlayer {
     }
     this.scheduledSources = [];
     this.nextStartTime = 0;
-    this.isPlaying = false;
   }
 
   public resume() {

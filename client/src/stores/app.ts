@@ -15,13 +15,6 @@ interface VocabularyStore {
   getAll: () => SavedVocabularyItem[];
 }
 
-export enum ApiKeyStatus {
-  UNSET = "UNSET",
-  CHECKING = "CHECKING",
-  VALID = "VALID",
-  INVALID = "INVALID",
-}
-
 interface UserScenario extends Scenario {
   isCustom: true;
   dateCreated: number;
@@ -38,6 +31,9 @@ interface AppState {
   appLoading: boolean;
   appError: string | null;
 
+  setAppError: (error: string) => void;
+  setAppLoading: (loading: boolean) => void;
+
   // Vocabulary
   vocabulary: VocabularyStore;
 
@@ -45,83 +41,29 @@ interface AppState {
   languages: Language[];
   practiceLanguage: string;
   setLanguages: (languages: Language[]) => void;
-  setpracticeLanguage: (code: string) => void;
+  setPracticeLanguage: (code: string) => void;
 
   nativeLanguage: string;
   setNativeLanguage: (code: string) => void;
-
-  // API
-  geminiApiKey: string | null;
-  apiKeyError: string | null;
-  apiKeyStatus: ApiKeyStatus;
-  setGeminiApiKey: (key: string) => Promise<void>;
 
   // Scenarios
   systemScenarios: Scenario[];
   userScenarios: UserScenario[];
   setScenarios: (scenarios: Scenario[]) => void;
-  addUserScenario: (scenario: ScenarioInput) => void;
   removeUserScenario: (id: string) => void;
-  updateUserScenario: (
-    id: string,
-    updates: Partial<Omit<UserScenario, "id" | "isCustom" | "dateCreated">>
-  ) => void;
+  updateUserScenario: (scenario: ScenarioInput) => void;
 
-  // Core
-  isReady: boolean;
+  isReady: () => boolean;
   reset: () => void;
 }
 
 export const useAppStore = create<AppState>()(
   devtools((set, get) => {
-    const initStore = async () => {
-      try {
-        console.log("Initializing store...");
-        // Load languages
-        const languages = await fetch("/api/languages").then((res) =>
-          res.json()
-        );
-        get().setLanguages(languages);
-
-        // Load scenarios
-        console.log("Loading scenarios...");
-        const scenarios = await fetch("/api/scenarios").then((res) =>
-          res.json()
-        );
-        get().setScenarios(scenarios);
-
-        // Restore saved configuration
-        console.log("Restoring saved configuration...");
-        const storedApiKey = localStorage.getItem("geminiApiKey");
-        if (storedApiKey) {
-          set({ geminiApiKey: storedApiKey, apiKeyStatus: ApiKeyStatus.VALID });
-        }
-
-        console.log("Restoring language settings...");
-        const storedLanguage = localStorage.getItem("practiceLanguage");
-        if (storedLanguage) {
-          get().setpracticeLanguage(storedLanguage);
-        }
-
-        const storedNativeLanguage = localStorage.getItem("nativeLanguage");
-        if (storedNativeLanguage) {
-          get().setNativeLanguage(storedNativeLanguage);
-        }
-
-        set({
-          isReady: !!(get().practiceLanguage && get().geminiApiKey),
-        });
-      } catch (error) {
-        console.error("Failed to initialize store:", error);
-        set({ appLoading: false, appError: error!.toString() });
-      }
-    };
-
-    initStore();
-
     return {
       appLoading: true,
+      setAppLoading: (loading) => set({ appLoading: loading }),
       appError: null,
+      setAppError: (error) => set({ appError: error, appLoading: false }),
 
       // Vocabulary Store
       vocabulary: {
@@ -189,53 +131,13 @@ export const useAppStore = create<AppState>()(
           languages,
           appLoading: !get().systemScenarios.length,
         }),
-      setpracticeLanguage: (code) => {
-        set((state) => ({
-          practiceLanguage: code,
-          isReady: !!(code && state.geminiApiKey),
-        }));
+      setPracticeLanguage: (code) => {
+        set({ practiceLanguage: code });
         localStorage.setItem("practiceLanguage", code);
       },
       setNativeLanguage: (code) => {
         set({ nativeLanguage: code });
         localStorage.setItem("nativeLanguage", code);
-      },
-
-      // API Store
-      geminiApiKey: null,
-      apiKeyStatus: ApiKeyStatus.UNSET,
-      apiKeyError: null,
-      isReady: false,
-      setGeminiApiKey: async (key) => {
-        if (key) {
-          localStorage.setItem("geminiApiKey", key);
-        } else {
-          localStorage.removeItem("geminiApiKey");
-        }
-        set({
-          geminiApiKey: key,
-          apiKeyStatus: ApiKeyStatus.CHECKING,
-          apiKeyError: null,
-        });
-        const response = await fetch(
-          "https://generativelanguage.googleapis.com/v1/models?key=" + key
-        );
-
-        if (response.ok) {
-          localStorage.setItem("geminiApiKey", key);
-          set((state) => ({
-            apiKeyStatus: ApiKeyStatus.VALID,
-            isReady: !!(key && state.practiceLanguage),
-          }));
-        } else {
-          const errorData = await response.json();
-          const errorMessage = errorData.error?.message || "Invalid API key";
-          set({
-            apiKeyStatus: ApiKeyStatus.INVALID,
-            apiKeyError: errorMessage,
-            isReady: false,
-          });
-        }
       },
 
       // Scenario Store
@@ -246,24 +148,6 @@ export const useAppStore = create<AppState>()(
           systemScenarios: scenarios,
           appLoading: !get().languages.length,
         }),
-
-      addUserScenario: (scenario: ScenarioInput) => {
-        const newScenario: UserScenario = {
-          ...scenario,
-          id: scenario.id,
-          isCustom: true,
-          dateCreated: Date.now(),
-        };
-
-        set((state: AppState) => {
-          const newUserScenarios = [...state.userScenarios, newScenario];
-          localStorage.setItem(
-            "userScenarios",
-            JSON.stringify(newUserScenarios)
-          );
-          return { userScenarios: newUserScenarios };
-        });
-      },
 
       removeUserScenario: (id) => {
         set((state) => {
@@ -278,17 +162,37 @@ export const useAppStore = create<AppState>()(
         });
       },
 
-      updateUserScenario: (id, updates) => {
+      updateUserScenario: (scenario: ScenarioInput) => {
         set((state) => {
-          const newUserScenarios = state.userScenarios.map((s) =>
-            s.id === id ? { ...s, ...updates } : s
-          );
+          let newUserScenarios;
+          const existingScenario = state.userScenarios.find(s => s.id === scenario.id);
+          
+          if (existingScenario) {
+            // Update existing scenario
+            newUserScenarios = state.userScenarios.map((s) =>
+              s.id === scenario.id ? { ...s, ...scenario } : s
+            );
+          } else {
+            // Add new scenario
+            const newScenario: UserScenario = {
+              ...scenario,
+              isCustom: true,
+              dateCreated: Date.now()
+            };
+            newUserScenarios = [...state.userScenarios, newScenario];
+          }
+          
           localStorage.setItem(
             "userScenarios",
             JSON.stringify(newUserScenarios)
           );
           return { userScenarios: newUserScenarios };
         });
+      },
+
+      isReady: () => {
+        const state = get();
+        return Boolean(state.practiceLanguage && state.nativeLanguage);
       },
 
       reset: () => {
@@ -298,3 +202,43 @@ export const useAppStore = create<AppState>()(
     };
   })
 );
+
+export async function initAppStore({
+  setLanguages,
+  setScenarios,
+  setNativeLanguage,
+  setPracticeLanguage,
+  setAppError,
+}: {
+  setLanguages: (languages: Language[]) => void;
+  setScenarios: (scenarios: Scenario[]) => void;
+  setNativeLanguage: (code: string) => void;
+  setPracticeLanguage: (code: string) => void;
+  setAppError: (error: string) => void;
+}) {
+  try {
+    console.log("Initializing store...");
+    // Load languages
+    const languages = await fetch("/api/languages").then((res) => res.json());
+    setLanguages(languages);
+
+    // Load scenarios
+    console.log("Loading scenarios...");
+    const scenarios = await fetch("/api/scenarios").then((res) => res.json());
+    setScenarios(scenarios);
+
+    console.log("Restoring language settings...");
+    const practiceLanguage = localStorage.getItem("practiceLanguage");
+    if (practiceLanguage) {
+      setPracticeLanguage(practiceLanguage);
+    }
+
+    const storedNativeLanguage = localStorage.getItem("nativeLanguage");
+    if (storedNativeLanguage) {
+      setNativeLanguage(storedNativeLanguage);
+    }
+  } catch (error) {
+    console.error("Failed to initialize store:", error);
+    setAppError(error!.toString());
+  }
+}

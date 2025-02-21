@@ -28,7 +28,8 @@ class GenerateRequest(BaseModel):
     mode: str
     content: str
     format: OutputFormat
-    target_language: str
+    source_language: str
+    target_language: str 
     include_audio: bool = False
     field_mapping: Optional[SourceMapping] = None
 
@@ -47,6 +48,8 @@ class ProgressMessage(BaseModel):
 
 class CSVAnalyzeRequest(BaseModel):
     content: str
+    source_language: str
+    target_language: str
 
 
 class CSVAnalyzeResponse(BaseModel):
@@ -109,6 +112,7 @@ class ProcessingTask:
                 _, df = read_csv(request.content)
                 csv_config = CSVProcessConfig(
                     df=df,
+                    source_language=LANGUAGES[request.source_language],
                     target_language=LANGUAGES[request.target_language],
                     output_path=output_path,
                     output_format=request.format,
@@ -127,6 +131,7 @@ class ProcessingTask:
                         output_path=output_path,
                         output_format=request.format,
                         include_audio=request.include_audio,
+                        source_language=LANGUAGES[request.source_language],
                         target_language=LANGUAGES[request.target_language],
                         progress_logger=self.log_progress,
                     )
@@ -166,7 +171,11 @@ async def analyze_csv(request: CSVAnalyzeRequest):
     try:
         separator, df = read_csv(request.content)
         logger.info("Read CSV with shape: %s", df.shape)
-        suggestions = infer_field_mapping(df)
+        suggestions = infer_field_mapping(
+            df,
+            source_language=LANGUAGES[request.source_language],
+            target_language=LANGUAGES[request.target_language]
+        )
         df = df.dropna(axis="columns", how="all")  # Only drop completely empty columns
 
         return CSVAnalyzeResponse(
