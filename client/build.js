@@ -5,6 +5,7 @@ const path = require("path");
 
 const watch = process.argv.includes("--watch");
 const isProd = process.env.NODE_ENV === "production";
+console.log("Is prod: ", isProd, process.env.NODE_ENV);
 
 async function buildCss() {
   try {

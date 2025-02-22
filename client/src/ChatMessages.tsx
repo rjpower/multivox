@@ -73,18 +73,6 @@ export type ChatViewMessage =
   | ErrorViewMessage
   | InitializeViewMessage;
 
-interface MessageContainerProps {
-  role: MessageRole;
-  children: React.ReactNode;
-}
-
-const MessageContainer = ({ role, children }: MessageContainerProps) => (
-  <div
-    className={`flex ${role === "assistant" ? "justify-start" : "justify-end"}`}
-  >
-    {children}
-  </div>
-);
 
 const TranscriptionChunk = ({
   term,
@@ -109,18 +97,14 @@ const TranscriptionChunk = ({
   return (
     <span
       className={`
+        tooltip tooltip-bottom
         cursor-pointer 
         inline-block px-2 py-0.5 mx-0.5 my-0.5
         rounded-full 
-        ${
-          isOpen
-            ? "bg-gray-200 shadow-inner"
-            : "bg-gray-50 hover:bg-gray-100 hover:shadow-sm"
-        }
-        border border-gray-200
+        ${isOpen ? "bg-base-300" : "bg-base-200 hover:bg-base-300"}
         transition-all duration-200
-        relative
       `}
+      data-tip={translation}
       onClick={() => setIsOpen(!isOpen)}
       onMouseEnter={() => setIsOpen(true)}
       onMouseLeave={() => setIsOpen(false)}
@@ -151,34 +135,34 @@ const HintMessageComponent = ({
   messageInputRef: React.RefObject<HTMLInputElement | null>;
 }) => {
   return (
-    <MessageContainer role={msg.role}>
-      <div className="max-w-[80%] px-4 py-2 bg-white rounded-lg shadow space-y-2">
-        <div className="text-sm text-gray-500 mb-2">Suggested responses:</div>
-        <div className="flex flex-wrap gap-2">
-          {msg.hints.map((hint, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                if (messageInputRef.current) {
-                  messageInputRef.current.value = hint.source_text;
-                  messageInputRef.current.focus();
-                }
-              }}
-              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 
-                     border border-blue-200 rounded-full
-                     text-sm text-gray-700 transition-colors
-                     flex flex-col items-center gap-1
-                     group cursor-pointer"
-            >
-              <span className="font-medium">{hint.source_text}</span>
-              <span className="text-xs text-gray-500 group-hover:text-gray-700">
-                {hint.translated_text}
-              </span>
-            </button>
-          ))}
+    <div className="flex justify-center my-4">
+      <div className="card bg-base-200 shadow-xl max-w-[80%]">
+        <div className="card-body p-4">
+          <h3 className="card-title text-sm">Hints</h3>
+          <div className="flex flex-wrap gap-2">
+            {msg.hints.map((hint, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  if (messageInputRef.current) {
+                    messageInputRef.current.value = hint.source_text;
+                    messageInputRef.current.focus();
+                  }
+                }}
+                className="btn btn-sm rounded-full normal-case hover:bg-base-300"
+              >
+                <div className="flex flex-col items-start gap-0.5 px-2">
+                  <span className="text-sm">{hint.source_text}</span>
+                  <span className="text-xs text-base-content/70">
+                    {hint.translated_text}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-    </MessageContainer>
+    </div>
   );
 };
 
@@ -190,12 +174,8 @@ const TranscriptionMessageComponent = ({
   const [showTranslation, setShowTranslation] = useState(false);
 
   return (
-    <MessageContainer role={msg.role}>
-      <div
-        className={`max-w-[80%] px-4 py-2 ${
-          msg.role === "assistant" ? "text-gray-600" : "text-indigo-300"
-        } space-y-3`}
-      >
+    <div className={`chat ${msg.role === "assistant" ? "chat-start" : "chat-end"}`}>
+      <div className="chat-bubble max-w-[80%] space-y-3">
         <div className="text-sm leading-relaxed">
           {msg.chunked.map((term: string, idx: number) => (
             <TranscriptionChunk
@@ -208,18 +188,18 @@ const TranscriptionMessageComponent = ({
         {msg.translated_text && (
           <button
             onClick={() => setShowTranslation(!showTranslation)}
-            className="text-xs text-indigo-600 hover:text-indigo-800"
+            className="btn btn-xs btn-ghost"
           >
             {showTranslation ? "Hide" : "Show"} Translation
           </button>
         )}
         {showTranslation && msg.translated_text && (
-          <div className="text-sm text-gray-600 italic">
+          <div className="text-sm opacity-70 italic">
             {msg.translated_text}
           </div>
         )}
       </div>
-    </MessageContainer>
+    </div>
   );
 };
 
@@ -241,14 +221,8 @@ const AudioMessageComponent = ({ msg }: { msg: AudioViewMessage }) => {
   };
 
   return (
-    <MessageContainer role={msg.role}>
-      <div
-        className={`max-w-[80%] px-4 py-2 rounded-lg ${
-          msg.role === "assistant"
-            ? "bg-white text-gray-800 shadow"
-            : "bg-indigo-600 text-white"
-        }`}
-      >
+    <div className={`chat ${msg.role === "assistant" ? "chat-start" : "chat-end"}`}>
+      <div className="chat-bubble">
         <div className="flex items-center gap-2">
           {!msg.isComplete ? (
             <span className="animate-[bounce_1s_ease-in-out]">
@@ -257,9 +231,7 @@ const AudioMessageComponent = ({ msg }: { msg: AudioViewMessage }) => {
           ) : (
             <button
               onClick={handlePlayback}
-              className={`p-2 rounded-full hover:bg-gray-100 ${
-                msg.role === "assistant" ? "text-gray-700" : "text-white"
-              }`}
+              className="btn btn-circle btn-ghost btn-sm"
             >
               {isPlaying ? (
                 <StopIcon className="h-5 w-5" />
@@ -270,7 +242,7 @@ const AudioMessageComponent = ({ msg }: { msg: AudioViewMessage }) => {
           )}
         </div>
       </div>
-    </MessageContainer>
+    </div>
   );
 };
 
@@ -279,8 +251,8 @@ const TranslateMessageComponent = ({
 }: {
   msg: TranslationViewMessage;
 }) => (
-  <MessageContainer role={msg.role}>
-    <div className="max-w-[80%] px-4 py-2 bg-white rounded-lg shadow">
+  <div className={`chat ${msg.role === "assistant" ? "chat-start" : "chat-end"}`}>
+    <div className="chat-bubble">
       <div className="space-y-3">
         <div className="text-sm leading-relaxed">
           {msg.chunked?.map((term: string, idx: number) => (
@@ -289,14 +261,14 @@ const TranslateMessageComponent = ({
               term={term}
               dictionary={msg.dictionary || {}}
             />
-          )) || <div className="text-gray-800">{msg.source_text}</div>}
+          )) || <div>{msg.source_text}</div>}
         </div>
-        <div className="text-sm text-gray-600 italic">
+        <div className="text-sm italic opacity-70">
           {msg.translated_text}
         </div>
       </div>
     </div>
-  </MessageContainer>
+  </div>
 );
 
 const InitializeMessageComponent = ({
@@ -304,10 +276,11 @@ const InitializeMessageComponent = ({
 }: {
   msg: InitializeViewMessage;
 }) => (
-  <MessageContainer role={msg.role}>
-    <div className="max-w-[80%] px-4 py-2 bg-blue-50 text-gray-600 rounded-lg border border-blue-200">
-      <div className="flex items-center gap-2 mb-2 text-blue-600">
+  <div className={`chat ${msg.role === "assistant" ? "chat-start" : "chat-end"}`}>
+    <div className="chat-bubble chat-bubble-info">
+      <div className="flex items-center gap-2 mb-2">
         <CloudArrowUpIcon className="h-5 w-5" />
+        <span>Initializing...</span>
       </div>
       <div className="text-sm">
         {msg.text.split("\n").map((line, i) => (
@@ -317,16 +290,16 @@ const InitializeMessageComponent = ({
         ))}
       </div>
     </div>
-  </MessageContainer>
+  </div>
 );
 
 const TextMessageComponent = ({ msg }: { msg: TextViewMessage }) => (
-  <MessageContainer role={msg.role}>
+  <div className={`chat ${msg.role === "assistant" ? "chat-start" : "chat-end"}`}>
     <div
-      className={`max-w-[80%] px-4 py-2 rounded-lg ${
+      className={`chat-bubble ${
         msg.role === "assistant"
-          ? "bg-white text-gray-800 shadow"
-          : "bg-indigo-600 text-white"
+          ? "chat-bubble-info"
+          : "chat-bubble-primary"
       }`}
     >
       {msg.text.split("\n").map((line, i) => (
@@ -335,18 +308,18 @@ const TextMessageComponent = ({ msg }: { msg: TextViewMessage }) => (
         </p>
       ))}
     </div>
-  </MessageContainer>
+  </div>
 );
 
 const ErrorMessageComponent = ({ msg }: { msg: ErrorViewMessage }) => (
-  <MessageContainer role={msg.role}>
-    <div className="max-w-[80%] px-4 py-2 bg-red-50 text-red-700 rounded-lg border border-red-200">
+  <div className={`chat ${msg.role === "assistant" ? "chat-start" : "chat-end"}`}>
+    <div className="chat-bubble chat-bubble-error">
       <div className="flex items-center gap-2">
         <ExclamationCircleIcon className="h-5 w-5" />
         <span>{msg.text}</span>
       </div>
     </div>
-  </MessageContainer>
+  </div>
 );
 
 function processMessages(messages: WebSocketMessage[]): ChatViewMessage[] {
@@ -453,7 +426,7 @@ export const ChatMessages = ({
   }, [viewMessages]);
 
   return (
-    <div className="p-4 bg-gray-50 rounded-lg shadow-inner min-h-[400px] max-h-[400px] overflow-y-auto">
+    <div className="p-4 bg-base-200 rounded-lg min-h-[400px] max-h-[400px] overflow-y-auto">
       <div className="space-y-4">
         {viewMessages.map((msg, idx) => {
           switch (msg.type) {

@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { VocabularyEntry, WebSocketMessage } from "./types";
-import { useAppStore } from "./store";
 import { BookmarkIcon, BookmarkSquareIcon } from "@heroicons/react/24/outline";
 import { BookmarkIcon as BookmarkSolidIcon } from "@heroicons/react/24/solid";
+import { useAppStore } from "./store";
 
 export const PracticeVocabulary = ({
   messages,
@@ -49,32 +49,32 @@ export const PracticeVocabulary = ({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 max-h-[600px] overflow-y-auto">
-      <div className="flex justify-end mb-4">
-        <BookmarkAllButton vocabulary={vocabulary} />
-      </div>
-      <div className="space-y-3">
-        {vocabulary.map((entry) => (
-          <div
-            key={entry.source_text}
-            className="group hover:bg-indigo-50 p-2 rounded-md transition-colors flex justify-between items-start"
-          >
-            <div className="flex-1">
-              <div className="text-md font-medium text-gray-900">
-                {entry.source_text}
-              </div>
-              <div className="text-sm text-gray-600">
-                {entry.translated_text}
-              </div>
-              {entry.notes && (
-                <div className="text-xs text-gray-500 italic group-hover:block">
-                  {entry.notes}
+    <div className="card bg-base-100 shadow-xl max-h-[600px] overflow-y-auto">
+      <div className="card-body p-4">
+        <div className="flex justify-end">
+          <BookmarkAllButton vocabulary={vocabulary} />
+        </div>
+        <div className="space-y-3">
+          {vocabulary.map((entry) => (
+            <div
+              key={entry.source_text}
+              className="group hover:bg-base-200 p-2 rounded-md transition-colors flex justify-between items-start"
+            >
+              <div className="flex-1">
+                <div className="text-md font-medium">{entry.source_text}</div>
+                <div className="text-sm opacity-70">
+                  {entry.translated_text}
                 </div>
-              )}
+                {entry.notes && (
+                  <div className="text-xs opacity-50 italic group-hover:block">
+                    {entry.notes}
+                  </div>
+                )}
+              </div>
+              <SaveVocabButton entry={entry} />
             </div>
-            <SaveVocabButton entry={entry} />
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -103,7 +103,7 @@ const BookmarkAllButton = ({
   return (
     <button
       onClick={handleBookmarkAll}
-      className="text-gray-400 hover:text-indigo-600 p-1 rounded-md transition-colors flex items-center gap-1"
+      className="btn btn-ghost btn-sm gap-1 normal-case"
       title="Save all to vocabulary"
     >
       <BookmarkSquareIcon className="h-5 w-5" />
@@ -128,10 +128,10 @@ const SaveVocabButton = ({ entry }: SaveVocabButtonProps) => {
   return (
     <button
       onClick={handleClick}
-      className={`ml-2 p-1 rounded-md transition-colors ${
+      className={`btn btn-ghost btn-sm ${
         isSaved
-          ? "text-indigo-600 hover:text-indigo-700"
-          : "text-gray-400 hover:text-indigo-600"
+          ? "text-primary"
+          : "opacity-50 hover:opacity-100"
       }`}
       title={isSaved ? "Remove from vocabulary" : "Save to vocabulary"}
     >

@@ -8,16 +8,16 @@ export const ScenarioSelect = () => {
   const removeUserScenario = useAppStore((state) => state.removeUserScenario);
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-base-200">
       <div className="max-w-4xl mx-auto p-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">
+        <h1 className="text-3xl font-bold mb-8">
           Conversation Practice Scenarios
         </h1>
 
         <div className="flex justify-between items-center mb-8">
           <Link
             to={`/practice/custom-${crypto.randomUUID()}`}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            className="btn btn-primary"
           >
             Create Custom Scenario
           </Link>
@@ -25,25 +25,25 @@ export const ScenarioSelect = () => {
 
         {userScenarios.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              My Scenarios
-            </h2>
-            <div className="bg-white rounded-lg shadow-md">
-              <ScenarioList
-                scenarios={userScenarios}
-                onDelete={removeUserScenario}
-                isCustom={true}
-              />
+            <h2 className="text-xl font-semibold mb-4">My Scenarios</h2>
+            <div className="card bg-base-100 shadow-xl">
+              <div className="card-body p-0">
+                <ScenarioList
+                  scenarios={userScenarios}
+                  onDelete={removeUserScenario}
+                  isCustom={true}
+                />
+              </div>
             </div>
           </div>
         )}
 
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            System Scenarios
-          </h2>
-          <div className="bg-white rounded-lg shadow-md">
-            <ScenarioList scenarios={systemScenarios} />
+          <h2 className="text-xl font-semibold mb-4">System Scenarios</h2>
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body p-0">
+              <ScenarioList scenarios={systemScenarios} />
+            </div>
           </div>
         </div>
       </div>

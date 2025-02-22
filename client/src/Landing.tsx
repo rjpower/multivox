@@ -6,26 +6,32 @@ import { APP_NAME, CONTACT_EMAIL, GITHUB_REPO } from "./constants";
 function configPrompt() {
   return (
     <div className="max-w-2xl mx-auto mb-16">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center space-x-4 mb-4">
-          <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-            <LockClosedIcon className="h-6 w-6 text-blue-500" />
+      <div className="card bg-base-100 shadow-xl">
+        <div className="card-body">
+          <div className="flex items-center gap-4">
+            <div className="avatar placeholder">
+              <div className="bg-primary text-primary-content rounded-full w-12">
+                <LockClosedIcon className="h-6 w-6" />
+              </div>
+            </div>
+            <h2 className="card-title text-2xl">
+              Quick Setup Required
+            </h2>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Quick Setup Required
-          </h2>
+          <p className="py-4">
+            To get started, you'll need to specify your preferred native language
+            and practice language.
+          </p>
+          <div className="card-actions">
+            <Link
+              to="/config"
+              className="btn btn-primary"
+            >
+              Configure Language Settings
+              <ArrowRightIcon className="ml-2 h-5 w-5" />
+            </Link>
+          </div>
         </div>
-        <p className="text-gray-600 mb-6">
-          To get started, you'll need to specify your preferred native language
-          and practice language.
-        </p>
-        <Link
-          to="/config"
-          className="inline-flex items-center px-6 py-3 text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-        >
-          Configure Language Settings
-          <ArrowRightIcon className="ml-2 -mr-1 h-5 w-5" />
-        </Link>
       </div>
     </div>
   );
@@ -33,18 +39,18 @@ function configPrompt() {
 const Landing = () => {
   const isReady = useAppStore((state) => state.isReady);
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gray-50">
+    <div className="min-h-[calc(100vh-4rem)] bg-base-200">
       <div className="max-w-4xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">{APP_NAME}</h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+          <h1 className="text-5xl font-bold mb-6">{APP_NAME}</h1>
+          <p className="text-xl opacity-70 max-w-2xl mx-auto leading-relaxed">
             Practice real conversation, with live hints and translation to guide
             you forward!
           </p>
         </div>
 
-        <div className="max-w-3xl mx-auto mt-16 prose prose-gray">
-          <div className="text-gray-600 leading-relaxed space-y-4">
+        <div className="max-w-3xl mx-auto mt-16 prose">
+          <div className="leading-relaxed space-y-4 opacity-70">
             <p>
               Practicing language on your own is frustrating, especially when
               you're early in the journey. It can be hard to think through good
@@ -74,7 +80,7 @@ const Landing = () => {
             ) : (
               <Link
                 to="/scenarios"
-                className="inline-flex items-center px-6 py-3 text-lg font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                className="btn btn-primary btn-lg"
               >
                 Start practicing
                 <ArrowRightIcon className="ml-2 h-5 w-5" />
@@ -83,19 +89,19 @@ const Landing = () => {
           </div>
         </div>
 
-        <footer className="mt-16 text-center text-sm text-gray-500">
+        <footer className="mt-16 text-center text-sm opacity-50">
           <p className="mb-4">
             Send feedback to{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="text-blue-600 hover:text-blue-800"
+              className="link link-primary"
             >
               {CONTACT_EMAIL}
             </a>{" "}
             or via{" "}
             <a
               href={GITHUB_REPO}
-              className="text-blue-600 hover:text-blue-800"
+              className="link link-primary"
               target="_blank"
               rel="noopener noreferrer"
             >

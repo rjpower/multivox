@@ -43,7 +43,7 @@ const ChatInterface = ({
         />
       </div>
 
-      <div className="border-t border-gray-200 bg-white px-4 py-2">
+      <div className="border-t border-base-200 bg-base-100 px-4 py-2">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -61,10 +61,8 @@ const ChatInterface = ({
           <button
             type="button"
             onClick={isRecording ? onStopRecording : onStartRecording}
-            className={`p-2 rounded-full transition-colors ${
-              isRecording
-                ? "bg-red-100 text-red-600 hover:bg-red-200"
-                : "hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+            className={`btn btn-circle ${
+              isRecording ? "btn-error" : "btn-ghost"
             }`}
           >
             <MicrophoneIcon
@@ -77,12 +75,12 @@ const ChatInterface = ({
             type="text"
             name="message"
             placeholder="Type your message..."
-            className="flex-1 focus:outline-none"
+            className="input input-bordered flex-1"
           />
 
           <button
             type="submit"
-            className="p-2 text-gray-500 hover:text-gray-700"
+            className="btn btn-ghost btn-circle"
           >
             <PaperAirplaneIcon className="h-5 w-5" />
           </button>
@@ -110,27 +108,27 @@ const ScenarioEditor = () => {
   return (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Scenario Title
+        <label className="label">
+          <span className="label-text">Scenario Title</span>
         </label>
         <input
           type="text"
           value={editableScenario.title}
           onChange={(e) => handleChange({ title: e.target.value })}
-          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          className="input input-bordered w-full"
           placeholder="Give your scenario a descriptive title"
         />
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Description
+          <span className="label-text">Description</span>
         </label>
         <textarea
           value={editableScenario.description}
           onChange={(e) => handleChange({ description: e.target.value })}
           rows={3}
-          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          className="textarea textarea-bordered w-full"
           placeholder="Briefly describe the purpose and goals of this practice scenario"
         />
       </div>
@@ -142,7 +140,7 @@ const ScenarioEditor = () => {
         <textarea
           value={editableScenario.instructions}
           onChange={(e) => handleChange({ instructions: e.target.value })}
-          className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="textarea textarea-bordered w-full h-32"
         />
       </div>
     </div>
@@ -200,7 +198,7 @@ A client has entered and needs assistance.
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <span className="loading loading-spinner loading-lg"></span>
       </div>
     );
   }
@@ -253,17 +251,19 @@ const ChatContent = () => {
 const ScenarioViewer = ({ scenario }: ScenarioViewerProps) => {
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Practice: {scenario.title}</h2>
-      <p className="text-gray-600 whitespace-pre-wrap">
+      <h2 className="card-title text-2xl">Practice: {scenario.title}</h2>
+      <p className="text-base-content/70 whitespace-pre-wrap">
         {scenario.description}
       </p>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Instructions
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text">Instructions</span>
         </label>
-        <div className="w-full min-h-[8rem] max-h-[12rem] overflow-y-auto px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
-          {scenario.instructions}
+        <div className="card bg-base-200">
+          <div className="card-body min-h-[8rem] max-h-[12rem] overflow-y-auto">
+            {scenario.instructions}
+          </div>
         </div>
       </div>
     </div>
@@ -272,11 +272,11 @@ const ScenarioViewer = ({ scenario }: ScenarioViewerProps) => {
 
 const TranslatingModal = () => {
   return (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl flex items-center space-x-4">
-        <LanguageIcon className="h-8 w-8 text-indigo-500 animate-spin" />
+    <div className="modal modal-open">
+      <div className="modal-box flex items-center space-x-4">
+        <LanguageIcon className="h-8 w-8 text-primary animate-spin" />
         <div>
-          <h3 className="text-lg font-medium text-gray-900">
+          <h3 className="text-lg font-medium">
             Translating Instructions
           </h3>
           <p className="text-gray-500">
@@ -299,26 +299,22 @@ const PracticeControls = ({ onStart }: { onStart: () => Promise<void> }) => {
   return (
     <div className="space-y-4 mt-6">
       <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-        <label className="text-sm font-medium text-gray-700">
-          Response Type:
+        <label className="label">
+          <span className="label-text">Response Type:</span>
         </label>
         <div className="flex rounded-md shadow-sm">
           <button
             onClick={() => setModality("audio")}
-            className={`px-4 py-2 text-sm font-medium rounded-l-md border ${
-              modality === "audio"
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+            className={`btn join-item ${
+              modality === "audio" ? "btn-primary" : ""
             }`}
           >
             Voice
           </button>
           <button
             onClick={() => setModality("text")}
-            className={`px-4 py-2 text-sm font-medium rounded-r-md border-t border-r border-b ${
-              modality === "text"
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+            className={`btn join-item ${
+              modality === "text" ? "btn-primary" : ""
             }`}
           >
             Text
@@ -326,10 +322,7 @@ const PracticeControls = ({ onStart }: { onStart: () => Promise<void> }) => {
         </div>
       </div>
 
-      <button
-        onClick={handleStart}
-        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400"
-      >
+      <button onClick={handleStart} className="btn btn-primary">
         Start Practice
       </button>
     </div>
@@ -352,13 +345,13 @@ const ErrorDisplay = ({
   };
 
   return (
-    <div className="rounded-md bg-red-50 p-4 mb-4">
+    <div className="alert alert-error mb-4">
       <div className="flex">
         <div className="flex-shrink-0">
-          <XCircleIcon className="h-5 w-5 text-red-400" />
+          <XCircleIcon className="h-5 w-5" />
         </div>
         <div className="ml-3">
-          <h3 className="text-sm font-medium text-red-800">
+          <h3 className="font-medium">
             {errorTitles[error.type as keyof typeof errorTitles]}
           </h3>
           <div className="mt-2 text-sm text-red-700">
@@ -369,7 +362,7 @@ const ErrorDisplay = ({
           <div className="-mx-1.5 -my-1.5">
             <button
               onClick={onDismiss}
-              className="inline-flex rounded-md bg-red-50 p-1.5 text-red-500 hover:bg-red-100"
+              className="btn btn-circle btn-ghost btn-sm"
             >
               <span className="sr-only">Dismiss</span>
               <XMarkIcon className="h-5 w-5" />
@@ -408,12 +401,12 @@ export const Practice = () => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gray-100 p-4">
+      <div className="min-h-screen bg-base-200 p-4">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0 mb-4">
             <button
               onClick={() => navigate("/scenarios")}
-              className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+              className="btn btn-ghost btn-sm gap-2"
             >
               <ArrowLeftCircleIcon className="h-5 w-5" />
               <span>Back to scenarios</span>
@@ -426,15 +419,17 @@ export const Practice = () => {
             <div className="absolute top-4 right-4 lg:hidden">
               <button
                 onClick={() => setIsVocabVisible(!isVocabVisible)}
-                className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+                className="btn btn-circle btn-ghost"
               >
                 <BookOpenIcon className="h-5 w-5" />
               </button>
             </div>
             <div className="flex-1">
-              <div className="bg-white rounded-lg shadow-md p-4">
+              <div className="card bg-base-100 shadow-xl">
+                <div className="card-body">
                 <ScenarioContent />
                 <ChatContent />
+                </div>
               </div>
             </div>
             <div
@@ -452,11 +447,11 @@ export const Practice = () => {
               z-50 lg:z-auto
             `}
             >
-              <div className="lg:hidden flex items-center justify-between p-4 border-b">
-                <h3 className="font-medium">Vocabulary</h3>
+              <div className="lg:hidden navbar bg-base-100">
+                <h3 className="navbar-start font-medium">Vocabulary</h3>
                 <button
                   onClick={() => setIsVocabVisible(false)}
-                  className="p-2 hover:bg-gray-100 rounded-full"
+                  className="navbar-end btn btn-circle btn-ghost btn-sm"
                 >
                   <XMarkIcon className="h-5 w-5" />
                 </button>
