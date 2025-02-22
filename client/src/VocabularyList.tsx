@@ -43,76 +43,113 @@ export const VocabularyList = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold">Saved Vocabulary</h2>
-        <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
-          <button
-            onClick={() => exportToCsv(items)}
-            className="btn btn-ghost btn-sm gap-2"
-          >
-            <ArrowDownTrayIcon className="h-4 w-4" />
-            <span>CSV</span>
-          </button>
-          <button
-            onClick={clear}
-            className="btn btn-error btn-sm gap-2"
-          >
-            <TrashIcon className="h-4 w-4" />
-            <span>Delete All</span>
-          </button>
+    <div className="min-h-screen bg-base-100 p-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+            <h1 className="text-3xl font-bold">Saved Vocabulary</h1>
+            <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
+              <button
+                onClick={() => exportToCsv(items)}
+                className="btn btn-ghost btn-sm gap-2"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4" />
+                <span>Export CSV</span>
+              </button>
+              <button onClick={clear} className="btn btn-error btn-sm gap-2">
+                <TrashIcon className="h-4 w-4" />
+                <span>Delete All</span>
+              </button>
+            </div>
+          </div>
+          <p className="text-base-content/70">
+            Review and manage your saved vocabulary items. You can export them
+            to CSV format or remove items you no longer need.
+          </p>
         </div>
-      </div>
-      <div className="card bg-base-100 shadow-xl overflow-x-auto">
-        <table className="table table-fixed">
-          <thead>
-            <tr>
-              <th className="whitespace-nowrap">
-                Term
-              </th>
-              <th>
-                Translation
-              </th>
-              <th>Notes</th>
-              <th>Context</th>
-              <th>Translated Context</th>
-              <th>
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.source_text}>
-                <td className="whitespace-nowrap font-medium">
-                  {item.source_text}
-                </td>
-                <td className="whitespace-nowrap">
-                  {item.translated_text}
-                </td>
-                <td>
-                  {item.notes}
-                </td>
-                <td>
-                  {item.context_source && <p>{item.context_source}</p>}
-                </td>
-                <td>
-                  {item.context_translated && <p>{item.context_translated}</p>}
-                </td>
-                <td className="text-right">
-                  <button
-                    onClick={() =>
-                      useAppStore.getState().vocabulary.remove(item.source_text)
-                    }
-                    className="btn btn-ghost btn-sm text-error"
+        <div className="bg-white rounded-lg shadow-lg overflow-x-auto">
+          <div className="overflow-x-auto">
+            <table className="table w-full">
+              <thead className="hidden md:table-header-group">
+                <tr>
+                  <th className="whitespace-nowrap">Term</th>
+                  <th>Translation</th>
+                  <th>Notes</th>
+                  <th>Context</th>
+                  <th>Translated Context</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr
+                    key={item.source_text}
+                    className="block md:table-row border-b border-base-200"
                   >
-                    <TrashIcon className="h-5 w-5" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    <td
+                      data-label="Term"
+                      className="block md:table-cell py-2 md:py-4"
+                    >
+                      <span className="font-medium md:hidden mr-2">Term:</span>
+                      <span className="font-medium">{item.source_text}</span>
+                    </td>
+                    <td
+                      data-label="Translation"
+                      className="block md:table-cell py-2 md:py-4"
+                    >
+                      <span className="font-medium md:hidden mr-2">
+                        Translation:
+                      </span>
+                      {item.translated_text}
+                    </td>
+                    <td
+                      data-label="Notes"
+                      className="block md:table-cell py-2 md:py-4"
+                    >
+                      <span className="font-medium md:hidden mr-2">Notes:</span>
+                      {item.notes}
+                    </td>
+                    <td
+                      data-label="Context"
+                      className="block md:table-cell py-2 md:py-4"
+                    >
+                      <span className="font-medium md:hidden mr-2">
+                        Context:
+                      </span>
+                      {item.context_source && <p>{item.context_source}</p>}
+                    </td>
+                    <td
+                      data-label="Translated Context"
+                      className="block md:table-cell py-2 md:py-4"
+                    >
+                      <span className="font-medium md:hidden mr-2">
+                        Translated Context:
+                      </span>
+                      {item.context_translated && (
+                        <p>{item.context_translated}</p>
+                      )}
+                    </td>
+                    <td
+                      data-label="Actions"
+                      className="block md:table-cell py-2 md:py-4 text-right"
+                    >
+                      <button
+                        onClick={() =>
+                          useAppStore
+                            .getState()
+                            .vocabulary.remove(item.source_text)
+                        }
+                        className="btn btn-ghost btn-sm text-error"
+                      >
+                        <TrashIcon className="h-5 w-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );

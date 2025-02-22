@@ -14,37 +14,32 @@ export const ScenarioSelect = () => {
           Conversation Practice Scenarios
         </h1>
 
-        <div className="flex justify-between items-center mb-8">
-          <Link
-            to={`/practice/custom-${crypto.randomUUID()}`}
-            className="btn btn-primary"
-          >
-            Create Custom Scenario
-          </Link>
-        </div>
-
-        {userScenarios.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">My Scenarios</h2>
-            <div className="card bg-base-100 shadow-xl">
-              <div className="card-body p-0">
-                <ScenarioList
-                  scenarios={userScenarios}
-                  onDelete={removeUserScenario}
-                  isCustom={true}
-                />
-              </div>
-            </div>
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">My Scenarios</h2>
+            <Link
+              to={`/practice/custom-${crypto.randomUUID()}`}
+              className="btn btn-secondary btn-sm"
+            >
+              <span className="mr-1">+</span> New Scenario
+            </Link>
           </div>
-        )}
+          {userScenarios.length > 0 ? (
+            <ScenarioList
+              scenarios={userScenarios}
+              onDelete={removeUserScenario}
+              isCustom={true}
+            />
+          ) : (
+            <div className="text-base-content/70 text-center py-8 bg-base-100 rounded-lg">
+              Create your first custom scenario to get started
+            </div>
+          )}
+        </div>
 
         <div>
           <h2 className="text-xl font-semibold mb-4">System Scenarios</h2>
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body p-0">
-              <ScenarioList scenarios={systemScenarios} />
-            </div>
-          </div>
+          <ScenarioList scenarios={systemScenarios} />
         </div>
       </div>
     </div>

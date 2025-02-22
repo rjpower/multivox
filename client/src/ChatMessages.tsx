@@ -136,30 +136,33 @@ const HintMessageComponent = ({
 }) => {
   return (
     <div className="flex justify-center my-4">
-      <div className="card bg-base-200 shadow-xl max-w-[80%]">
-        <div className="card-body p-4">
-          <h3 className="card-title text-sm">Hints</h3>
-          <div className="flex flex-wrap gap-2">
-            {msg.hints.map((hint, idx) => (
+      <div className="bg-base-200 shadow-lg rounded-lg p-4 max-w-[80%] mx-auto">
+        <h3 className="text-sm font-medium mb-2">Suggested Responses</h3>
+        <div className="flex flex-wrap gap-2">
+          {msg.hints.map((hint, idx) => {
+            const [sourceLine, ...translationLines] = hint.source_text.split('\n');
+            const translation = translationLines.join(' ') || hint.translated_text;
+            
+            return (
               <button
                 key={idx}
                 onClick={() => {
                   if (messageInputRef.current) {
-                    messageInputRef.current.value = hint.source_text;
+                    messageInputRef.current.value = sourceLine;
                     messageInputRef.current.focus();
                   }
                 }}
-                className="btn btn-sm rounded-full normal-case hover:bg-base-300"
+                className="group relative px-3 py-1.5 rounded-lg bg-base-100 hover:bg-base-300 transition-colors"
               >
-                <div className="flex flex-col items-start gap-0.5 px-2">
-                  <span className="text-sm">{hint.source_text}</span>
-                  <span className="text-xs text-base-content/70">
-                    {hint.translated_text}
+                <span className="text-sm font-medium">{sourceLine}</span>
+                <div className="absolute left-0 right-0 -bottom-1 translate-y-full opacity-0 group-hover:opacity-100 transition-opacity bg-base-100 shadow-lg rounded-lg p-2 z-10">
+                  <span className="text-xs text-base-content/70 whitespace-pre-line">
+                    {translation}
                   </span>
                 </div>
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </div>
     </div>

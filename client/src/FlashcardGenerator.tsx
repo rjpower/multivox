@@ -190,7 +190,7 @@ const CSVPreviewTable = ({
   };
 
   return (
-    <div className="card bg-base-100 shadow-xl">
+    <div className="card bg-base-200 shadow-xl">
       <div className="card-body">
         <h3 className="card-title">CSV Preview</h3>
         <div className="overflow-x-auto">
@@ -615,45 +615,43 @@ const FlashcardGenerator = () => {
   };
 
   return (
-    <div className="min-h-screen bg-base-100 p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="card bg-base-100 shadow-xl">
-          <div className="card-body">
-            <h1 className="card-title text-2xl">Vocabulary Card Builder</h1>
-            <p className="text-base-content/70">
-              Generate flashcards from your vocabulary list using AI-powered
-              translations and examples. Simply paste your vocabulary as
-              CSV/text or subtitle (SRT) file content, and get beautifully
-              formatted flashcards with translations, context sentences, and
-              optional audio.
-            </p>
-          </div>
-          <div className="card-body py-2">
-            <div className="flex flex-col sm:flex-row gap-8">
+    <div className="min-h-screen bg-base-100 p-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-4">Vocabulary Card Builder</h1>
+          <p className="text-base-content/70">
+            Generate flashcards from your vocabulary list using AI-powered
+            translations and examples. Simply paste your vocabulary as
+            CSV/text or subtitle (SRT) file content, and get beautifully
+            formatted flashcards with translations, context sentences, and
+            optional audio.
+          </p>
+        </div>
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="flex flex-col sm:flex-row gap-8 mb-6">
               <FormatSettings />
               <InputTypeSelector />
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <ContentInput />
-              <CSVAnalysisSection />
-              <div className="mt-6 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={submitting || !isFormValid}
-                  className="btn btn-primary"
-                >
-                  {submitting ? "Generating..." : "Generate Flashcards"}
-                </button>
-              </div>
-            </form>
-            <ProcessingModal
-              visible={modalVisible}
-              messages={messages}
-              spinner={spinner}
-              onClose={hideModal}
-              setSpinner={setSpinner}
-            />
           </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <ContentInput />
+            <CSVAnalysisSection />
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={submitting || !isFormValid}
+                className="btn btn-primary"
+              >
+                {submitting ? "Generating..." : "Generate Flashcards"}
+              </button>
+            </div>
+          </form>
+          <ProcessingModal
+            visible={modalVisible}
+            messages={messages}
+            spinner={spinner}
+            onClose={hideModal}
+            setSpinner={setSpinner}
+          />
         </div>
       </div>
     </div>

@@ -424,13 +424,9 @@ export const Practice = () => {
                 <BookOpenIcon className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex-1">
-              <div className="card bg-base-100 shadow-xl">
-                <div className="card-body">
-                <ScenarioContent />
-                <ChatContent />
-                </div>
-              </div>
+            <div className="flex-1 bg-base-100 rounded-lg p-6 shadow-lg">
+              <ScenarioContent />
+              <ChatContent />
             </div>
             <div
               className={`

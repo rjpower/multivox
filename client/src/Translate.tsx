@@ -75,93 +75,99 @@ export const Translate = () => {
   };
 
   return (
-    <div>
-      <div className="max-w-4xl mx-auto p-6">
-        <h1 className="text-3xl font-bold mb-8">
-          Test Translation to/from a language
-        </h1>
+    <div className="min-h-screen bg-base-100 p-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-4">
+            Test Translation to/from a language
+          </h1>
+          <p className="text-base-content/70">
+            Try out translations between any supported language pair, with
+            back-translation to verify accuracy.
+          </p>
+        </div>
 
-        <div className="card bg-base-100 shadow-xl">
-          <div className="card-body space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="label">
-                  <span className="label-text">Source Language</span>
-                </label>
-                <select
-                  value={sourceLanguage}
-                  onChange={(e) => setSourceLanguage(e.target.value)}
-                  className="select select-bordered w-full"
-                >
-                  {languages.map((lang) => (
-                    <option key={lang.code} value={lang.code}>
-                      {lang.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="label">
-                  <span className="label-text">Target Language</span>
-                </label>
-                <select
-                  value={targetLanguage}
-                  onChange={(e) => setTargetLanguage(e.target.value)}
-                  className="select select-bordered w-full"
-                >
-                  {languages.map((lang) => (
-                    <option key={lang.code} value={lang.code}>
-                      {lang.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="label">
+                <span className="label-text">Source Language</span>
+              </label>
+              <select
+                value={sourceLanguage}
+                onChange={(e) => setSourceLanguage(e.target.value)}
+                className="select select-bordered w-full"
+              >
+                {languages.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">
               <label className="label">
-                <span className="label-text">Text to Translate</span>
+                <span className="label-text">Target Language</span>
               </label>
-              <textarea
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                rows={4}
-                className="textarea textarea-bordered w-full"
-                placeholder="Enter text to translate..."
-              />
+              <select
+                value={targetLanguage}
+                onChange={(e) => setTargetLanguage(e.target.value)}
+                className="select select-bordered w-full"
+              >
+                {languages.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </option>
+                ))}
+              </select>
             </div>
+          </div>
 
-            <button
-              onClick={handleTranslate}
-              disabled={isLoading || !inputText.trim()}
-              className="btn btn-primary w-full"
-            >
-              {isLoading ? "Translating..." : "Translate"}
-            </button>
+          <div className="space-y-2">
+            <label className="label">
+              <span className="label-text">Text to Translate</span>
+            </label>
+            <textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              rows={4}
+              className="textarea textarea-bordered w-full"
+              placeholder="Enter text to translate..."
+            />
+          </div>
 
-            {error && <div className="alert alert-error">{error}</div>}
+          <button
+            onClick={handleTranslate}
+            disabled={isLoading || !inputText.trim()}
+            className="btn btn-primary w-full"
+          >
+            {isLoading ? "Translating..." : "Translate"}
+          </button>
 
-            {translation && (
-              <div className="card bg-base-200">
-                <div className="card-body space-y-4">
-                  <h3 className="card-title">Translation</h3>
+          {error && <div className="alert alert-error">{error}</div>}
+
+          {translation && (
+            <div className="space-y-6">
+              <div className="bg-base-200 rounded-lg p-6 space-y-4">
+                <h3 className="text-xl font-semibold">Translation</h3>
+                <p className="whitespace-pre-wrap">
+                  {translation.translated_text.replace(/\n/g, "\n")}
+                </p>
+              </div>
+
+              {reverseTranslation && (
+                <div className="bg-base-200 rounded-lg p-6 space-y-4">
+                  <h3 className="text-xl font-semibold">
+                    Back to {sourceLanguage}
+                  </h3>
                   <p className="whitespace-pre-wrap">
-                    {translation.translated_text.replace(/\n/g, "\n")}
+                    {reverseTranslation.translated_text.replace(/\n/g, "\n")}
                   </p>
                 </div>
-
-                {reverseTranslation && (
-                  <div>
-                    <h3 className="card-title">Back to {sourceLanguage}</h3>
-                    <p className="whitespace-pre-wrap">
-                      {reverseTranslation.translated_text.replace(/\n/g, "\n")}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -19,99 +19,67 @@ const ConfigurationStatus = () => {
   const practiceLanguage = useAppStore((state) => state.practiceLanguage);
 
   return (
-    <div className="card bg-base-100 shadow-xl">
-      <div className="card-body">
-        <div className="stats shadow">
-          <div className="stat">
-            <div className="stat-figure text-primary">
-              {isReady ? (
-                <div className="avatar">
-                  <div className="w-16 rounded-full ring ring-primary ring-offset-2">
-                    <CheckIcon className="h-8 w-8 m-4 text-primary" />
-                  </div>
+    <>
+      <div className="stats shadow">
+        <div className="stat">
+          <div className="stat-figure text-primary">
+            {isReady ? (
+              <div className="avatar">
+                <div className="w-16 rounded-full ring ring-primary ring-offset-2">
+                  <CheckIcon className="h-8 w-8 m-4 text-primary" />
                 </div>
-              ) : (
-                <div className="avatar placeholder">
-                  <div className="w-16 rounded-full bg-neutral-focus text-neutral-content ring ring-primary ring-offset-2">
-                    <XMarkIcon className="h-8 w-8 m-4" />
-                  </div>
+              </div>
+            ) : (
+              <div className="avatar placeholder">
+                <div className="w-16 rounded-full bg-neutral-focus text-neutral-content ring ring-primary ring-offset-2">
+                  <XMarkIcon className="h-8 w-8 m-4" />
                 </div>
-              )}
-            </div>
-            <div className="stat-title">Status</div>
-            <div className="stat-value text-primary">
-              {isReady ? "Ready!" : "Setup"}
-            </div>
-            <div className="stat-desc">
-              {isReady 
-                ? "You can start practicing" 
-                : "Complete configuration below"}
-            </div>
+              </div>
+            )}
+          </div>
+          <div className="stat-title">Status</div>
+          <div className="stat-value text-primary">
+            {isReady ? "Ready!" : "Setup"}
+          </div>
+          <div className="stat-desc">
+            {isReady
+              ? "You can start practicing"
+              : "Complete configuration below"}
           </div>
         </div>
-
-        <div className="divider">Configuration Status</div>
-        
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <span>Native Language</span>
-            <StatusBadge 
-              isComplete={!!nativeLanguage} 
-              label={nativeLanguage ? "Selected" : "Required"} 
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Practice Language</span>
-            <StatusBadge 
-              isComplete={!!practiceLanguage} 
-              label={practiceLanguage ? "Selected" : "Required"} 
-            />
-          </div>
-        </div>
-
-        {isReady && (
-          <div className="card-actions justify-end mt-6">
-            <Link 
-              to="/scenarios" 
-              className="btn btn-primary btn-block gap-2"
-            >
-              Start practicing
-              <ArrowRightIcon className="h-5 w-5" />
-            </Link>
-          </div>
-        )}
       </div>
-    </div>
+
+      <div className="divider">Configuration Status</div>
+
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <span>Native Language</span>
+          <StatusBadge
+            isComplete={!!nativeLanguage}
+            label={nativeLanguage ? "Selected" : "Required"}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <span>Practice Language</span>
+          <StatusBadge
+            isComplete={!!practiceLanguage}
+            label={practiceLanguage ? "Selected" : "Required"}
+          />
+        </div>
+      </div>
+
+      {isReady && (
+        <div className="card-actions justify-end mt-6">
+          <Link to="/scenarios" className="btn btn-primary btn-block gap-2">
+            Start practicing
+            <ArrowRightIcon className="h-5 w-5" />
+          </Link>
+        </div>
+      )}
+    </>
   );
 };
 
-const ResetOptions = () => (
-  <div className="card bg-base-100 mt-8 shadow-xl">
-    <div className="card-body">
-      <h2 className="card-title text-error">Reset Options</h2>
-      <div className="flex flex-col gap-4">
-        <div className="join join-vertical lg:join-horizontal w-full">
-          <button
-            type="button"
-            onClick={() => useAppStore.getState().vocabulary.clear()}
-            className="btn join-item btn-error gap-2"
-          >
-            <XMarkIcon className="h-5 w-5" />
-            Reset Vocabulary
-          </button>
-          <button
-            type="button"
-            onClick={() => useAppStore.getState().reset()}
-            className="btn join-item btn-error gap-2"
-          >
-            <XMarkIcon className="h-5 w-5" />
-            Reset All Settings
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-);
 
 const LanguageSelector = ({ 
   className = "", 
@@ -172,9 +140,10 @@ export const Config = () => {
         <h1 className="text-3xl font-bold mb-4">Configuration</h1>
 
         <div className="flex flex-col lg:flex-row gap-6">
-          <div className="lg:w-[60%] card bg-base-100 shadow-xl">
-            <form onSubmit={(e) => e.preventDefault()} className="card-body">
-              <h2 className="card-title">Language Settings</h2>
+          <div className="lg:w-[60%]">
+            <div className="card bg-base-100 shadow-xl">
+              <form onSubmit={(e) => e.preventDefault()} className="card-body">
+                <h2 className="card-title">Language Settings</h2>
               <div className="grid gap-6">
                 <div className="form-control">
                   <label className="label">
@@ -205,13 +174,41 @@ export const Config = () => {
                   </label>
                 </div>
               </div>
+
+              <div className="divider"></div>
+
+              <div className="flex flex-col gap-4">
+                <h3 className="text-error font-semibold">Reset Options</h3>
+                <div className="flex flex-col lg:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => useAppStore.getState().vocabulary.clear()}
+                    className="btn btn-error gap-2"
+                  >
+                    <XMarkIcon className="h-5 w-5" />
+                    Reset Vocabulary
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => useAppStore.getState().reset()}
+                    className="btn btn-error gap-2"
+                  >
+                    <XMarkIcon className="h-5 w-5" />
+                    Reset All Settings
+                  </button>
+                </div>
+              </div>
             </form>
           </div>
+        </div>
           <div className="lg:w-96">
-            <ConfigurationStatus />
+            <div className="card bg-base-100 shadow-xl">
+              <div className="card-body">
+                <ConfigurationStatus />
+              </div>
+            </div>
           </div>
         </div>
-        <ResetOptions />
       </div>
     </div>
   );
