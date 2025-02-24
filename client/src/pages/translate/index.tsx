@@ -1,10 +1,10 @@
 import { useState } from "react";
 import type { TranslateRequest, TranslateResponse } from "../../types";
-import { useAppStore } from "../../stores/app";
+import { useLanguages } from "../../stores/app";
 
 export const Translate = () => {
+  const languages = useLanguages();
   const [inputText, setInputText] = useState("");
-  const languages = useAppStore((state) => state.languages);
   const [sourceLanguage, setSourceLanguage] = useState("en");
   const [targetLanguage, setTargetLanguage] = useState("ja");
   const [translation, setTranslation] = useState<TranslateResponse | null>(

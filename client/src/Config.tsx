@@ -1,4 +1,13 @@
-import { useAppStore } from "./stores/app";
+import { useAtom, useAtomValue } from "jotai";
+import {
+  languagesAtom,
+  nativeLanguageAtom,
+  practiceLanguageAtom,
+  useReadyForPractice,
+  useAppLoading,
+  reset,
+  useVocabulary,
+} from "./stores/app";
 import { Link, useLocation } from "react-router-dom";
 import { XMarkIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
 
@@ -11,7 +20,8 @@ const LanguageSelector = ({
   value: string;
   onChange: (value: string) => void;
 }) => {
-  const languages = useAppStore((state) => state.languages);
+  const languages = useAtomValue(languagesAtom);
+  console.log("Language: ", value);
 
   return (
     <select
@@ -39,13 +49,12 @@ const LoadingSpinner = () => (
 
 export const Config = () => {
   const location = useLocation();
-  const isReady = useAppStore((state) => state.isReady());
+  const isReady = useReadyForPractice();
   const message = location.state?.message;
-  const isLoading = useAppStore((state) => state.appLoading);
-  const nativeLanguage = useAppStore((state) => state.nativeLanguage);
-  const setNativeLanguage = useAppStore((state) => state.setNativeLanguage);
-  const practiceLanguage = useAppStore((state) => state.practiceLanguage);
-  const setPracticeLanguage = useAppStore((state) => state.setPracticeLanguage);
+  const isLoading = useAppLoading();
+  const [nativeLanguage, setNativeLanguage] = useAtom(nativeLanguageAtom);
+  const [practiceLanguage, setPracticeLanguage] = useAtom(practiceLanguageAtom);
+  const { clear } = useVocabulary();
 
   if (isLoading) {
     return (
@@ -76,7 +85,7 @@ export const Config = () => {
                 <span className="label-text font-medium">Native Language</span>
               </label>
               <LanguageSelector
-                value={nativeLanguage}
+                value={nativeLanguage || ""}
                 onChange={setNativeLanguage}
                 className="w-full"
               />
@@ -89,7 +98,7 @@ export const Config = () => {
                 </span>
               </label>
               <LanguageSelector
-                value={practiceLanguage}
+                value={practiceLanguage || ""}
                 onChange={setPracticeLanguage}
                 className="w-full"
               />
@@ -103,7 +112,7 @@ export const Config = () => {
             <div className="flex flex-col sm:flex-row gap-2">
               <button
                 type="button"
-                onClick={() => useAppStore.getState().vocabulary.clear()}
+                onClick={clear}
                 className="btn btn-error btn-outline gap-2"
               >
                 <XMarkIcon className="h-5 w-5" />
@@ -111,7 +120,7 @@ export const Config = () => {
               </button>
               <button
                 type="button"
-                onClick={() => useAppStore.getState().reset()}
+                onClick={reset}
                 className="btn btn-error btn-outline gap-2"
               >
                 <XMarkIcon className="h-5 w-5" />

@@ -1,7 +1,7 @@
 import { ArrowLeftCircleIcon } from "@heroicons/react/24/outline";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAppStore } from "../../stores/app";
+import { useSystemScenarios, useUserScenarios } from "../../stores/app";
 import { type Scenario } from "../../types";
 import { useAtom } from "jotai"; // Import Jotai hook
 import { modalityAtom } from "../chat/store";
@@ -12,9 +12,7 @@ interface ScenarioViewerProps {
 
 const ScenarioEditor = () => {
   const { scenarioId = "" } = useParams<{ scenarioId: string }>();
-  const userScenarios = useAppStore((state) => state.userScenarios);
-  const updateUserScenario = useAppStore((state) => state.updateUserScenario);
-
+  const { userScenarios, updateUserScenario } = useUserScenarios();
   const editableScenario = userScenarios.find((s) => s.id === scenarioId);
 
   const handleChange = (updates: Partial<Scenario>) => {
@@ -87,7 +85,7 @@ const ScenarioViewer = ({ scenario }: ScenarioViewerProps) => {
 };
 
 const PracticeControls = ({ onStart }: { onStart: () => void }) => {
-  const [modality, setModality] = useAtom(modalityAtom); // Replace Zustand with Jotai
+  const [modality, setModality] = useAtom(modalityAtom);
 
   return (
     <div className="space-y-4 mt-6">
@@ -127,13 +125,11 @@ export const ScenarioPreview = () => {
   const navigate = useNavigate();
   const { scenarioId = "" } = useParams<{ scenarioId: string }>();
 
-  const userScenarios = useAppStore((state) => state.userScenarios);
+  const { userScenarios, updateUserScenario } = useUserScenarios();
   const userScenario = userScenarios.find((s) => s.id === scenarioId);
 
-  const systemScenarios = useAppStore((state) => state.systemScenarios);
+  const systemScenarios = useSystemScenarios();
   const systemScenario = systemScenarios.find((s) => s.id === scenarioId);
-
-  const setUserScenario = useAppStore((state) => state.updateUserScenario);
 
   useEffect(() => {
     const initializeScenario = async () => {
@@ -153,13 +149,13 @@ You walk through the process of identifying appropriate apartments, scheduling v
 A client has entered and needs assistance.
 `,
         };
-        await setUserScenario(newScenario);
+        updateUserScenario(newScenario);
       }
       setIsLoading(false);
     };
 
     initializeScenario();
-  }, [scenarioId, userScenarios, setUserScenario]);
+  }, [scenarioId, userScenarios, updateUserScenario]);
 
   const scenario = userScenario || systemScenario;
 

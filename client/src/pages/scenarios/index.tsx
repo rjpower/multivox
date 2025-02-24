@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
 import { ScenarioList } from "./ScenarioList";
-import { useAppStore } from "../../stores/app";
+import { useAtomValue } from "jotai";
+import { systemScenariosAtom, useUserScenarios } from "../../stores/app";
 
 export const ScenarioSelect = () => {
-  const systemScenarios = useAppStore((state) => state.systemScenarios);
-  const userScenarios = useAppStore((state) => state.userScenarios);
-  const removeUserScenario = useAppStore((state) => state.removeUserScenario);
+  const systemScenarios = useAtomValue(systemScenariosAtom);
+  const { userScenarios, removeUserScenario } = useUserScenarios();
 
   return (
     <div>

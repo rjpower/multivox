@@ -4,8 +4,8 @@ import {
   useStartRecording,
   useStopRecording,
   useSendMessage,
-} from "../store"; // Import Jotai atoms and hooks
-import { useAtom } from "jotai"; // Import Jotai hook
+} from "../store"; 
+import { useAtom } from "jotai"; 
 
 export const ChatControls = ({
   inputRef,
@@ -14,10 +14,10 @@ export const ChatControls = ({
   inputRef: React.RefObject<HTMLInputElement | null>;
   isProcessing: boolean;
 }) => {
-  const [isRecording] = useAtom(isRecordingAtom); // Replace Zustand with Jotai
-  const startRecording = useStartRecording(); // Jotai hook
-  const stopRecording = useStopRecording(); // Jotai hook
-  const sendMessage = useSendMessage(); // Jotai hook
+  const [isRecording] = useAtom(isRecordingAtom); 
+  const startRecording = useStartRecording(); 
+  const stopRecording = useStopRecording(); 
+  const sendMessage = useSendMessage(); 
 
   return (
     <div className="border-t border-base-200 bg-base-100 px-4 py-2">

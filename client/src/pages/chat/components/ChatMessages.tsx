@@ -205,7 +205,7 @@ const TranscriptionMessageComponent = ({
 
 const AudioMessageComponent = ({ msg }: { msg: AudioViewMessage }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [audioPlayer] = useAtom(audioPlayerAtom); // Replace Zustand with Jotai
+  const [audioPlayer] = useAtom(audioPlayerAtom);
 
   const handlePlayback = async () => {
     if (!audioPlayer || !msg.isComplete) return;

@@ -1,6 +1,6 @@
-import { useAppStore } from "../../stores/app";
 import { ArrowDownTrayIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { VocabItem } from "../../components/VocabItem";
+import { useVocabulary } from "../../stores/app";
 
 const exportToCsv = (items: any[]) => {
   const headers = [
@@ -34,12 +34,7 @@ const exportToCsv = (items: any[]) => {
 };
 
 export const VocabularyList = () => {
-  const items = useAppStore((state) =>
-    state.vocabulary
-      .getAll()
-      .sort((a, b) => a.source_text.localeCompare(b.source_text))
-  );
-  const clear = useAppStore((state) => state.vocabulary.clear);
+  const { items, clear, remove } = useVocabulary();
 
   if (items.length === 0) {
     return (
@@ -95,7 +90,7 @@ export const VocabularyList = () => {
                     key={item.source_text}
                     entry={item}
                     mode="review"
-                    onDelete={() => useAppStore.getState().vocabulary.remove(item.source_text)}
+                    onDelete={() => remove(item.source_text)}
                   />
                 ))}
               </tbody>

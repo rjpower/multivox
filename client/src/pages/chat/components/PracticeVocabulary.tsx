@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { VocabularyEntry, WebSocketMessage } from "../../../types";
 import { BookmarkSquareIcon } from "@heroicons/react/24/outline";
-import { useAppStore } from "../../../stores/app";
+import { useVocabulary } from "../../../stores/app";
 import { VocabItem } from "../../../components/VocabItem";
 
 export const PracticeVocabulary = ({
@@ -10,47 +10,37 @@ export const PracticeVocabulary = ({
   messages: Array<WebSocketMessage>;
 }) => {
   const [vocabulary, setVocabulary] = useState<VocabularyEntry[]>([]);
+  const { add, remove, exists } = useVocabulary();
 
-  // Store selectors
-  const appVocab = useAppStore((state) => state.vocabulary.getAll());
+  const vocabMap = new Map<string, VocabularyEntry>();
 
-  const add = useAppStore((state) => state.vocabulary.add);
-  const remove = useAppStore((state) => state.vocabulary.remove);
-  const exists = (term: string) =>
-    appVocab.some((item) => item.source_text === term);
-
-  useEffect(() => {
-    // Collect unique vocabulary items from all transcription messages
-    const vocabMap = new Map<string, VocabularyEntry>();
-
-    messages.forEach((msg) => {
-      if (msg.type === "transcription" && msg.dictionary) {
-        Object.entries(msg.dictionary).forEach(([term, entry]) => {
-          vocabMap.set(term, {
-            ...entry,
-            context_source: msg.source_text,
-            context_translated: msg.translated_text,
-          });
+  messages.forEach((msg) => {
+    if (msg.type === "transcription" && msg.dictionary) {
+      Object.entries(msg.dictionary).forEach(([term, entry]) => {
+        vocabMap.set(term, {
+          ...entry,
+          context_source: msg.source_text,
+          context_translated: msg.translated_text,
         });
-      }
-      if (msg.type === "translation" && msg.dictionary) {
-        Object.entries(msg.dictionary).forEach(([term, entry]) => {
-          vocabMap.set(term, {
-            ...entry,
-            context_source: msg.source_text,
-            context_translated: msg.translated_text,
-          });
+      });
+    }
+    if (msg.type === "translation" && msg.dictionary) {
+      Object.entries(msg.dictionary).forEach(([term, entry]) => {
+        vocabMap.set(term, {
+          ...entry,
+          context_source: msg.source_text,
+          context_translated: msg.translated_text,
         });
-      }
-    });
+      });
+    }
+  });
 
-    // Convert to sorted array
-    const sortedVocab = Array.from(vocabMap.entries())
-      .map(([term, entry]) => ({ term, entry }))
-      .sort((a, b) => a.term.localeCompare(b.term));
+  // Convert to sorted array
+  const sortedVocab = Array.from(vocabMap.entries())
+    .map(([term, entry]) => ({ term, entry }))
+    .sort((a, b) => a.term.localeCompare(b.term));
 
-    setVocabulary(sortedVocab.map((item) => item.entry));
-  }, [messages]);
+  setVocabulary(sortedVocab.map((item) => item.entry));
 
   if (vocabulary.length === 0) {
     return null;
@@ -93,14 +83,10 @@ const BookmarkAllButton = ({
 }: {
   vocabulary: VocabularyEntry[];
 }) => {
-  const add = useAppStore((state) => state.vocabulary.add);
-  const exists = useAppStore((state) => state.vocabulary.exists);
-  const remove = useAppStore((state) => state.vocabulary.remove);
-  const allSaved = useAppStore(
-    (state) =>
-      vocabulary.length > 0 &&
-      vocabulary.every((entry) => state.vocabulary.exists(entry.source_text))
-  );
+  const { add, remove, exists } = useVocabulary();
+  const allSaved =
+    vocabulary.length > 0 &&
+    vocabulary.every((entry) => exists(entry.source_text));
 
   const handleBookmarkAll = () => {
     if (allSaved) {

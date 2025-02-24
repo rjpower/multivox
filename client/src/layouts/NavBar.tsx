@@ -1,8 +1,8 @@
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import { Link, useParams } from "react-router-dom";
-import { useAppStore } from "../stores/app";
 import { APP_NAME } from "../constants";
-import { ThemeController } from "../ui/ThemeController";
+import { ThemeController } from "../components/ThemeController";
+import { useReadyForPractice } from "../stores/app";
 
 interface NavBarProps {
   pageTitle?: string | ((params: any) => string);
@@ -11,7 +11,7 @@ interface NavBarProps {
 export const NavBar = ({ pageTitle }: NavBarProps) => {
   const params = useParams();
   const title = typeof pageTitle === "function" ? pageTitle(params) : pageTitle;
-  const isReady = useAppStore((state) => state.isReady);
+  const isReady = useReadyForPractice();
 
   return (
     <div className="navbar bg-neutral px-4 text-neutral-content">
@@ -40,7 +40,7 @@ export const NavBar = ({ pageTitle }: NavBarProps) => {
             tabIndex={0}
             className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-neutral rounded-box w-52"
           >
-            {isReady() && (
+            {isReady && (
               <>
                 <li>
                   <Link to="/scenarios">Practice</Link>
@@ -48,21 +48,21 @@ export const NavBar = ({ pageTitle }: NavBarProps) => {
                 <li>
                   <Link to="/translate">Translate</Link>
                 </li>
+                <li>
+                  <Link to="/vocabulary">Vocabulary</Link>
+                </li>
+                <li>
+                  <Link to="/flashcards">Flashcards</Link>
+                </li>
               </>
             )}
-            <li>
-              <Link to="/vocabulary">Vocabulary</Link>
-            </li>
-            <li>
-              <Link to="/flashcards">Flashcards</Link>
-            </li>
             <li>
               <Link to="/config">Settings</Link>
             </li>
           </ul>
         </div>
         <div className="hidden lg:flex items-center gap-4">
-          {isReady() && (
+          {isReady && (
             <>
               <Link to="/scenarios" className="btn btn-ghost btn-sm">
                 Practice

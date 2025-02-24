@@ -3,7 +3,7 @@ import { useAtomValue } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ErrorBoundary } from "../../ErrorBoundary";
-import { useAppStore } from "../../stores/app";
+import { nativeLanguageAtom, practiceLanguageAtom } from "../../stores/app";
 import { ChatControls } from "./components/ChatControls";
 import { ChatMessages } from "./components/ChatMessages";
 import { PracticeVocabulary } from "./components/PracticeVocabulary";
@@ -18,8 +18,8 @@ export const Chat = () => {
   const chatHistory = useAtomValue(chatHistoryAtom);
   const reset = useReset();
   const connect = useConnect();
-  const practiceLanguage = useAppStore((state) => state.practiceLanguage);
-  const nativeLanguage = useAppStore((state) => state.nativeLanguage);
+  const practiceLanguage = useAtomValue(practiceLanguageAtom);
+  const nativeLanguage = useAtomValue(nativeLanguageAtom);
   let isProcessing = false;
 
   // N.B. `reverse` modifies the list in place, so we need a copy.
@@ -39,8 +39,8 @@ export const Chat = () => {
 
     connect(
       location.state.instructions,
-      practiceLanguage,
-      nativeLanguage
+      practiceLanguage!,
+      nativeLanguage!
     ).catch((error) => {
       console.error("Failed to connect:", error);
       navigate(-1);

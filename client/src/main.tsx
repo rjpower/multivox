@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import ReactDOM from "react-dom/client";
 import { Link, Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import { useAtomValue } from "jotai";
 import { Config } from "./Config";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Landing } from "./Landing";
@@ -11,37 +12,23 @@ import { ScenarioPreview } from "./pages/scenario";
 import { ScenarioSelect } from "./pages/scenarios";
 import { Translate } from "./pages/translate";
 import { VocabularyList } from "./pages/vocabulary";
-import { initAppStore, useAppStore } from "./stores/app";
+import {
+  AppInitializer,
+  appErrorAtom,
+  useAppLoading,
+  useReadyForPractice,
+} from "./stores/app";
 
 const InitApp = ({ children }: { children: React.ReactNode }) => {
-  const appLoading = useAppStore((state) => state.appLoading);
-  const appError = useAppStore((state) => state.appError);
-  const setAppError = useAppStore((state) => state.setAppError);
-  const setLanguages = useAppStore((state) => state.setLanguages);
-  const setNativeLanguage = useAppStore((state) => state.setNativeLanguage);
-  const setScenarios = useAppStore((state) => state.setScenarios);
-  const setPracticeLanguage = useAppStore((state) => state.setPracticeLanguage);
+  const appLoading = useAppLoading();
+  const appError = useAtomValue(appErrorAtom);
 
-  useEffect(() => {
-    const init = async () => {
-      await initAppStore({
-        setLanguages,
-        setNativeLanguage,
-        setScenarios,
-        setPracticeLanguage,
-        setAppError,
-      });
-    };
-    init();
-  }, []);
-
-  if (appLoading) {
-    return <div>Loading...</div>;
-  } else if (appError) {
-    return <div>Error initializing app {appError}</div>;
-  }
-
-  return <>{children}</>;
+  return (
+    <>
+      <AppInitializer />
+      {appLoading ? null : appError ? <div>{appError}</div> : children}
+    </>
+  );
 };
 
 interface RequireApiKeyProps {
@@ -49,14 +36,14 @@ interface RequireApiKeyProps {
 }
 
 const RequireReady = ({ children }: RequireApiKeyProps) => {
-  const isReady = useAppStore((state) => state.isReady);
-  const isLoading = useAppStore((state) => state.appLoading);
+  const isReady = useReadyForPractice();
+  const isLoading = useAppLoading();
 
   if (isLoading) {
     return null;
   }
 
-  if (!isReady()) {
+  if (!isReady) {
     return (
       <div className="hero-content text-center">
         <div className="max-w-md">

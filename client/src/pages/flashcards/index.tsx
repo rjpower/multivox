@@ -1,29 +1,21 @@
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useAppStore } from "../../stores/app";
-import { useFlashcardStore } from "./flashcards";
-import React from "react";
-
-const EXAMPLE_JAPANESE_WORDS = `山
-空
-本
-猫
-水
-木
-花
-月
-雨
-風
-時
-道
-海
-手
-目
-耳
-口
-足
-頭
-心
-`;
+import { useAtom, useAtomValue } from "jotai";
+import React, { useState } from "react";
+import { nativeLanguageAtom, practiceLanguageAtom } from "../../stores/app";
+import {
+  analyzeErrorAtom,
+  contentAtom,
+  csvPreviewAtom,
+  EXAMPLE_WORDS,
+  fieldMappingAtom,
+  formatAtom,
+  includeAudioAtom,
+  inputModeAtom,
+  submittingAtom,
+  useCSVAnalysis,
+  useFormValid,
+  useGeneration,
+} from "./store";
 
 interface CSVAnalysisResponse {
   headers: string[];
@@ -78,23 +70,18 @@ export interface Message {
 }
 
 interface ProcessingModalProps {
-  visible: boolean;
   messages: Message[];
   spinner: boolean;
+  downloadUrl?: string;
   onClose: () => void;
-  setSpinner: (flag: boolean) => void;
 }
 
-const ProcessingModal: React.FC<ProcessingModalProps> = ({
-  visible,
+export const ProcessingModal: React.FC<ProcessingModalProps> = ({
   messages,
   spinner,
   onClose,
+  downloadUrl,
 }) => {
-  const downloadUrl = useFlashcardStore((state) => state.downloadUrl);
-
-  if (!visible) return null;
-
   return (
     <>
       <div className="modal modal-open">
@@ -393,10 +380,8 @@ const initialFieldMapping = {
 interface FormatSettingsProps {}
 
 const FormatSettings: React.FC<FormatSettingsProps> = () => {
-  const format = useFlashcardStore((state) => state.format);
-  const includeAudio = useFlashcardStore((state) => state.includeAudio);
-  const setFormat = useFlashcardStore((state) => state.setFormat);
-  const setIncludeAudio = useFlashcardStore((state) => state.setIncludeAudio);
+  const [format, setFormat] = useAtom(formatAtom);
+  const [includeAudio, setIncludeAudio] = useAtom(includeAudioAtom);
 
   return (
     <div className="form-control gap-2">
@@ -430,9 +415,8 @@ const FormatSettings: React.FC<FormatSettingsProps> = () => {
 };
 
 const ContentInput = () => {
-  const content = useFlashcardStore((state) => state.content);
-  const inputMode = useFlashcardStore((state) => state.inputMode);
-  const setContent = useFlashcardStore((state) => state.setContent);
+  const [content, setContent] = useAtom(contentAtom);
+  const inputMode = useAtomValue(inputModeAtom);
 
   return (
     <div className="form-control">
@@ -454,60 +438,15 @@ const ContentInput = () => {
 };
 
 const CSVAnalysisSection = () => {
-  const practiceLanguage = useAppStore((state) => state.practiceLanguage);
-  const nativeLanguage = useAppStore((state) => state.nativeLanguage);
-  const inputMode = useFlashcardStore((state) => state.inputMode);
-  const analyzeError = useFlashcardStore((state) => state.analyzeError);
-  const csvPreview = useFlashcardStore((state) => state.csvPreview);
-  const fieldMapping = useFlashcardStore((state) => state.fieldMapping);
-  const setContent = useFlashcardStore((state) => state.setContent);
-  const setAnalyzeError = useFlashcardStore((state) => state.setAnalyzeError);
-  const setCsvPreview = useFlashcardStore((state) => state.setCsvPreview);
-  const setFieldMapping = useFlashcardStore((state) => state.setFieldMapping);
-  const content = useFlashcardStore((state) => state.content);
+  const practiceLanguage = useAtomValue(practiceLanguageAtom);
+  const nativeLanguage = useAtomValue(nativeLanguageAtom);
+  const inputMode = useAtomValue(inputModeAtom);
+  const analyzeError = useAtomValue(analyzeErrorAtom);
+  const csvPreview = useAtomValue(csvPreviewAtom);
+  const [fieldMapping, setFieldMapping] = useAtom(fieldMappingAtom);
+  const { analyze, setContent } = useCSVAnalysis();
 
-  const handleAnalyze = async () => {
-    if (!content) {
-      setAnalyzeError("Please paste some CSV content first");
-      return;
-    }
-    setAnalyzeError(null);
-    try {
-      const res = await fetch("/api/flashcards/analyze", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          content,
-          source_language: practiceLanguage,
-          target_language: nativeLanguage,
-        }),
-      });
-      if (!res.ok) {
-        throw new Error(`Server error: ${res.status}`);
-      }
-      const result: CSVAnalysisResponse = await res.json();
-      if (result.error) throw new Error(result.error);
-      setCsvPreview(result);
-
-      // Pre-fill field mapping if suggestions are available
-      if (result.suggestions?.suggested_mapping) {
-        const mapping = result.suggestions.suggested_mapping;
-        setFieldMapping({
-          term_field: mapping.term || "",
-          reading_field: mapping.reading || "",
-          meaning_field: mapping.meaning || "",
-          context_native_field: mapping.context_native || "",
-          context_en_field: mapping.context_en || "",
-          separator: result.separator,
-        });
-      }
-    } catch (err: any) {
-      setAnalyzeError(err.message);
-      setCsvPreview(null);
-    }
-  };
+  const handleAnalyze = () => analyze(practiceLanguage!, nativeLanguage!);
 
   if (inputMode !== "csv") return null;
 
@@ -518,7 +457,7 @@ const CSVAnalysisSection = () => {
           <button
             type="button"
             onClick={() => {
-              setContent(EXAMPLE_JAPANESE_WORDS);
+              setContent(EXAMPLE_WORDS);
             }}
             className="btn btn-neutral btn-sm"
           >
@@ -559,8 +498,7 @@ const CSVAnalysisSection = () => {
 };
 
 const InputTypeSelector = () => {
-  const inputMode = useFlashcardStore((state) => state.inputMode);
-  const setInputMode = useFlashcardStore((state) => state.setInputMode);
+  const [inputMode, setInputMode] = useAtom(inputModeAtom);
 
   return (
     <div className="form-control gap-4">
@@ -599,21 +537,24 @@ const InputTypeSelector = () => {
 };
 
 const FlashcardGenerator = () => {
-  const isFormValid = useFlashcardStore((state) => state.isFormValid());
-  const modalVisible = useFlashcardStore((state) => state.modalVisible);
-  const messages = useFlashcardStore((state) => state.messages);
-  const spinner = useFlashcardStore((state) => state.spinner);
-  const submitting = useFlashcardStore((state) => state.submitting);
-  const hideModal = useFlashcardStore((state) => state.hideModal);
-  const setSpinner = useFlashcardStore((state) => state.setSpinner);
-  const startGeneration = useFlashcardStore((state) => state.startGeneration);
+  const isFormValid = useFormValid();
+  const [modalVisible, setModalVisible] = useState(false);
+  const submitting = useAtomValue(submittingAtom);
+  const { startGeneration, resetGeneration, downloadUrl, messages, spinner } =
+    useGeneration();
 
-  const practiceLanguage = useAppStore((state) => state.practiceLanguage);
-  const nativeLanguage = useAppStore((state) => state.nativeLanguage);
+  const nativeLanguage = useAtomValue(nativeLanguageAtom)!;
+  const practiceLanguage = useAtomValue(practiceLanguageAtom)!;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     startGeneration(practiceLanguage, nativeLanguage);
+    setModalVisible(true);
+  };
+
+  const handleClose = () => {
+    setModalVisible(false);
+    resetGeneration();
   };
 
   return (
@@ -641,14 +582,15 @@ const FlashcardGenerator = () => {
               {submitting ? "Generating..." : "Generate Flashcards"}
             </button>
           </div>
+          {modalVisible && (
+            <ProcessingModal
+              spinner={spinner}
+              messages={messages}
+              downloadUrl={downloadUrl ? downloadUrl : undefined}
+              onClose={handleClose}
+            />
+          )}
         </form>
-        <ProcessingModal
-          visible={modalVisible}
-          messages={messages}
-          spinner={spinner}
-          onClose={hideModal}
-          setSpinner={setSpinner}
-        />
       </div>
     </div>
   );
