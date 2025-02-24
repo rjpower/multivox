@@ -1,4 +1,4 @@
-import { SERVER_SAMPLE_RATE, BYTES_PER_SAMPLE } from "./types";
+import { SERVER_SAMPLE_RATE, BYTES_PER_SAMPLE } from "../../../types";
 
 export type Base64AudioBuffer = {
   data: string; // audio data encoded in base64
@@ -96,7 +96,6 @@ export class AudioPlayer {
       this.nextStartTime = this.audioContext.currentTime;
     }
 
-    console.log("Scheduled audio buffer:", audioBuffer);
     source.start(this.nextStartTime);
     this.scheduledSources.push(source);
     this.nextStartTime += audioBuffer.duration;

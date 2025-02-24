@@ -1,9 +1,21 @@
-import { useAppStore } from "./store";
+import { useAppStore } from "./stores/app";
 import { Link, useLocation } from "react-router-dom";
-import { CheckIcon, XMarkIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
+import {
+  CheckIcon,
+  XMarkIcon,
+  ArrowRightIcon,
+} from "@heroicons/react/24/outline";
 
-const StatusBadge = ({ isComplete, label }: { isComplete: boolean; label: string }) => (
-  <div className={`badge gap-2 ${isComplete ? 'badge-success' : 'badge-error'}`}>
+const StatusBadge = ({
+  isComplete,
+  label,
+}: {
+  isComplete: boolean;
+  label: string;
+}) => (
+  <div
+    className={`badge gap-2 ${isComplete ? "badge-success" : "badge-error"}`}
+  >
     {isComplete ? (
       <CheckIcon className="h-4 w-4" />
     ) : (
@@ -22,25 +34,23 @@ const ConfigurationStatus = () => {
     <>
       <div className="stats shadow">
         <div className="stat">
-          <div className="stat-figure text-primary">
+          <div className="stat-figure ">
             {isReady ? (
               <div className="avatar">
-                <div className="w-16 rounded-full ring ring-primary ring-offset-2">
-                  <CheckIcon className="h-8 w-8 m-4 text-primary" />
+                <div className="w-16 rounded-full">
+                  <CheckIcon className="h-8 w-8 m-4 " />
                 </div>
               </div>
             ) : (
               <div className="avatar placeholder">
-                <div className="w-16 rounded-full bg-neutral-focus text-neutral-content ring ring-primary ring-offset-2">
+                <div className="w-16 rounded-full bg-neutral-focus text-neutral-content">
                   <XMarkIcon className="h-8 w-8 m-4" />
                 </div>
               </div>
             )}
           </div>
           <div className="stat-title">Status</div>
-          <div className="stat-value text-primary">
-            {isReady ? "Ready!" : "Setup"}
-          </div>
+          <div className="stat-value ">{isReady ? "Ready!" : "Setup"}</div>
           <div className="stat-desc">
             {isReady
               ? "You can start practicing"
@@ -80,12 +90,11 @@ const ConfigurationStatus = () => {
   );
 };
 
-
-const LanguageSelector = ({ 
-  className = "", 
+const LanguageSelector = ({
+  className = "",
   value,
-  onChange
-}: { 
+  onChange,
+}: {
   className?: string;
   value: string;
   onChange: (value: string) => void;
@@ -96,7 +105,7 @@ const LanguageSelector = ({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`select select-bordered w-full ${className}`}
+      className={`select select-bordered ${className}`}
     >
       <option value="" disabled>
         Select a language
@@ -112,7 +121,7 @@ const LanguageSelector = ({
 
 const LoadingSpinner = () => (
   <div className="flex justify-center items-center">
-    <span className="loading loading-spinner loading-lg text-primary"></span>
+    <span className="loading loading-spinner loading-lg "></span>
   </div>
 );
 
@@ -134,82 +143,74 @@ export const Config = () => {
   }
 
   return (
-    <div className="min-h-screen bg-base-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {message && <div className="alert alert-warning mb-4">{message}</div>}
-        <h1 className="text-3xl font-bold mb-4">Configuration</h1>
+    <>
+      {message && <div className="alert alert-warning mb-4">{message}</div>}
 
-        <div className="flex flex-col lg:flex-row gap-6">
-          <div className="lg:w-[60%]">
-            <div className="card bg-base-100 shadow-xl">
-              <form onSubmit={(e) => e.preventDefault()} className="card-body">
-                <h2 className="card-title">Language Settings</h2>
-              <div className="grid gap-6">
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-medium">
-                      Native Language
-                    </span>
-                  </label>
-                  <LanguageSelector
-                    value={nativeLanguage}
-                    onChange={setNativeLanguage}
-                  />
-                </div>
-
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-medium">
-                      Practice Language
-                    </span>
-                  </label>
-                  <LanguageSelector
-                    value={practiceLanguage}
-                    onChange={setPracticeLanguage}
-                  />
-                  <label className="label">
-                    <span className="label-text">
-                      This is the language you'll be practicing conversations in
-                    </span>
-                  </label>
-                </div>
+      <div className="flex flex-col lg:flex-row gap-6">
+        <form
+          onSubmit={(e) => e.preventDefault()}
+          className="card bg-base-200 flex-1"
+        >
+          <div className="card-body">
+            <h2 className="card-title">Language Settings</h2>
+            <div className="grid gap-6">
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">
+                    Native Language
+                  </span>
+                </label>
+                <LanguageSelector
+                  value={nativeLanguage}
+                  onChange={setNativeLanguage}
+                />
               </div>
 
-              <div className="divider"></div>
-
-              <div className="flex flex-col gap-4">
-                <h3 className="text-error font-semibold">Reset Options</h3>
-                <div className="flex flex-col lg:flex-row gap-2">
-                  <button
-                    type="button"
-                    onClick={() => useAppStore.getState().vocabulary.clear()}
-                    className="btn btn-error gap-2"
-                  >
-                    <XMarkIcon className="h-5 w-5" />
-                    Reset Vocabulary
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => useAppStore.getState().reset()}
-                    className="btn btn-error gap-2"
-                  >
-                    <XMarkIcon className="h-5 w-5" />
-                    Reset All Settings
-                  </button>
-                </div>
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">
+                    Practice Language
+                  </span>
+                </label>
+                <LanguageSelector
+                  value={practiceLanguage}
+                  onChange={setPracticeLanguage}
+                />
               </div>
-            </form>
-          </div>
-        </div>
-          <div className="lg:w-96">
-            <div className="card bg-base-100 shadow-xl">
-              <div className="card-body">
-                <ConfigurationStatus />
+            </div>
+
+            <div className="divider"></div>
+
+            <div className="flex flex-col gap-4">
+              <h3 className="text-error font-semibold">Reset Options</h3>
+              <div className="flex flex-col lg:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => useAppStore.getState().vocabulary.clear()}
+                  className="btn btn-error gap-2"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                  Reset Vocabulary
+                </button>
+                <button
+                  type="button"
+                  onClick={() => useAppStore.getState().reset()}
+                  className="btn btn-error gap-2"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                  Reset All Settings
+                </button>
               </div>
             </div>
           </div>
+        </form>
+
+        <div className="card bg-base-200 lg:w-96 w-full">
+          <div className="card-body">
+            <ConfigurationStatus />
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };

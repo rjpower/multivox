@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { PlayIcon } from "@heroicons/react/20/solid";
-import type { Scenario } from "./types";
+import type { Scenario } from "../../types";
 
 
 export const ScenarioList = ({
@@ -15,15 +15,12 @@ export const ScenarioList = ({
   return (
     <div className="space-y-2">
       {scenarios.map((scenario, index) => (
-        <div 
+        <div
           key={`${scenario.id}-${index}`}
           className="bg-base-100 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow"
         >
           <div className="flex items-center justify-between">
-            <Link
-              to={`/practice/${scenario.id}`}
-              className="flex-grow group"
-            >
+            <Link to={`/practice/${scenario.id}`} className="flex-grow group">
               <div className="flex items-center">
                 <div>
                   <div className="text-base-content group-hover:text-primary font-medium">
@@ -54,7 +51,7 @@ export const ScenarioList = ({
                 {onDelete && (
                   <button
                     onClick={() => onDelete(scenario.id)}
-                    className="btn btn-error btn-xs"
+                    className="btn btn-warning btn-xs"
                   >
                     Delete
                   </button>

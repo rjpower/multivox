@@ -1,5 +1,9 @@
 @import "tailwindcss";
 @plugin "daisyui" {
-  themes: light --default, dark --prefersdark;
+  themes: autumn --default, dark --prefersdark;
 }
 
+.navbar {
+  padding: 0.5rem;
+  min-height: 2rem;
+}

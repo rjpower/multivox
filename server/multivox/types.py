@@ -1,3 +1,4 @@
+import time
 from enum import Enum
 from typing import Annotated, Literal, Optional, Union
 
@@ -154,13 +155,14 @@ class MessageRole(str, Enum):
 
 
 class MessageType(str, Enum):
-    INITIALIZE = "initialize"
-    TEXT = "text"
     AUDIO = "audio"
-    TRANSLATION = "translation"
-    TRANSCRIPTION = "transcription"
-    HINT = "hint"
     ERROR = "error"
+    HINT = "hint"
+    INITIALIZE = "initialize"
+    PROCESSING = "processing"
+    TEXT = "text"
+    TRANSCRIPTION = "transcription"
+    TRANSLATION = "translation"
 
 
 # Audio sample rates
@@ -170,6 +172,7 @@ SERVER_SAMPLE_RATE = 24000
 
 class BaseWebSocketMessage(BaseModel):
     role: MessageRole
+    timestamp: float = Field(default_factory=time.time)
     end_of_turn: bool = False
 
 
@@ -217,6 +220,13 @@ class TranslateWebSocketMessage(BaseWebSocketMessage):
     dictionary: dict[str, DictionaryEntry]
 
 
+class ProcessingWebSocketMessage(BaseWebSocketMessage):
+    role: MessageRole = MessageRole.SYSTEM
+    end_of_turn: bool = True
+    type: Literal[MessageType.PROCESSING] = MessageType.PROCESSING
+    status: str
+
+
 WebSocketMessage = Annotated[
     Union[
         InitializeWebSocketMessage,
@@ -226,6 +236,7 @@ WebSocketMessage = Annotated[
         HintWebSocketMessage,
         TranslateWebSocketMessage,
         ErrorWebSocketMessage,
+        ProcessingWebSocketMessage,
     ],
     Discriminator("type"),
 ]

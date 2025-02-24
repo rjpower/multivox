@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { VocabularyEntry, WebSocketMessage } from "./types";
+import { VocabularyEntry, WebSocketMessage } from "../../../types";
 import { BookmarkIcon, BookmarkSquareIcon } from "@heroicons/react/24/outline";
 import { BookmarkIcon as BookmarkSolidIcon } from "@heroicons/react/24/solid";
-import { useAppStore } from "./store";
+import { useAppStore } from "../../../stores/app";
 
 export const PracticeVocabulary = ({
   messages,
@@ -49,7 +49,7 @@ export const PracticeVocabulary = ({
   }
 
   return (
-    <div className="card bg-base-100 shadow-xl max-h-[600px] overflow-y-auto">
+    <div className="card bg-base-100 shadow-xl h-full overflow-y-auto">
       <div className="card-body p-4">
         <div className="flex justify-end">
           <BookmarkAllButton vocabulary={vocabulary} />
@@ -115,7 +115,9 @@ const BookmarkAllButton = ({
 const SaveVocabButton = ({ entry }: SaveVocabButtonProps) => {
   const add = useAppStore((state) => state.vocabulary.add);
   const remove = useAppStore((state) => state.vocabulary.remove);
-  const isSaved = useAppStore((state) => state.vocabulary.exists(entry.source_text));
+  const isSaved = useAppStore((state) =>
+    state.vocabulary.exists(entry.source_text)
+  );
 
   const handleClick = () => {
     if (isSaved) {
@@ -129,9 +131,7 @@ const SaveVocabButton = ({ entry }: SaveVocabButtonProps) => {
     <button
       onClick={handleClick}
       className={`btn btn-ghost btn-sm ${
-        isSaved
-          ? "text-primary"
-          : "opacity-50 hover:opacity-100"
+        isSaved ? "" : "opacity-50 hover:opacity-100"
       }`}
       title={isSaved ? "Remove from vocabulary" : "Save to vocabulary"}
     >

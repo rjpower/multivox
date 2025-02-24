@@ -1,5 +1,5 @@
 import { TypedWebSocket } from "./TypedWebSocket";
-import { CLIENT_SAMPLE_RATE } from "./types";
+import { CLIENT_SAMPLE_RATE } from "../../../types";
 
 export class AudioRecorder {
   private stream: MediaStream | null = null;

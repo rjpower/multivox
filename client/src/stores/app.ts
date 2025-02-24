@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { devtools } from "zustand/middleware";
 import { Language, Scenario, VocabularyEntry } from "../types";
 
 interface SavedVocabularyItem extends VocabularyEntry {
@@ -57,43 +56,27 @@ interface AppState {
   reset: () => void;
 }
 
-export const useAppStore = create<AppState>()(
-  devtools((set, get) => {
-    return {
-      appLoading: true,
-      setAppLoading: (loading) => set({ appLoading: loading }),
-      appError: null,
-      setAppError: (error) => set({ appError: error, appLoading: false }),
+export const useAppStore = create<AppState>()((set, get) => {
+  return {
+    appLoading: true,
+    setAppLoading: (loading) => set({ appLoading: loading }),
+    appError: null,
+    setAppError: (error) => set({ appError: error, appLoading: false }),
 
-      // Vocabulary Store
-      vocabulary: {
-        items: JSON.parse(
-          localStorage.getItem("savedVocabulary") || "[]"
-        ) as SavedVocabularyItem[],
+    // Vocabulary Store
+    vocabulary: {
+      items: JSON.parse(
+        localStorage.getItem("savedVocabulary") || "[]"
+      ) as SavedVocabularyItem[],
 
-        add: (item: Omit<SavedVocabularyItem, "dateAdded">) => {
-          const store = get().vocabulary;
-          const exists = store.items.some(
-            (i: SavedVocabularyItem) => i.source_text === item.source_text
-          );
-          if (!exists) {
-            const newItem = { ...item, dateAdded: Date.now() };
-            const newItems = [...store.items, newItem];
-            localStorage.setItem("savedVocabulary", JSON.stringify(newItems));
-            set((state) => ({
-              vocabulary: {
-                ...state.vocabulary,
-                items: newItems,
-              },
-            }));
-          }
-        },
-
-        remove: (term: string) => {
-          const store = get().vocabulary;
-          const newItems = store.items.filter(
-            (item: SavedVocabularyItem) => item.source_text !== term
-          );
+      add: (item: Omit<SavedVocabularyItem, "dateAdded">) => {
+        const store = get().vocabulary;
+        const exists = store.items.some(
+          (i: SavedVocabularyItem) => i.source_text === item.source_text
+        );
+        if (!exists) {
+          const newItem = { ...item, dateAdded: Date.now() };
+          const newItems = [...store.items, newItem];
           localStorage.setItem("savedVocabulary", JSON.stringify(newItems));
           set((state) => ({
             vocabulary: {
@@ -101,107 +84,113 @@ export const useAppStore = create<AppState>()(
               items: newItems,
             },
           }));
-        },
+        }
+      },
 
-        clear: () => {
-          localStorage.setItem("savedVocabulary", JSON.stringify([]));
-          set((state) => ({
-            vocabulary: {
-              ...state.vocabulary,
-              items: [],
-            },
-          }));
-        },
+      remove: (term: string) => {
+        const store = get().vocabulary;
+        const newItems = store.items.filter(
+          (item: SavedVocabularyItem) => item.source_text !== term
+        );
+        localStorage.setItem("savedVocabulary", JSON.stringify(newItems));
+        set((state) => ({
+          vocabulary: {
+            ...state.vocabulary,
+            items: newItems,
+          },
+        }));
+      },
 
-        exists: (term: string) => {
-          return get().vocabulary.items.some(
-            (item) => item.source_text === term
+      clear: () => {
+        localStorage.setItem("savedVocabulary", JSON.stringify([]));
+        set((state) => ({
+          vocabulary: {
+            ...state.vocabulary,
+            items: [],
+          },
+        }));
+      },
+
+      exists: (term: string) => {
+        return get().vocabulary.items.some((item) => item.source_text === term);
+      },
+
+      getAll: () => get().vocabulary.items,
+    },
+
+    // Language Store
+    languages: [],
+    practiceLanguage: "",
+    nativeLanguage: "en",
+    setLanguages: (languages) =>
+      set({
+        languages,
+        appLoading: !get().systemScenarios.length,
+      }),
+    setPracticeLanguage: (code) => {
+      set({ practiceLanguage: code });
+      localStorage.setItem("practiceLanguage", code);
+    },
+    setNativeLanguage: (code) => {
+      set({ nativeLanguage: code });
+      localStorage.setItem("nativeLanguage", code);
+    },
+
+    // Scenario Store
+    systemScenarios: [],
+    userScenarios: JSON.parse(localStorage.getItem("userScenarios") || "[]"),
+    setScenarios: (scenarios) =>
+      set({
+        systemScenarios: scenarios,
+        appLoading: !get().languages.length,
+      }),
+
+    removeUserScenario: (id) => {
+      set((state) => {
+        const newUserScenarios = state.userScenarios.filter((s) => s.id !== id);
+        localStorage.setItem("userScenarios", JSON.stringify(newUserScenarios));
+        return { userScenarios: newUserScenarios };
+      });
+    },
+
+    updateUserScenario: (scenario: ScenarioInput) => {
+      set((state) => {
+        let newUserScenarios;
+        const existingScenario = state.userScenarios.find(
+          (s) => s.id === scenario.id
+        );
+
+        if (existingScenario) {
+          // Update existing scenario
+          newUserScenarios = state.userScenarios.map((s) =>
+            s.id === scenario.id ? { ...s, ...scenario } : s
           );
-        },
+        } else {
+          // Add new scenario
+          const newScenario: UserScenario = {
+            ...scenario,
+            isCustom: true,
+            dateCreated: Date.now(),
+          };
+          newUserScenarios = [...state.userScenarios, newScenario];
+        }
 
-        getAll: () => get().vocabulary.items,
-      },
+        localStorage.setItem("userScenarios", JSON.stringify(newUserScenarios));
+        return { userScenarios: newUserScenarios };
+      });
+    },
 
-      // Language Store
-      languages: [],
-      practiceLanguage: "",
-      nativeLanguage: "en",
-      setLanguages: (languages) =>
-        set({
-          languages,
-          appLoading: !get().systemScenarios.length,
-        }),
-      setPracticeLanguage: (code) => {
-        set({ practiceLanguage: code });
-        localStorage.setItem("practiceLanguage", code);
-      },
-      setNativeLanguage: (code) => {
-        set({ nativeLanguage: code });
-        localStorage.setItem("nativeLanguage", code);
-      },
+    isReady: () => {
+      const state = get();
+      return Boolean(state.practiceLanguage && state.nativeLanguage);
+    },
 
-      // Scenario Store
-      systemScenarios: [],
-      userScenarios: JSON.parse(localStorage.getItem("userScenarios") || "[]"),
-      setScenarios: (scenarios) =>
-        set({
-          systemScenarios: scenarios,
-          appLoading: !get().languages.length,
-        }),
-
-      removeUserScenario: (id) => {
-        set((state) => {
-          const newUserScenarios = state.userScenarios.filter(
-            (s) => s.id !== id
-          );
-          localStorage.setItem(
-            "userScenarios",
-            JSON.stringify(newUserScenarios)
-          );
-          return { userScenarios: newUserScenarios };
-        });
-      },
-
-      updateUserScenario: (scenario: ScenarioInput) => {
-        set((state) => {
-          let newUserScenarios;
-          const existingScenario = state.userScenarios.find(s => s.id === scenario.id);
-          
-          if (existingScenario) {
-            // Update existing scenario
-            newUserScenarios = state.userScenarios.map((s) =>
-              s.id === scenario.id ? { ...s, ...scenario } : s
-            );
-          } else {
-            // Add new scenario
-            const newScenario: UserScenario = {
-              ...scenario,
-              isCustom: true,
-              dateCreated: Date.now()
-            };
-            newUserScenarios = [...state.userScenarios, newScenario];
-          }
-          
-          localStorage.setItem(
-            "userScenarios",
-            JSON.stringify(newUserScenarios)
-          );
-          return { userScenarios: newUserScenarios };
-        });
-      },
-
-      isReady: () => {
-        const state = get();
-        return Boolean(state.practiceLanguage && state.nativeLanguage);
-      },
-
-      reset: () => {
-        localStorage.clear();
-        window.location.reload();
-      },
-    };
-  })
-);
+    reset: () => {
+      localStorage.clear();
+      window.location.reload();
+    },
+  };
+});
 
 export async function initAppStore({
   setLanguages,

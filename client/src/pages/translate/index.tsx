@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { TranslateRequest, TranslateResponse } from "./types";
-import { useAppStore } from "./store";
+import type { TranslateRequest, TranslateResponse } from "../../types";
+import { useAppStore } from "../../stores/app";
 
 export const Translate = () => {
   const [inputText, setInputText] = useState("");
@@ -87,7 +87,7 @@ export const Translate = () => {
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
+        <div className="bg-base-100 rounded-lg shadow-lg p-6 space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="label">

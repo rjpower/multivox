@@ -11,6 +11,7 @@ from fastapi.websockets import WebSocketState
 from google import genai
 from google.genai import live as genai_live
 from google.genai import types as genai_types
+from psutil import Process
 from silero_vad import get_speech_timestamps, load_silero_vad
 from websockets import ConnectionClosedOK
 
@@ -34,6 +35,7 @@ from multivox.types import (
     Language,
     MessageRole,
     MessageType,
+    ProcessingWebSocketMessage,
     TextWebSocketMessage,
     TranscribeAndHintRequest,
     TranscribeRequest,
@@ -148,7 +150,9 @@ class BulkTranscriptionTask(LongRunningTask, MessageSubscriber):
     async def start(self):
         return []  # No background tasks needed
 
-    async def _process_turn(self, audio: bytes | None, text: str | None, role: MessageRole):
+    async def _process_turn(
+        self, audio: bytes | None, text: str | None, role: MessageRole
+    ):
         """Process a complete turn"""
         try:
             if audio:
@@ -197,7 +201,9 @@ class BulkTranscriptionTask(LongRunningTask, MessageSubscriber):
                     if hist_msg.type == MessageType.INITIALIZE:
                         scenario = hist_msg.text
                     if hist_msg.type == MessageType.TRANSCRIPTION:
-                        history_items.append(f"> {hist_msg.role}: {hist_msg.source_text}")
+                        history_items.append(
+                            f"> {hist_msg.role}: {hist_msg.source_text}"
+                        )
                     elif hist_msg.type == MessageType.TEXT:
                         history_items.append(f"> {hist_msg.role}: {hist_msg.text}")
 
@@ -452,7 +458,9 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
     async def _generate_and_send_tts(self, text: str) -> None:
         """Generate TTS audio and send it as a message"""
         try:
-            audio_response = await generate_tts_audio_async(text, self.practice_language)
+            audio_response = await generate_tts_audio_async(
+                text, self.practice_language
+            )
             if audio_response:
                 audio_msg = AudioWebSocketMessage(
                     audio=base64.b64encode(audio_response.data),
@@ -466,9 +474,14 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
 
     async def _process_turn(self, audio: bytes | None):
         """Process a complete turn from the user"""
-        scenario, history = await self._get_history()
-
+        logger.info("Turn.")
         try:
+            await self.state.handle_message(
+                ProcessingWebSocketMessage(status="started")
+            )
+
+            scenario, history = await self._get_history()
+
             response = await transcribe_and_hint(
                 TranscribeAndHintRequest(
                     scenario=scenario,
@@ -482,6 +495,10 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
                     source_language=self.practice_language.abbreviation,
                     target_language=self.native_language.abbreviation,
                 )
+            )
+
+            await self.state.handle_message(
+                ProcessingWebSocketMessage(status="completed")
             )
 
             # Start TTS generation in background
@@ -535,7 +552,11 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
     async def handle_message(self, message: WebSocketMessage) -> None:
         """Handle incoming messages"""
         # Skip messages we don't need to process
-        if message.type in (MessageType.TRANSCRIPTION, MessageType.HINT):
+        if message.type not in (
+            MessageType.TEXT,
+            MessageType.AUDIO,
+            MessageType.INITIALIZE,
+        ):
             return
         if message.role == MessageRole.ASSISTANT:
             return

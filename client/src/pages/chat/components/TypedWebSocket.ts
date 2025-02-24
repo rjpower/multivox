@@ -1,4 +1,4 @@
-import type { WebSocketMessage } from "./types";
+import type { WebSocketMessage } from "../../../types";
 
 export class TypedWebSocket {
   private ws: WebSocket;
@@ -8,9 +8,7 @@ export class TypedWebSocket {
   }
 
   public send(message: WebSocketMessage) {
-    if (this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(message));
-    }
+    this.ws.send(JSON.stringify(message));
   }
 
   public get readyState() {

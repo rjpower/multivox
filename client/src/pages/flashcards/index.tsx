@@ -1,6 +1,6 @@
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useAppStore } from "./store";
-import { useFlashcardStore } from "./stores/flashcards";
+import { useAppStore } from "../../stores/app";
+import { useFlashcardStore } from "./flashcards";
 import React from "react";
 
 const EXAMPLE_JAPANESE_WORDS = `山
@@ -139,7 +139,7 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
                       : "text-base-content"
                   }`}
                 >
-                  <span className="mr-2 text-gray-500 text-xs">
+                  <span className="mr-2 text-base-content text-xs">
                     {new Date(msg.timestamp).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -190,7 +190,7 @@ const CSVPreviewTable = ({
   };
 
   return (
-    <div className="card bg-base-200 shadow-xl">
+    <div className="card bg-base-200">
       <div className="card-body">
         <h3 className="card-title">CSV Preview</h3>
         <div className="overflow-x-auto">
@@ -212,16 +212,16 @@ const CSVPreviewTable = ({
                 })}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-base-100 divide-y divide-gray-200">
               {previewRows.map((row: Record<string, string>, idx: number) => (
                 <tr
                   key={idx}
-                  className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                  className={idx % 2 === 0 ? "bg-base-100" : "bg-base-200"}
                 >
                   {headers.map((h: string, i: number) => (
                     <td
                       key={i}
-                      className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                      className="px-6 py-4 whitespace-nowrap text-sm text-base-content"
                     >
                       {row[h]}
                     </td>
@@ -262,7 +262,9 @@ const SuggestionPanel = ({
         </div>
       </div>
       <div className="p-6">
-        <p className="text-sm text-gray-600 mb-4">{suggestions.reasoning}</p>
+        <p className="text-sm text-base-content mb-4">
+          {suggestions.reasoning}
+        </p>
       </div>
     </div>
   );
@@ -615,44 +617,38 @@ const FlashcardGenerator = () => {
   };
 
   return (
-    <div className="min-h-screen bg-base-100 p-8">
-      <div className="max-w-4xl mx-auto space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold mb-4">Vocabulary Card Builder</h1>
-          <p className="text-base-content/70">
-            Generate flashcards from your vocabulary list using AI-powered
-            translations and examples. Simply paste your vocabulary as
-            CSV/text or subtitle (SRT) file content, and get beautifully
-            formatted flashcards with translations, context sentences, and
-            optional audio.
-          </p>
+    <div className="space-y-8">
+      <p className="text-base-content/70 mb-8">
+        Generate flashcards from your vocabulary list using AI-powered
+        translations and examples. Simply paste your vocabulary as CSV/text or
+        subtitle (SRT) file content, and get beautifully formatted flashcards
+        with translations, context sentences, and optional audio.
+      </p>
+      <div className="bg-base-100 rounded-lg shadow-lg p-6">
+        <div className="flex flex-col sm:flex-row gap-8 mb-6">
+          <FormatSettings />
+          <InputTypeSelector />
         </div>
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="flex flex-col sm:flex-row gap-8 mb-6">
-              <FormatSettings />
-              <InputTypeSelector />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <ContentInput />
+          <CSVAnalysisSection />
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={submitting || !isFormValid}
+              className="btn btn-primary"
+            >
+              {submitting ? "Generating..." : "Generate Flashcards"}
+            </button>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <ContentInput />
-            <CSVAnalysisSection />
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={submitting || !isFormValid}
-                className="btn btn-primary"
-              >
-                {submitting ? "Generating..." : "Generate Flashcards"}
-              </button>
-            </div>
-          </form>
-          <ProcessingModal
-            visible={modalVisible}
-            messages={messages}
-            spinner={spinner}
-            onClose={hideModal}
-            setSpinner={setSpinner}
-          />
-        </div>
+        </form>
+        <ProcessingModal
+          visible={modalVisible}
+          messages={messages}
+          spinner={spinner}
+          onClose={hideModal}
+          setSpinner={setSpinner}
+        />
       </div>
     </div>
   );

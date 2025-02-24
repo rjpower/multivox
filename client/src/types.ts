@@ -54,6 +54,7 @@ export interface LanguageSelectorProps {
 interface BaseWebSocketMessage {
   role: MessageRole;
   end_of_turn: boolean;
+  timestamp?: number;
 }
 
 export interface HintOption {
@@ -104,6 +105,11 @@ export interface TranslationWebSocketMessage extends BaseWebSocketMessage {
   dictionary: Record<string, DictionaryEntry>;
 }
 
+export interface ProcessingWebSocketMessage extends BaseWebSocketMessage {
+  type: "processing";
+  status: "started" | "completed";
+}
+
 export type WebSocketMessage =
   | InitializeWebSocketMessage
   | ErrorWebSocketMessage
@@ -111,7 +117,8 @@ export type WebSocketMessage =
   | TranscriptionWebSocketMessage
   | AudioWebSocketMessage
   | HintWebSocketMessage
-  | TranslationWebSocketMessage;
+  | TranslationWebSocketMessage
+  | ProcessingWebSocketMessage;
 
 export enum WebSocketState {
   DISCONNECTED = "DISCONNECTED",

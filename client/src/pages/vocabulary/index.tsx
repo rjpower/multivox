@@ -1,8 +1,14 @@
-import { useAppStore } from "./store";
+import { useAppStore } from "../../stores/app";
 import { TrashIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 
 const exportToCsv = (items: any[]) => {
-  const headers = ["Term", "Translation", "Notes", "Context", "Context Translation"];
+  const headers = [
+    "Term",
+    "Translation",
+    "Notes",
+    "Context",
+    "Context Translation",
+  ];
   const csvContent = [
     headers.join(","),
     ...items.map((item) =>
@@ -28,7 +34,9 @@ const exportToCsv = (items: any[]) => {
 
 export const VocabularyList = () => {
   const items = useAppStore((state) =>
-    state.vocabulary.getAll().sort((a, b) => a.source_text.localeCompare(b.source_text))
+    state.vocabulary
+      .getAll()
+      .sort((a, b) => a.source_text.localeCompare(b.source_text))
   );
   const clear = useAppStore((state) => state.vocabulary.clear);
 
@@ -67,7 +75,7 @@ export const VocabularyList = () => {
             to CSV format or remove items you no longer need.
           </p>
         </div>
-        <div className="bg-white rounded-lg shadow-lg overflow-x-auto">
+        <div className="bg-base-100 rounded-lg shadow-lg overflow-x-auto">
           <div className="overflow-x-auto">
             <table className="table w-full">
               <thead className="hidden md:table-header-group">

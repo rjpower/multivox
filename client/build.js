@@ -1,11 +1,12 @@
-const esbuild = require("esbuild");
-const manifestPlugin = require("esbuild-plugin-manifest");
-const fs = require("fs");
-const path = require("path");
+import * as esbuild from "esbuild";
+import manifestPlugin from "esbuild-plugin-manifest";
+import fs from "fs";
+import path from "path";
+import { execSync } from "child_process";
+import crypto from "crypto";
+import chokidar from "chokidar";
 
-const watch = process.argv.includes("--watch");
 const isProd = process.env.NODE_ENV === "production";
-console.log("Is prod: ", isProd, process.env.NODE_ENV);
 
 async function buildCss() {
   try {
@@ -16,7 +17,7 @@ async function buildCss() {
 
     // Run tailwindcss CLI command
     const tailwindBin = path.resolve("./node_modules/.bin/tailwindcss");
-    require("child_process").execSync(
+    execSync(
       `NODE_ENV=${process.env.NODE_ENV} ${tailwindBin} ${
         isProd ? "--minify" : ""
       } -i src/main.css -o dist/main.css`,
@@ -29,10 +30,7 @@ async function buildCss() {
       }
     );
     const cssContent = fs.readFileSync(`dist/main.css`, "utf8");
-    const hash = require("crypto")
-      .createHash("md5")
-      .update(cssContent)
-      .digest("hex");
+    const hash = crypto.createHash("md5").update(cssContent).digest("hex");
 
     // Rename CSS file with hash
     const hashedOutputName = `main-${hash}.css`;
@@ -46,6 +44,35 @@ async function buildCss() {
   } catch (e) {
     console.error(e);
     process.exit(1);
+  }
+}
+
+function typeCheck() {
+  const tscBin = path.resolve("./node_modules/.bin/tsc");
+  console.log("Type checking...", tscBin);
+  execSync(`${tscBin} --noEmit`, {
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      NODE_ENV: process.env.NODE_ENV || "development",
+    },
+  });
+  console.log("done.");
+}
+
+async function writeHtml() {
+  console.log("Building HTML.");
+  try {
+    const manifestPath = path.join("dist", "manifest.json");
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+
+    const htmlContent = fs.readFileSync(path.join("src", "index.html"), "utf8");
+    const updatedHtml = htmlContent
+      .replace('href="/main.css"', `href="/${manifest["main.css"]}"`)
+      .replace('src="/main.js"', `src="/${manifest["main.js"]}"`);
+    fs.writeFileSync(path.join("dist", "index.html"), updatedHtml);
+  } catch (e) {
+    console.error("Error processing HTML:", e);
   }
 }
 
@@ -63,6 +90,12 @@ const config = {
       shortNames: true,
     }),
     {
+      name: "type-check",
+      setup(build) {
+        build.onStart(typeCheck);
+      },
+    },
+    {
       name: "css-hash",
       setup(build) {
         build.onEnd(buildCss);
@@ -71,23 +104,7 @@ const config = {
     {
       name: "html-copy",
       setup(build) {
-        build.onEnd(async () => {
-          try {
-            const manifestPath = path.join("dist", "manifest.json");
-            const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-
-            const htmlContent = fs.readFileSync(
-              path.join("src", "index.html"),
-              "utf8"
-            );
-            const updatedHtml = htmlContent
-              .replace('href="/main.css"', `href="/${manifest["main.css"]}"`)
-              .replace('src="/main.js"', `src="/${manifest["main.js"]}"`);
-            fs.writeFileSync(path.join("dist", "index.html"), updatedHtml);
-          } catch (e) {
-            console.error("Error processing HTML:", e);
-          }
-        });
+        build.onEnd(writeHtml);
       },
     },
   ],
@@ -101,11 +118,16 @@ const config = {
   },
 };
 
+const watch = process.argv.includes("--watch");
+
 if (watch) {
-  esbuild
-    .context(config)
-    .then((ctx) => ctx.watch())
-    .catch(() => process.exit(1));
+  console.log("Initial build.");
+  esbuild.build(config).catch(() => console.error("Build error"));
+  console.log("Starting watch.");
+  chokidar.watch(["./main.css", "src"]).on("change", (event, path) => {
+    console.log("Change detected.", event, path);
+    esbuild.build(config).catch(() => console.error("Build error"));
+  });
 } else {
   esbuild.build(config).catch(() => process.exit(1));
 }
