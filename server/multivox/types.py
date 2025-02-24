@@ -75,6 +75,7 @@ class HintResponse(BaseModel):
 class DictionaryEntry(BaseModel):
     source_text: str
     translated_text: str
+    reading: str = ""
     notes: Optional[str] = None
 
 

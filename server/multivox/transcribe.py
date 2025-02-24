@@ -12,7 +12,6 @@ from multivox.config import settings
 from multivox.prompts import (
     TRANSCRIBE_AND_HINT_PROMPT,
 )
-from multivox.scenarios import SYSTEM_INSTRUCTIONS
 from multivox.translate import translate
 from multivox.types import (
     LANGUAGES,
@@ -114,12 +113,9 @@ async def transcribe_and_hint(
     )
 
     # Format system prompt
-    system_prompt = SYSTEM_INSTRUCTIONS.format(
+    system_prompt = TRANSCRIBE_AND_HINT_PROMPT.format(
         practice_language=source_language.name,
         today=datetime.date.today().strftime("%Y-%m-%d"),
-    )
-
-    system_prompt += TRANSCRIBE_AND_HINT_PROMPT.format(
         source_language=source_language,
         target_language=target_language,
     )
@@ -133,7 +129,7 @@ async def transcribe_and_hint(
         user_content.append(
             genai_types.Part.from_bytes(
                 data=audio_data.data,
-                mime_type="audio/wav",
+                mime_tye="audio/wav",
             )
         )
 

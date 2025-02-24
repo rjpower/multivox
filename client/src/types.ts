@@ -17,6 +17,7 @@ export interface TranslateRequest {
 export interface DictionaryEntry {
   source_text: string;
   translated_text: string;
+  reading: string;
   notes?: string;
 }
 

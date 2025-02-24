@@ -22,7 +22,7 @@ from google import genai
 from google.genai import live as genai_live
 from google.genai import types as genai_types
 
-from multivox import scenarios
+from multivox import prompts
 from multivox.cache import default_file_cache
 from multivox.config import settings
 from multivox.flashcards.api import router as flashcard_router
@@ -153,7 +153,7 @@ class ChatContext(pydantic.BaseModel):
         config.system_instruction = genai_types.Content(
             parts=[
                 genai_types.Part(
-                    text=scenarios.SYSTEM_INSTRUCTIONS.format(
+                    text=prompts.LIVE_SYSTEM_INSTRUCTIONS.format(
                         practice_language=self.practice_language.name,
                         today=datetime.now().strftime("%Y-%m-%d"),
                     )

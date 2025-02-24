@@ -11,7 +11,6 @@ from fastapi.websockets import WebSocketState
 from google import genai
 from google.genai import live as genai_live
 from google.genai import types as genai_types
-from psutil import Process
 from silero_vad import get_speech_timestamps, load_silero_vad
 from websockets import ConnectionClosedOK
 
@@ -543,6 +542,10 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
 
         except Exception as e:
             logger.exception("Error processing turn")
+            await self.state.handle_message(
+                ProcessingWebSocketMessage(status="completed")
+            )
+
             msg = ErrorWebSocketMessage(
                 text=f"Sorry, I ran into an error when responding: {e}",
                 role=MessageRole.ASSISTANT,

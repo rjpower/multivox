@@ -1,5 +1,6 @@
 import { useAppStore } from "../../stores/app";
-import { TrashIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { VocabItem } from "../../components/VocabItem";
 
 const exportToCsv = (items: any[]) => {
   const headers = [
@@ -90,69 +91,12 @@ export const VocabularyList = () => {
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <tr
+                  <VocabItem
                     key={item.source_text}
-                    className="block md:table-row border-b border-base-200"
-                  >
-                    <td
-                      data-label="Term"
-                      className="block md:table-cell py-2 md:py-4"
-                    >
-                      <span className="font-medium md:hidden mr-2">Term:</span>
-                      <span className="font-medium">{item.source_text}</span>
-                    </td>
-                    <td
-                      data-label="Translation"
-                      className="block md:table-cell py-2 md:py-4"
-                    >
-                      <span className="font-medium md:hidden mr-2">
-                        Translation:
-                      </span>
-                      {item.translated_text}
-                    </td>
-                    <td
-                      data-label="Notes"
-                      className="block md:table-cell py-2 md:py-4"
-                    >
-                      <span className="font-medium md:hidden mr-2">Notes:</span>
-                      {item.notes}
-                    </td>
-                    <td
-                      data-label="Context"
-                      className="block md:table-cell py-2 md:py-4"
-                    >
-                      <span className="font-medium md:hidden mr-2">
-                        Context:
-                      </span>
-                      {item.context_source && <p>{item.context_source}</p>}
-                    </td>
-                    <td
-                      data-label="Translated Context"
-                      className="block md:table-cell py-2 md:py-4"
-                    >
-                      <span className="font-medium md:hidden mr-2">
-                        Translated Context:
-                      </span>
-                      {item.context_translated && (
-                        <p>{item.context_translated}</p>
-                      )}
-                    </td>
-                    <td
-                      data-label="Actions"
-                      className="block md:table-cell py-2 md:py-4 text-right"
-                    >
-                      <button
-                        onClick={() =>
-                          useAppStore
-                            .getState()
-                            .vocabulary.remove(item.source_text)
-                        }
-                        className="btn btn-ghost btn-sm text-error"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    </td>
-                  </tr>
+                    entry={item}
+                    mode="review"
+                    onDelete={() => useAppStore.getState().vocabulary.remove(item.source_text)}
+                  />
                 ))}
               </tbody>
             </table>

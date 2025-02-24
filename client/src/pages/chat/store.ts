@@ -117,7 +117,8 @@ function createWebSocketHandler(
     }
     setChatHistory((prev) => {
       const updated = [...prev, message];
-      return updated.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      return updated;
+      // return updated.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     });
   };
 }

@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { VocabularyEntry, WebSocketMessage } from "../../../types";
-import { BookmarkIcon, BookmarkSquareIcon } from "@heroicons/react/24/outline";
-import { BookmarkIcon as BookmarkSolidIcon } from "@heroicons/react/24/solid";
+import { BookmarkSquareIcon } from "@heroicons/react/24/outline";
 import { useAppStore } from "../../../stores/app";
+import { VocabItem } from "../../../components/VocabItem";
 
 export const PracticeVocabulary = ({
   messages,
@@ -10,6 +10,14 @@ export const PracticeVocabulary = ({
   messages: Array<WebSocketMessage>;
 }) => {
   const [vocabulary, setVocabulary] = useState<VocabularyEntry[]>([]);
+
+  // Store selectors
+  const appVocab = useAppStore((state) => state.vocabulary.getAll());
+
+  const add = useAppStore((state) => state.vocabulary.add);
+  const remove = useAppStore((state) => state.vocabulary.remove);
+  const exists = (term: string) =>
+    appVocab.some((item) => item.source_text === term);
 
   useEffect(() => {
     // Collect unique vocabulary items from all transcription messages
@@ -54,35 +62,31 @@ export const PracticeVocabulary = ({
         <div className="flex justify-end">
           <BookmarkAllButton vocabulary={vocabulary} />
         </div>
-        <div className="space-y-3">
-          {vocabulary.map((entry) => (
-            <div
-              key={entry.source_text}
-              className="group hover:bg-base-200 p-2 rounded-md transition-colors flex justify-between items-start"
-            >
-              <div className="flex-1">
-                <div className="text-md font-medium">{entry.source_text}</div>
-                <div className="text-sm opacity-70">
-                  {entry.translated_text}
-                </div>
-                {entry.notes && (
-                  <div className="text-xs opacity-50 italic group-hover:block">
-                    {entry.notes}
-                  </div>
-                )}
-              </div>
-              <SaveVocabButton entry={entry} />
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="table w-full">
+            <tbody>
+              {vocabulary.map((entry) => (
+                <VocabItem
+                  key={entry.source_text}
+                  entry={entry}
+                  mode="practice"
+                  saved={exists(entry.source_text)}
+                  onSave={() => {
+                    if (exists(entry.source_text)) {
+                      remove(entry.source_text);
+                    } else {
+                      add(entry);
+                    }
+                  }}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
 };
-
-interface SaveVocabButtonProps {
-  entry: VocabularyEntry;
-}
 
 const BookmarkAllButton = ({
   vocabulary,
@@ -91,55 +95,37 @@ const BookmarkAllButton = ({
 }) => {
   const add = useAppStore((state) => state.vocabulary.add);
   const exists = useAppStore((state) => state.vocabulary.exists);
+  const remove = useAppStore((state) => state.vocabulary.remove);
+  const allSaved = useAppStore(
+    (state) =>
+      vocabulary.length > 0 &&
+      vocabulary.every((entry) => state.vocabulary.exists(entry.source_text))
+  );
 
   const handleBookmarkAll = () => {
-    vocabulary.forEach((entry) => {
-      if (!exists(entry.source_text)) {
-        add(entry);
-      }
-    });
+    if (allSaved) {
+      // Remove all items
+      vocabulary.forEach((entry) => {
+        remove(entry.source_text);
+      });
+    } else {
+      // Add all missing items
+      vocabulary.forEach((entry) => {
+        if (!exists(entry.source_text)) {
+          add(entry);
+        }
+      });
+    }
   };
 
   return (
     <button
       onClick={handleBookmarkAll}
       className="btn btn-ghost btn-sm gap-1 normal-case"
-      title="Save all to vocabulary"
+      title={allSaved ? "Remove all from vocabulary" : "Save all to vocabulary"}
     >
       <BookmarkSquareIcon className="h-5 w-5" />
       <span className="text-sm">Save All</span>
-    </button>
-  );
-};
-
-const SaveVocabButton = ({ entry }: SaveVocabButtonProps) => {
-  const add = useAppStore((state) => state.vocabulary.add);
-  const remove = useAppStore((state) => state.vocabulary.remove);
-  const isSaved = useAppStore((state) =>
-    state.vocabulary.exists(entry.source_text)
-  );
-
-  const handleClick = () => {
-    if (isSaved) {
-      remove(entry.source_text);
-    } else {
-      add(entry);
-    }
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      className={`btn btn-ghost btn-sm ${
-        isSaved ? "" : "opacity-50 hover:opacity-100"
-      }`}
-      title={isSaved ? "Remove from vocabulary" : "Save to vocabulary"}
-    >
-      {isSaved ? (
-        <BookmarkSolidIcon className="h-5 w-5" />
-      ) : (
-        <BookmarkIcon className="h-5 w-5" />
-      )}
     </button>
   );
 };
