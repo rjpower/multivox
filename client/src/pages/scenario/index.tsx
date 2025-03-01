@@ -1,10 +1,10 @@
 import { ArrowLeftCircleIcon } from "@heroicons/react/24/outline";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useSystemScenarios, useUserScenarios } from "../../stores/app";
+import { useSystemScenarios, useUserScenarios } from "./store";
 import { type Scenario } from "../../types";
-import { useAtom } from "jotai"; // Import Jotai hook
-import { modalityAtom } from "../chat/store";
+import { useAtomValue } from "jotai";
+import { modalityAtom, nativeLanguageAtom, practiceLanguageAtom } from "../../stores/app";
 
 interface ScenarioViewerProps {
   scenario: Scenario;
@@ -38,18 +38,6 @@ const ScenarioEditor = () => {
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-base-content mb-1">
-          <span className="label-text">Description</span>
-        </label>
-        <textarea
-          value={editableScenario.description}
-          onChange={(e) => handleChange({ description: e.target.value })}
-          rows={3}
-          className="textarea textarea-bordered w-full"
-          placeholder="Briefly describe the purpose and goals of this practice scenario"
-        />
-      </div>
 
       <div>
         <label className="block text-sm font-medium text-base-content mb-2">
@@ -68,8 +56,6 @@ const ScenarioEditor = () => {
 const ScenarioViewer = ({ scenario }: ScenarioViewerProps) => {
   return (
     <div className="space-y-6">
-      <p className="text-base-content/70 mb-8">{scenario.description}</p>
-
       <div className="form-control">
         <label className="label">
           <span className="label-text">Instructions</span>
@@ -84,9 +70,15 @@ const ScenarioViewer = ({ scenario }: ScenarioViewerProps) => {
   );
 };
 
-const PracticeControls = ({ onStart }: { onStart: () => void }) => {
-  const [modality, setModality] = useAtom(modalityAtom);
-
+const PracticeControls = ({ 
+  modality, 
+  setModality, 
+  onStart 
+}: { 
+  modality: "audio" | "text";
+  setModality: (modality: "audio" | "text") => void;
+  onStart: () => void;
+}) => {
   return (
     <div className="space-y-4 mt-6">
       <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
@@ -122,8 +114,12 @@ const PracticeControls = ({ onStart }: { onStart: () => void }) => {
 
 export const ScenarioPreview = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const defaultModality = useAtomValue(modalityAtom);
+  const [modality, setModality] = useState<"audio" | "text">(defaultModality);
   const navigate = useNavigate();
   const { scenarioId = "" } = useParams<{ scenarioId: string }>();
+  const practiceLanguage = useAtomValue(practiceLanguageAtom);
+  const nativeLanguage = useAtomValue(nativeLanguageAtom);
 
   const { userScenarios, updateUserScenario } = useUserScenarios();
   const userScenario = userScenarios.find((s) => s.id === scenarioId);
@@ -140,7 +136,6 @@ export const ScenarioPreview = () => {
         const newScenario = {
           id: scenarioId,
           title: "Custom Practice Scenario",
-          description: "Description for your personal practice scenario.",
           instructions: `<Instructions for the assistant>, e.g.          
 You are a local real-estate agent specializing in rentals.
 You help clients find local apartments suitable for them.
@@ -161,11 +156,9 @@ A client has entered and needs assistance.
 
   const handleStart = () => {
     if (scenario) {
-      navigate(`/practice/${scenarioId}/chat`, {
-        state: {
-          instructions: scenario.instructions,
-        },
-      });
+      // URL encode the instructions for the query parameter
+      const encodedInstructions = encodeURIComponent(scenario.instructions);
+      navigate(`/practice/chat?instructions=${encodedInstructions}&practiceLanguage=${practiceLanguage}&nativeLanguage=${nativeLanguage}&modality=${modality}`);
     }
   };
 
@@ -200,7 +193,11 @@ A client has entered and needs assistance.
           ) : (
             <ScenarioViewer scenario={scenario} />
           )}
-          <PracticeControls onStart={handleStart} />
+          <PracticeControls 
+            modality={modality}
+            setModality={setModality}
+            onStart={handleStart}
+          />
         </div>
       </div>
     </div>

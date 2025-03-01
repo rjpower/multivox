@@ -1,15 +1,16 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import ReactDOM from "react-dom/client";
-import { Link, Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import { Link, Route, BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
 import { useAtomValue } from "jotai";
-import { Config } from "./Config";
-import { ErrorBoundary } from "./ErrorBoundary";
-import { Landing } from "./Landing";
+import { Config } from "./pages/config";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { Landing } from "./pages/landing";
+import { Footer } from "./components/Footer";
 import { AppLayout } from "./layouts/AppLayout";
 import { Chat } from "./pages/chat";
-import FlashcardGenerator from "./pages/flashcards";
+import { FlashcardGenerator } from "./pages/flashcards";
 import { ScenarioPreview } from "./pages/scenario";
-import { ScenarioSelect } from "./pages/scenarios";
+import { ScenarioSelect } from "./pages/scenario/list";
 import { Translate } from "./pages/translate";
 import { VocabularyList } from "./pages/vocabulary";
 import {
@@ -62,6 +63,17 @@ const RequireReady = ({ children }: RequireApiKeyProps) => {
   return <>{children}</>;
 };
 
+// Component to scroll to top when route changes
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  
+  return null;
+};
+
 const PageWrapper = ({ children }: { children: ReactNode }) => {
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-base-100 p-8">
@@ -74,16 +86,19 @@ const App = () => {
   return (
     <ErrorBoundary>
       <Router>
-        <AppLayout>
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <PageWrapper>
-                  <Landing />
-                </PageWrapper>
-              }
-            />
+        <ScrollToTop />
+        <div className="flex flex-col min-h-screen">
+          <AppLayout>
+            <div className="flex-grow">
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    <PageWrapper>
+                      <Landing />
+                    </PageWrapper>
+                  }
+                />
             <Route
               path="/scenarios"
               element={
@@ -105,7 +120,7 @@ const App = () => {
               }
             />
             <Route
-              path="/practice/:scenarioId/chat"
+              path="/practice/chat"
               element={
                 <RequireReady>
                   <PageWrapper>
@@ -146,8 +161,11 @@ const App = () => {
                 </PageWrapper>
               }
             />
-          </Routes>
-        </AppLayout>
+              </Routes>
+            </div>
+          </AppLayout>
+          <Footer />
+        </div>
       </Router>
     </ErrorBoundary>
   );

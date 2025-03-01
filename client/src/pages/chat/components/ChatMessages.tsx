@@ -89,7 +89,7 @@ const TranscriptionChunk = ({
     .sort((a, b) => b.length - a.length)[0];
 
   if (!match) {
-    return <span>{term}</span>;
+    return <span className="badge badge-lg badge-neutral">{term}</span>;
   }
 
   const translation = dictionary[match].translated_text;
@@ -97,14 +97,12 @@ const TranscriptionChunk = ({
   return (
     <span
       className={`
-        tooltip tooltip-bottom
+        badge badge-lg
         cursor-pointer 
-        inline-block px-2 py-0.5 mx-0.5 my-0.5
-        rounded-full 
-        ${isOpen ? "bg-base-300" : "bg-base-200 hover:bg-base-300"}
+        ${isOpen ? "badge-primary" : "badge-secondary"}
+        relative
         transition-all duration-200
       `}
-      data-tip={translation}
       onClick={() => setIsOpen(!isOpen)}
       onMouseEnter={() => setIsOpen(true)}
       onMouseLeave={() => setIsOpen(false)}
@@ -113,11 +111,13 @@ const TranscriptionChunk = ({
       {isOpen && (
         <div
           className="
-          absolute top-full left-1/2 transform -translate-x-1/2 mt-1 z-10
+          absolute left-1/2 transform -translate-x-1/2 z-10
+          top-full mt-2
           px-3 py-2 rounded-lg shadow-lg
-          bg-base-100 border border-gray-200
+          bg-base-100 border border-base-300
           text-sm text-base-content
           min-w-[150px]
+          whitespace-normal
         "
         >
           <div className="font-medium mb-1">{translation}</div>
@@ -178,7 +178,7 @@ const TranscriptionMessageComponent = ({
       className={`chat ${msg.role === "assistant" ? "chat-start" : "chat-end"}`}
     >
       <div className="chat-bubble max-w-[80%] space-y-3">
-        <div className="text-sm leading-relaxed">
+        <div className="flex flex-wrap gap-2">
           {msg.chunked.map((term: string, idx: number) => (
             <TranscriptionChunk
               key={idx}
@@ -258,7 +258,7 @@ const TranslateMessageComponent = ({
   >
     <div className="chat-bubble">
       <div className="space-y-3">
-        <div className="text-sm leading-relaxed">
+        <div className="flex flex-wrap gap-2">
           {msg.chunked?.map((term: string, idx: number) => (
             <TranscriptionChunk
               key={idx}

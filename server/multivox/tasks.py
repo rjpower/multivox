@@ -474,11 +474,8 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
     async def _process_turn(self, audio: bytes | None):
         """Process a complete turn from the user"""
         logger.info("Turn.")
+        await self.state.handle_message(ProcessingWebSocketMessage(status="started"))
         try:
-            await self.state.handle_message(
-                ProcessingWebSocketMessage(status="started")
-            )
-
             scenario, history = await self._get_history()
 
             response = await transcribe_and_hint(
@@ -496,11 +493,8 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
                 )
             )
 
-            await self.state.handle_message(
-                ProcessingWebSocketMessage(status="completed")
-            )
-
             # Start TTS generation in background
+            tts_task = None
             if self.state.modality == "audio":
                 tts_task = asyncio.create_task(
                     self._generate_and_send_tts(response.response_text)
@@ -537,7 +531,7 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
             )
             await self.state.handle_message(hint)
 
-            if self.state.modality == "audio":
+            if tts_task:
                 await tts_task
 
         except Exception as e:
@@ -551,6 +545,10 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
                 role=MessageRole.ASSISTANT,
             )
             await self.state.handle_message(msg)
+        finally:
+            await self.state.handle_message(
+                ProcessingWebSocketMessage(status="completed")
+            )
 
     async def handle_message(self, message: WebSocketMessage) -> None:
         """Handle incoming messages"""

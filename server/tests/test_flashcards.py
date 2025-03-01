@@ -14,6 +14,7 @@ def basic_vocab_request():
         "content": "山\n空\n本\n猫\n水\n木\n花\n月\n雨\n風\n時\n道\n海\n手\n目\n耳\n口\n足\n頭\n心\n",
         "format": "apkg",
         "include_audio": True,
+        "source_language": "en",
         "target_language": "ja",
         "mode": "csv",
         "field_mapping": {

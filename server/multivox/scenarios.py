@@ -1,13 +1,14 @@
 import importlib.resources
-import json
 from typing import List, Sequence
+
+import yaml
 
 from multivox.types import Scenario
 
 
 def load_scenarios() -> List[Scenario]:
-    f = (importlib.resources.files("multivox") / "scenarios.json").open("r")
-    return [Scenario.model_validate(m) for m in json.load(f)]
+    with (importlib.resources.files("multivox") / "scenarios.yaml").open("r") as f:
+        return [Scenario.model_validate(m) for m in yaml.safe_load(f)]
 
 
 SCENARIOS = load_scenarios()

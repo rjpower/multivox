@@ -1,9 +1,11 @@
+import { useAtomValue } from "jotai";
 import { Link } from "react-router-dom";
+import { systemScenariosAtom, useUserScenarios } from "./store";
+
 import { PlayIcon } from "@heroicons/react/20/solid";
 import type { Scenario } from "../../types";
 
-
-export const ScenarioList = ({
+const ScenarioList = ({
   scenarios,
   onDelete,
   isCustom = false,
@@ -26,11 +28,6 @@ export const ScenarioList = ({
                   <div className="text-base-content group-hover:text-primary font-medium">
                     {scenario.title}
                   </div>
-                  {scenario.description && (
-                    <div className="text-sm text-base-content/70 mt-1 line-clamp-2">
-                      {scenario.description}
-                    </div>
-                  )}
                 </div>
                 <div className="ml-4 flex-shrink-0">
                   <div className="badge badge-primary gap-2">
@@ -61,6 +58,45 @@ export const ScenarioList = ({
           </div>
         </div>
       ))}
+    </div>
+  );
+};
+
+export const ScenarioSelect = () => {
+  const systemScenarios = useAtomValue(systemScenariosAtom);
+  const { userScenarios, removeUserScenario } = useUserScenarios();
+
+  return (
+    <div>
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">My Scenarios</h2>
+            <Link
+              to={`/practice/custom-${crypto.randomUUID()}`}
+              className="btn btn-sm"
+            >
+              <span className="mr-1">+</span> New Scenario
+            </Link>
+          </div>
+          {userScenarios.length > 0 ? (
+            <ScenarioList
+              scenarios={userScenarios}
+              onDelete={removeUserScenario}
+              isCustom={true}
+            />
+          ) : (
+            <div className="text-base-content/70 text-center py-8 bg-base-200 rounded-lg">
+              Create your first custom scenario to get started
+            </div>
+          )}
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold mb-4">System Scenarios</h2>
+          <ScenarioList scenarios={systemScenarios} />
+        </div>
+      </div>
     </div>
   );
 };

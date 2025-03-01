@@ -108,12 +108,10 @@ Output only valid JSON in this exact format:
 {{
   "id": "<url-friendly slug for this chapter>",
   "title": "<chapter title>",
-  "description": "<chapter description>",
   "conversations": [
     {{
       "id": "<url-friendly slug for this conversation>",
       "title": "<conversation title>",
-      "description": "<description of the conversation>",
       "instructions": "<detailed instructions for the conversation practice>"
     }}
   ]

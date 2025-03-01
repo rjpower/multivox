@@ -35,34 +35,7 @@ interface CSVAnalysisResponse {
   error?: string;
 }
 
-export interface FlashcardFieldMapping {
-  term: string;
-  reading?: string;
-  meaning?: string;
-  context_native?: string;
-  context_en?: string;
-}
-
-export interface FlashcardGenerateRequest {
-  content: string;
-  format: "apkg" | "pdf";
-  mode: "csv" | "srt";
-  include_audio: boolean;
-  field_mapping?: FlashcardFieldMapping | null;
-  source_language: string;
-  target_language: string;
-}
-
-export interface FlashcardProgressMessage {
-  text: string;
-  type: "info" | "error" | "success";
-}
-
-export interface FlashcardProgressMessage {
-  text: string;
-}
-
-export interface Message {
+interface Message {
   timestamp: string;
   text: string;
   type?: "error" | "success" | undefined;
@@ -596,4 +569,4 @@ const FlashcardGenerator = () => {
   );
 };
 
-export default FlashcardGenerator;
+export { FlashcardGenerator };

@@ -3,11 +3,13 @@ import {
   languagesAtom,
   nativeLanguageAtom,
   practiceLanguageAtom,
+  modalityAtom,
   useReadyForPractice,
   useAppLoading,
   reset,
   useVocabulary,
-} from "./stores/app";
+} from "../stores/app";
+import { useToast } from "../components/Toast";
 import { Link, useLocation } from "react-router-dom";
 import { XMarkIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
 
@@ -21,8 +23,6 @@ const LanguageSelector = ({
   onChange: (value: string) => void;
 }) => {
   const languages = useAtomValue(languagesAtom);
-  console.log("Language: ", value);
-
   return (
     <select
       value={value}
@@ -54,7 +54,9 @@ export const Config = () => {
   const isLoading = useAppLoading();
   const [nativeLanguage, setNativeLanguage] = useAtom(nativeLanguageAtom);
   const [practiceLanguage, setPracticeLanguage] = useAtom(practiceLanguageAtom);
+  const [modality, setModality] = useAtom(modalityAtom);
   const { clear } = useVocabulary();
+  const { showToast, ToastContainer } = useToast();
 
   if (isLoading) {
     return (
@@ -66,6 +68,7 @@ export const Config = () => {
 
   return (
     <>
+      <ToastContainer />
       {message && <div className="alert alert-warning mb-4">{message}</div>}
 
       {!isReady && (
@@ -86,7 +89,10 @@ export const Config = () => {
               </label>
               <LanguageSelector
                 value={nativeLanguage || ""}
-                onChange={setNativeLanguage}
+                onChange={(value) => {
+                  setNativeLanguage(value);
+                  showToast({ message: "Native language updated", type: "success" });
+                }}
                 className="w-full"
               />
             </div>
@@ -99,9 +105,44 @@ export const Config = () => {
               </label>
               <LanguageSelector
                 value={practiceLanguage || ""}
-                onChange={setPracticeLanguage}
+                onChange={(value) => {
+                  setPracticeLanguage(value);
+                  showToast({ message: "Practice language updated", type: "success" });
+                }}
                 className="w-full"
               />
+            </div>
+          </div>
+
+          <div className="form-control mt-4">
+            <label className="label">
+              <span className="label-text font-medium">
+                Preferred Response Type
+              </span>
+            </label>
+            <div className="flex flex-row gap-4">
+              <button
+                onClick={() => {
+                  setModality("audio");
+                  showToast({ message: "Voice mode selected", type: "success" });
+                }}
+                className={`btn join-item ${
+                  modality === "audio" ? "btn-primary" : ""
+                }`}
+              >
+                Voice
+              </button>
+              <button
+                onClick={() => {
+                  setModality("text");
+                  showToast({ message: "Text mode selected", type: "success" });
+                }}
+                className={`btn join-item ${
+                  modality === "text" ? "btn-primary" : ""
+                }`}
+              >
+                Text{" "}
+              </button>
             </div>
           </div>
 
@@ -112,7 +153,10 @@ export const Config = () => {
             <div className="flex flex-col sm:flex-row gap-2">
               <button
                 type="button"
-                onClick={clear}
+                onClick={() => {
+                  clear();
+                  showToast({ message: "Vocabulary has been reset", type: "warning" });
+                }}
                 className="btn btn-error btn-outline gap-2"
               >
                 <XMarkIcon className="h-5 w-5" />
@@ -120,7 +164,10 @@ export const Config = () => {
               </button>
               <button
                 type="button"
-                onClick={reset}
+                onClick={() => {
+                  showToast({ message: "All settings will be reset", type: "warning" });
+                  setTimeout(reset, 1500);
+                }}
                 className="btn btn-error btn-outline gap-2"
               >
                 <XMarkIcon className="h-5 w-5" />

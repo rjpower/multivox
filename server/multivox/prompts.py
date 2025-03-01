@@ -63,18 +63,25 @@ Analyze and translate the input text, providing a structured response with:
 
 If the input and output languages are the same, emit the input text as the translation.
 
+Field description:
+* `source_text`: The original input text.
+* `translated_text`: A fluent, idiomatic translation in {target_language}.
+* `dictionary`: A dictionary of {source_language} and {target_language} pairs. Use idiomatic phrases where appropriate.
+* `chunked`: `target_text` split on word or phrase boundaries. This should align with the dictionary: 
+  A dictionary item should be present for each term in the chunked text.
+
 Output only valid JSON in this exact format:
 {{
-    "source_text": "<original input text>"
-    "translated_text": "<translation in {source_language}>",
+    "source_text": "<original input text in {source_language}>",
+    "translated_text": "<translation in {target_language}>",
     "dictionary": {{
-        "key term": {{
-            "source_text": "Native term",
+        "{target_language} term": {{
+            "source_text": "Term in {source_language}",
             "translated_text": "Meaning in {target_language}",
-            "notes": "<notes on how this term is used, written in {target_language} especially if relevant to the translation>"
+            "notes": "<notes on how this term is used, written in {source_language} especially if relevant to the translation>"
         }}
     }},
-    "chunked": ["chunks", "of", "sentence", "aligned", "with", "dictionary"],
+    "chunked": ["translated", "text", "sentence", "aligned", "with", "dictionary"],
 }}
 
 When generating the dictionary and chunked text, you should include most terms,

@@ -138,7 +138,6 @@ class Scenario(BaseModel):
 
     id: str  # URL-friendly slug
     title: str
-    description: str
     instructions: str
 
 
@@ -245,11 +244,11 @@ WebSocketMessage = Annotated[
 WebSocketRoot = RootModel[WebSocketMessage]
 
 
-def parse_websocket_message(data: dict) -> WebSocketMessage:
+def parse_websocket_message_dict(data: dict) -> WebSocketMessage:
     return WebSocketRoot.model_validate(data).root
 
 
-def parse_websocket_message_bytes(data: bytes) -> WebSocketMessage:
+def parse_websocket_message_bytes(data: bytes | str) -> WebSocketMessage:
     return WebSocketRoot.model_validate_json(data).root
 
 

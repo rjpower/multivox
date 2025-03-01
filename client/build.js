@@ -107,6 +107,37 @@ const config = {
         build.onEnd(writeHtml);
       },
     },
+    {
+      name: "static-copy",
+      setup(build) {
+        build.onEnd(() => {
+          console.log("Copying static files...");
+          try {
+            // Create dist directory if it doesn't exist
+            if (!fs.existsSync("dist")) {
+              fs.mkdirSync("dist", { recursive: true });
+            }
+            
+            // Create static directory if it doesn't exist
+            if (!fs.existsSync("static")) {
+              fs.mkdirSync("static", { recursive: true });
+            }
+            
+            // Copy all files from static to dist
+            const staticFiles = fs.readdirSync("static");
+            for (const file of staticFiles) {
+              fs.copyFileSync(
+                path.join("static", file),
+                path.join("dist", file)
+              );
+            }
+            console.log(`Copied ${staticFiles.length} static files to dist`);
+          } catch (e) {
+            console.error("Error copying static files:", e);
+          }
+        });
+      },
+    },
   ],
   loader: {
     ".tsx": "tsx",

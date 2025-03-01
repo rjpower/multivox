@@ -1,8 +1,8 @@
 import { BookOpenIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ErrorBoundary } from "../../ErrorBoundary";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { nativeLanguageAtom, practiceLanguageAtom } from "../../stores/app";
 import { ChatControls } from "./components/ChatControls";
 import { ChatMessages } from "./components/ChatMessages";
@@ -14,6 +14,12 @@ export const Chat = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchParams = new URLSearchParams(location.search);
+
+  const encodedInstructions = searchParams.get("instructions");
+  const practiceLanguageParam = searchParams.get("practiceLanguage");
+  const nativeLanguageParam = searchParams.get("nativeLanguage");
+  const modalityParam = searchParams.get("modality") as "text" | "audio";
 
   const chatHistory = useAtomValue(chatHistoryAtom);
   const reset = useReset();
@@ -29,25 +35,57 @@ export const Chat = () => {
   if (lastMsg && lastMsg.status != "completed") {
     isProcessing = true;
   }
-  console.log("Rendering...", isProcessing, chatHistory, lastMsg);
+
+  // Track if we've already attempted to connect
+  const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
+  const setChatHistory = useSetAtom(chatHistoryAtom);
 
   useEffect(() => {
-    if (!location.state?.instructions) {
-      navigate(-1);
+    // Only attempt to connect once
+    console.log("Connecting: ", hasAttemptedConnect);
+    if (hasAttemptedConnect) return;
+    setHasAttemptedConnect(true);
+
+    if (!encodedInstructions) {
+      navigate("/scenarios");
       return;
     }
 
-    connect(
-      location.state.instructions,
-      practiceLanguage!,
-      nativeLanguage!
-    ).catch((error) => {
+    const instructions = decodeURIComponent(encodedInstructions);
+
+    // Use URL params if provided, otherwise fall back to atom values
+    const practiceLanguageToUse = practiceLanguageParam || practiceLanguage;
+    const nativeLanguageToUse = nativeLanguageParam || nativeLanguage;
+
+    if (!practiceLanguageToUse || !nativeLanguageToUse) {
+      throw new Error("Missing language configuration");
+    }
+
+    connect({
+      text: instructions,
+      practiceLanguage: practiceLanguageToUse,
+      nativeLanguage: nativeLanguageToUse,
+      modality: modalityParam,
+    }).catch((error) => {
       console.error("Failed to connect:", error);
-      navigate(-1);
+      // Show error message in chat instead of redirecting
+      setChatHistory([
+        {
+          type: "error",
+          role: "system",
+          text: `Failed to start conversation: ${error.message}`,
+          end_of_turn: true,
+        },
+      ]);
     });
 
     return () => reset();
-  }, []);
+  }, [
+    encodedInstructions,
+    practiceLanguageParam,
+    nativeLanguageParam,
+    modalityParam,
+  ]);
 
   return (
     <ErrorBoundary>
@@ -91,7 +129,7 @@ export const Chat = () => {
               <h3 className="navbar-start font-medium">Vocabulary</h3>
               <button
                 onClick={() => setIsVocabVisible(false)}
-                className="navbar-end btn btn-circle btn-ghost btn-sm"
+                className="btn btn-circle btn-ghost btn-sm"
               >
                 <XMarkIcon className="h-5 w-5" />
               </button>

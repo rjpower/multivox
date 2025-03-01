@@ -1,19 +1,8 @@
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { atomWithStorage, freezeAtom } from "jotai/utils";
 import { useEffect } from "react";
-import { Language, Scenario, VocabularyEntry } from "../types";
-
-interface UserScenario extends Scenario {
-  isCustom: true;
-  dateCreated: number;
-}
-
-interface ScenarioInput {
-  id: string;
-  title: string;
-  description: string;
-  instructions: string;
-}
+import { Language, VocabularyEntry } from "../types";
+import { systemScenariosAtom } from "../pages/scenario/store";
 
 const darkModeAtom = atomWithStorage<boolean>("darkMode", false);
 export const useDarkMode = () => useAtom(darkModeAtom);
@@ -29,9 +18,9 @@ export const nativeLanguageAtom = atomWithStorage<string | null>(
   null
 );
 
-export const systemScenariosAtom = atom<Scenario[]>([]);
-export const userScenariosAtom = freezeAtom(
-  atomWithStorage<UserScenario[]>("userScenarios", [])
+export const modalityAtom = atomWithStorage<"audio" | "text">(
+  "modality",
+  "audio"
 );
 
 export const vocabularyItemsAtom = freezeAtom(
@@ -92,41 +81,6 @@ export const useVocabulary = () => {
   return { items, add, remove, clear, exists, getAll };
 };
 
-export const useSystemScenarios = () => {
-  return useAtomValue(systemScenariosAtom);
-};
-
-export const useUserScenarios = () => {
-  const [userScenarios, setUserScenarios] = useAtom(userScenariosAtom);
-
-  const removeUserScenario = (id: string) => {
-    const newUserScenarios = userScenarios.filter((s) => s.id !== id);
-    setUserScenarios(newUserScenarios);
-  };
-
-  const updateUserScenario = (scenario: ScenarioInput) => {
-    let newUserScenarios;
-    const existingScenario = userScenarios.find((s) => s.id === scenario.id);
-
-    if (existingScenario) {
-      newUserScenarios = userScenarios.map((s) =>
-        s.id === scenario.id ? { ...s, ...scenario } : s
-      );
-    } else {
-      const newScenario: UserScenario = {
-        ...scenario,
-        isCustom: true,
-        dateCreated: Date.now(),
-      };
-      newUserScenarios = [...userScenarios, newScenario];
-    }
-
-    setUserScenarios(newUserScenarios);
-  };
-
-  return { userScenarios, removeUserScenario, updateUserScenario };
-};
-
 export const AppInitializer = () => {
   const setLanguages = useSetAtom(languagesAtom);
   const setSystemScenarios = useSetAtom(systemScenariosAtom);
@@ -134,7 +88,6 @@ export const AppInitializer = () => {
 
   useEffect(() => {
     const init = async () => {
-      console.log("init.");
       try {
         const languages = await fetch("/api/languages").then((res) =>
           res.json()

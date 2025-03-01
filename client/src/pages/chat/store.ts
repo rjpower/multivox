@@ -18,11 +18,27 @@ export enum PracticeState {
   ACTIVE = "ACTIVE",
 }
 
+// Jotai Atoms
+const isRecordingAtom = atom(false);
+const practiceStateAtom = atom(PracticeState.WAITING);
+const wsStateAtom = atom(WebSocketState.DISCONNECTED);
+const translatedInstructionsAtom = atom<string | null>(null);
+const customInstructionsAtom = atom<string | null>(null);
+const chatHistoryAtom = freezeAtom(atom<WebSocketMessage[]>([]));
+const connectionAtom = freezeAtom(atom<TypedWebSocket | null>(null));
+
+const recorderAtom = atom<AudioRecorder | null>(null);
+const audioPlayerAtom = atom(new AudioPlayer());
+
+type SetAtom<Args extends any[], Result> = (...args: Args) => Result;
+type MessagesUpdater = SetAtom<[SetStateAction<WebSocketMessage[]>], void>;
+
 export async function initializeWebSocket(
   practiceLanguage: string,
   nativeLanguage: string,
   modality: string,
-  onMessage: (message: any) => void
+  setChatHistory: MessagesUpdater,
+  audioPlayer: AudioPlayer
 ): Promise<TypedWebSocket> {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const ws = new TypedWebSocket(
@@ -41,14 +57,29 @@ export async function initializeWebSocket(
 
   ws.onclose = (event) => {
     console.log("WebSocket closed:", event.code, event.reason);
-    onMessage({
-      type: "error",
-      text: "Connection lost. Please refresh the page to reconnect.",
-      role: "system",
-    });
+    setChatHistory((prev) => [
+      ...prev,
+      {
+        type: "error",
+        text: "Connection lost. Please refresh the page to reconnect.",
+        role: "system",
+        end_of_turn: true,
+      },
+    ]);
   };
 
-  ws.onmessage = onMessage;
+  ws.onmessage = (message: WebSocketMessage) => {
+    if (message.type === "audio") {
+      audioPlayer.addAudioToQueue({
+        data: message.audio,
+        mime_type: message.mime_type,
+      });
+    }
+    setChatHistory((prev) => {
+      const updated = [...prev, message];
+      return updated;
+    });
+  };
 
   return new Promise((resolve) => {
     ws.onopen = () => {
@@ -82,94 +113,96 @@ export async function translateText(
   return data.translated_text;
 }
 
-// Jotai Atoms
-const isRecordingAtom = atom(false);
-const practiceStateAtom = atom(PracticeState.WAITING);
-const wsStateAtom = atom(WebSocketState.DISCONNECTED);
-const modalityAtom = atom<"text" | "audio">("audio");
-const translatedInstructionsAtom = atom<string | null>(null);
-const customInstructionsAtom = atom<string | null>(null);
-const chatHistoryAtom = freezeAtom(atom<WebSocketMessage[]>([]));
-const connectionAtom = freezeAtom(atom<TypedWebSocket | null>(null));
+// Function to add error messages to chat history
+export function useError() {
+  const setChatHistory = useSetAtom(chatHistoryAtom);
 
-const recorderAtom = atom<AudioRecorder | null>(null);
-const audioPlayerAtom = atom(new AudioPlayer());
-
-const errorAtom = atom<{
-  type: "translation" | "connection" | "recording" | null;
-  message: string | null;
-}>({ type: null, message: null });
-
-type SetAtom<Args extends any[], Result> = (...args: Args) => Result;
-type MessagesUpdater = SetAtom<[SetStateAction<WebSocketMessage[]>], void>;
-
-function createWebSocketHandler(
-  setChatHistory: MessagesUpdater,
-  audioPlayer: AudioPlayer
-) {
-  return (message: WebSocketMessage) => {
-    console.log("Received message: ", message);
-    if (message.type === "audio") {
-      audioPlayer.addAudioToQueue({
-        data: message.audio,
-        mime_type: message.mime_type,
-      });
-    }
-    setChatHistory((prev) => {
-      const updated = [...prev, message];
-      return updated;
-      // return updated.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-    });
+  return ({ type, message }: { type: string; message: string }) => {
+    setChatHistory((prev) => [
+      ...prev,
+      {
+        type: "error",
+        role: "system",
+        text: `${type}: ${message}`,
+        end_of_turn: true,
+      },
+    ]);
   };
+}
+
+export interface ConnectParams {
+  text: string;
+  practiceLanguage: string;
+  nativeLanguage: string;
+  modality: "text" | "audio";
 }
 
 export function useConnect() {
   const setPracticeState = useSetAtom(practiceStateAtom);
-  const setError = useSetAtom(errorAtom);
   const setTranslatedInstructions = useSetAtom(translatedInstructionsAtom);
   const setConnection = useSetAtom(connectionAtom);
   const setRecorder = useSetAtom(recorderAtom);
   const setWsState = useSetAtom(wsStateAtom);
   const setChatHistory = useSetAtom(chatHistoryAtom);
-  const modality = useAtomValue(modalityAtom);
   const audioPlayer = useAtomValue(audioPlayerAtom);
+  const setError = useError();
 
-  return async (
-    text: string,
-    practiceLanguage: string,
-    nativeLanguage: string
-  ) => {
+  return async ({
+    text,
+    practiceLanguage,
+    nativeLanguage,
+    modality,
+  }: ConnectParams) => {
     try {
+      // Reset state
       setPracticeState(PracticeState.TRANSLATING);
-      setError({ type: null, message: null });
+      setChatHistory([]);
 
-      const translation = await translateText({
-        text,
-        source_language: "en",
-        target_language: practiceLanguage,
-        need_chunks: false,
-        need_dictionary: false,
-      }).catch((err) => {
-        throw new Error(`Translation failed: ${err.message}`);
-      });
+      // Step 1: Translate the instructions
+      let translation;
+      try {
+        translation = await translateText({
+          text,
+          source_language: "en",
+          target_language: practiceLanguage,
+          need_chunks: false,
+          need_dictionary: false,
+        });
+      } catch (err) {
+        const errorMessage = `Translation failed: ${(err as Error).message}`;
+        setPracticeState(PracticeState.WAITING);
+        setError({ type: "translation", message: errorMessage });
+        throw new Error(errorMessage);
+      }
 
+      // Step 2: Connect to WebSocket
       setPracticeState(PracticeState.CONNECTING);
       setTranslatedInstructions(translation);
 
-      const ws = await initializeWebSocket(
-        practiceLanguage,
-        nativeLanguage,
-        modality,
-        createWebSocketHandler(setChatHistory, audioPlayer)
-      );
+      let ws;
+      try {
+        ws = await initializeWebSocket(
+          practiceLanguage,
+          nativeLanguage,
+          modality,
+          setChatHistory,
+          audioPlayer
+        );
+      } catch (err) {
+        const errorMessage = `Connection failed: ${(err as Error).message}`;
+        setTranslatedInstructions(null);
+        setPracticeState(PracticeState.WAITING);
+        setError({ type: "connection", message: errorMessage });
+        throw new Error(errorMessage);
+      }
 
+      // Step 3: Setup recorder and initialize chat
       setConnection(ws);
-
       const newRecorder = new AudioRecorder(ws);
       setRecorder(newRecorder);
-
       setWsState(WebSocketState.CONNECTED);
       setPracticeState(PracticeState.ACTIVE);
+
       setChatHistory((prev) => [
         ...prev,
         {
@@ -187,15 +220,10 @@ export function useConnect() {
         end_of_turn: true,
       });
     } catch (error) {
-      const err = error as Error;
-      setTranslatedInstructions(null);
-      setPracticeState(PracticeState.WAITING);
-      setError({
-        type: err.message.includes("Translation failed")
-          ? "translation"
-          : "connection",
-        message: err.message,
-      });
+      // Any uncaught errors will be handled here
+      console.error("Connection error:", error);
+      // We don't need to do anything else here since the specific error handlers
+      // already updated the state appropriately
       throw error;
     }
   };
@@ -204,7 +232,7 @@ export function useConnect() {
 export function useStartRecording() {
   const recorder = useAtomValue(recorderAtom);
   const setIsRecording = useSetAtom(isRecordingAtom);
-  const setError = useSetAtom(errorAtom);
+  const setError = useError();
   const setChatHistory = useSetAtom(chatHistoryAtom);
 
   return async () => {
@@ -212,7 +240,6 @@ export function useStartRecording() {
       if (recorder) {
         await recorder.startRecording();
         setIsRecording(true);
-        setError({ type: null, message: null });
         setChatHistory((prev) => [
           ...prev,
           {
@@ -225,10 +252,9 @@ export function useStartRecording() {
         ]);
       }
     } catch (err) {
-      setError({
-        type: "recording",
-        message: "Failed to access microphone. Please check your permissions.",
-      });
+      const errorMessage =
+        "Failed to access microphone. Please check your permissions.";
+      setError({ type: "recording", message: errorMessage });
       console.error("Failed to start recording:", err);
     }
   };
@@ -293,13 +319,11 @@ export function useReset() {
   const setIsRecording = useSetAtom(isRecordingAtom);
   const setPracticeState = useSetAtom(practiceStateAtom);
   const setWsState = useSetAtom(wsStateAtom);
-  const setModality = useSetAtom(modalityAtom);
   const setTranslatedInstructions = useSetAtom(translatedInstructionsAtom);
   const setCustomInstructions = useSetAtom(customInstructionsAtom);
   const setChatHistory = useSetAtom(chatHistoryAtom);
   const setConnection = useSetAtom(connectionAtom);
   const setRecorder = useSetAtom(recorderAtom);
-  const setError = useSetAtom(errorAtom);
 
   return () => {
     if (typeof audioPlayer?.stop === "function") audioPlayer.stop();
@@ -309,25 +333,20 @@ export function useReset() {
     setIsRecording(false);
     setPracticeState(PracticeState.WAITING);
     setWsState(WebSocketState.DISCONNECTED);
-    setModality("audio");
     setTranslatedInstructions(null);
     setCustomInstructions(null);
     setChatHistory([]);
     setConnection(null);
     setRecorder(null);
-    setError({ type: null, message: null });
   };
 }
 
-// Export atoms for direct use if needed (e.g., simple setters)
 export {
   audioPlayerAtom,
   chatHistoryAtom,
   connectionAtom,
   customInstructionsAtom,
-  errorAtom,
   isRecordingAtom,
-  modalityAtom,
   practiceStateAtom,
   recorderAtom,
   translatedInstructionsAtom,
@@ -345,9 +364,7 @@ makeDebugStore({
   chatHistoryAtom,
   connectionAtom,
   customInstructionsAtom,
-  errorAtom,
   isRecordingAtom,
-  modalityAtom,
   practiceStateAtom,
   recorderAtom,
   translatedInstructionsAtom,

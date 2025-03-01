@@ -14,7 +14,7 @@ export const NavBar = ({ pageTitle }: NavBarProps) => {
   const isReady = useReadyForPractice();
 
   return (
-    <div className="navbar bg-neutral px-4 text-neutral-content">
+    <div className="navbar px-4 bg-base-100 text-base-content shadow-sm relative z-10">
       <div className="navbar-start">
         <div className="breadcrumbs text-sm">
           <ul>
@@ -38,7 +38,7 @@ export const NavBar = ({ pageTitle }: NavBarProps) => {
           </label>
           <ul
             tabIndex={0}
-            className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-neutral rounded-box w-52"
+            className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow rounded-box w-52"
           >
             {isReady && (
               <>
@@ -46,13 +46,13 @@ export const NavBar = ({ pageTitle }: NavBarProps) => {
                   <Link to="/scenarios">Practice</Link>
                 </li>
                 <li>
-                  <Link to="/translate">Translate</Link>
+                  <Link to="/flashcards">Flashcards</Link>
                 </li>
                 <li>
                   <Link to="/vocabulary">Vocabulary</Link>
                 </li>
                 <li>
-                  <Link to="/flashcards">Flashcards</Link>
+                  <Link to="/translate">Translator</Link>
                 </li>
               </>
             )}
@@ -67,17 +67,17 @@ export const NavBar = ({ pageTitle }: NavBarProps) => {
               <Link to="/scenarios" className="btn btn-ghost btn-sm">
                 Practice
               </Link>
+              <Link to="/flashcards" className="btn btn-ghost btn-sm">
+                Flashcards
+              </Link>
+              <Link to="/vocabulary" className="btn btn-ghost btn-sm">
+                Vocabulary
+              </Link>
               <Link to="/translate" className="btn btn-ghost btn-sm">
                 Translate
               </Link>
             </>
           )}
-          <Link to="/vocabulary" className="btn btn-ghost btn-sm">
-            Vocabulary
-          </Link>
-          <Link to="/flashcards" className="btn btn-ghost btn-sm">
-            Flashcards
-          </Link>
           <Link to="/config" className="btn btn-ghost btn-sm">
             Settings
           </Link>

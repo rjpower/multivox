@@ -36,7 +36,6 @@ export interface TranslateResponse {
 export interface Scenario {
   id: string;
   title: string;
-  description: string;
   instructions: string;
 }
 

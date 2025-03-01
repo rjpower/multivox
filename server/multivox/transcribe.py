@@ -1,8 +1,8 @@
 import datetime
-import hashlib
 import io
 import logging
 import wave
+from typing import List
 
 from google import genai
 from google.genai import types as genai_types
@@ -102,11 +102,10 @@ async def transcribe_and_hint(
 
     if request.audio:
         audio_data = convert_to_wav(
-            genai_types.Blob(data=request.audio, mime_type=request.mime_type or "audio/pcm")
+            genai_types.Blob(
+                data=request.audio, mime_type=request.mime_type or "audio/pcm"
+            )
         )
-        hash = hashlib.md5(audio_data.data).hexdigest()
-        with open(f"/tmp/test-{hash}.wav", "wb") as f:
-            f.write(audio_data.data)
 
     system_prompt = (
         "You are an expert at transcription. Transcribe this Japanese audio sample."
@@ -120,7 +119,7 @@ async def transcribe_and_hint(
         target_language=target_language,
     )
 
-    user_content = [
+    user_content: List[genai_types.ContentUnion] = [
         f"<SCENARIO>\n{request.scenario}\n</SCENARIO>",
         f"<HISTORY>\n{request.history}\n</HISTORY>",
     ]
@@ -128,8 +127,7 @@ async def transcribe_and_hint(
     if audio_data:
         user_content.append(
             genai_types.Part.from_bytes(
-                data=audio_data.data,
-                mime_tye="audio/wav",
+                data=audio_data.data, mime_type=audio_data.mime_type
             )
         )
 
@@ -139,6 +137,10 @@ async def transcribe_and_hint(
         config=genai_types.GenerateContentConfig(
             system_instruction=system_prompt,
             response_mime_type="application/json",
+            automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(
+                disable=True,
+                maximum_remote_calls=0,
+            ),
         ),
     )
 
