@@ -3,7 +3,7 @@ name = "multivox"
 version = "0.1.0"
 description = "Generative dialogue system"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi>=0.115.8",
     "genanki>=0.13.1",
@@ -23,22 +23,22 @@ dependencies = [
     "pyyaml>=6.0.2",
     "silero-vad>=5.1.2",
     "soundfile>=0.13.1",
+    "torch==2.6.0",
+    "torchaudio==2.6.0",
     "typer>=0.15.1",
     "uvicorn>=0.34.0",
     "websockets>=14.2",
 ]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
-[tool.hatch.build.targets.wheel]
-packages = ["multivox"]
-
-[dependency-groups]
-dev = [
-    "hatch>=1.14.0",
-]
+[tool.uv.sources]
+torch = [ { index = "pytorch-cpu" } ]
+torchvision = [ { index = "pytorch-cpu" } ]
+torchaudio = [ { index = "pytorch-cpu" } ]
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"

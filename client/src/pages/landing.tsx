@@ -12,7 +12,6 @@ const ToolLink = ({
   to,
   title,
   description,
-  isLastItem = false,
 }: ToolLinkProps) => {
   return (
     <div

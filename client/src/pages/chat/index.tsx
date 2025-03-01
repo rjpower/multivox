@@ -3,6 +3,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
+import { LoadingModal } from "../../components/LoadingModal";
 import { nativeLanguageAtom, practiceLanguageAtom } from "../../stores/app";
 import { ChatControls } from "./components/ChatControls";
 import { ChatMessages } from "./components/ChatMessages";
@@ -11,6 +12,8 @@ import { chatHistoryAtom, useConnect, useReset } from "./store";
 
 export const Chat = () => {
   const [isVocabVisible, setIsVocabVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -23,7 +26,7 @@ export const Chat = () => {
 
   const chatHistory = useAtomValue(chatHistoryAtom);
   const reset = useReset();
-  const connect = useConnect();
+  const connect = useConnect(setIsLoading, setLoadingMessage);
   const practiceLanguage = useAtomValue(practiceLanguageAtom);
   const nativeLanguage = useAtomValue(nativeLanguageAtom);
   let isProcessing = false;
@@ -89,6 +92,7 @@ export const Chat = () => {
 
   return (
     <ErrorBoundary>
+      <LoadingModal isOpen={isLoading} message={loadingMessage} />
       <div className="bg-base-100 -m-8 h-[calc(100vh-4rem)]">
         <div className="h-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-4 relative p-4">
           <div className="absolute top-4 right-4 lg:hidden">

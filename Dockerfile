@@ -13,12 +13,9 @@ FROM mcr.microsoft.com/playwright:v1.50.0-noble
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
-ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    UV_NO_CACHE=1
-
+ENV UV_LINK_MODE=copy
 COPY server/pyproject.toml server/uv.lock server/README.md ./
-RUN uv sync --frozen
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen
 RUN uv run playwright install chromium
 
 COPY server/ ./
@@ -31,4 +28,4 @@ EXPOSE 8000
 
 ENV ROOT_DIR=/app
 ENV SECRETS_DIR=/run/secrets
-CMD ["uv", "run", "uvicorn", "multivox.app:app", "--workers=32", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*"]
+CMD ["uv", "run", "uvicorn", "multivox.app:app", "--workers=8", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*"]

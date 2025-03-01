@@ -137,7 +137,10 @@ export interface ConnectParams {
   modality: "text" | "audio";
 }
 
-export function useConnect() {
+export function useConnect(
+  setIsLoading?: (isLoading: boolean) => void,
+  setLoadingMessage?: (message: string) => void
+) {
   const setPracticeState = useSetAtom(practiceStateAtom);
   const setTranslatedInstructions = useSetAtom(translatedInstructionsAtom);
   const setConnection = useSetAtom(connectionAtom);
@@ -157,6 +160,10 @@ export function useConnect() {
       // Reset state
       setPracticeState(PracticeState.TRANSLATING);
       setChatHistory([]);
+      
+      // Show loading modal for translation
+      if (setIsLoading) setIsLoading(true);
+      if (setLoadingMessage) setLoadingMessage("Translating instructions...");
 
       // Step 1: Translate the instructions
       let translation;
@@ -169,6 +176,7 @@ export function useConnect() {
           need_dictionary: false,
         });
       } catch (err) {
+        if (setIsLoading) setIsLoading(false);
         const errorMessage = `Translation failed: ${(err as Error).message}`;
         setPracticeState(PracticeState.WAITING);
         setError({ type: "translation", message: errorMessage });
@@ -178,6 +186,8 @@ export function useConnect() {
       // Step 2: Connect to WebSocket
       setPracticeState(PracticeState.CONNECTING);
       setTranslatedInstructions(translation);
+      
+      if (setLoadingMessage) setLoadingMessage("Connecting to practice session...");
 
       let ws;
       try {
@@ -189,6 +199,7 @@ export function useConnect() {
           audioPlayer
         );
       } catch (err) {
+        if (setIsLoading) setIsLoading(false);
         const errorMessage = `Connection failed: ${(err as Error).message}`;
         setTranslatedInstructions(null);
         setPracticeState(PracticeState.WAITING);
@@ -219,7 +230,12 @@ export function useConnect() {
         text: translation,
         end_of_turn: true,
       });
+      
+      // Hide loading modal when everything is ready
+      if (setIsLoading) setIsLoading(false);
     } catch (error) {
+      // Make sure loading modal is hidden on error
+      if (setIsLoading) setIsLoading(false);
       // Any uncaught errors will be handled here
       console.error("Connection error:", error);
       // We don't need to do anything else here since the specific error handlers

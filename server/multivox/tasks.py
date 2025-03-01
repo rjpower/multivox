@@ -488,8 +488,8 @@ class TranscribeAndHintTask(LongRunningTask, MessageSubscriber):
                         if audio
                         else None
                     ),
-                    source_language=self.practice_language.abbreviation,
-                    target_language=self.native_language.abbreviation,
+                    practice_language=self.practice_language.abbreviation,
+                    native_language=self.native_language.abbreviation,
                 )
             )
 

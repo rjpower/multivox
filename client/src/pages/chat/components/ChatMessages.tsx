@@ -84,15 +84,11 @@ const TranscriptionChunk = ({
   const [isOpen, setIsOpen] = useState(false);
 
   // Find the longest matching dictionary key that is contained in this term
-  const match = Object.keys(dictionary)
-    .filter((key) => term.includes(key))
-    .sort((a, b) => b.length - a.length)[0];
+  const translation = dictionary[term];
 
-  if (!match) {
+  if (!translation) {
     return <span className="badge badge-lg badge-neutral">{term}</span>;
   }
-
-  const translation = dictionary[match].translated_text;
 
   return (
     <span
@@ -120,7 +116,7 @@ const TranscriptionChunk = ({
           whitespace-normal
         "
         >
-          <div className="font-medium mb-1">{translation}</div>
+          <div className="font-medium mb-1">{translation.translated_text}</div>
         </div>
       )}
     </span>

@@ -117,8 +117,7 @@ class FileCache:
         return decorator
 
 
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-default_file_cache = FileCache(cache_dir=ROOT_DIR / "cache")
+default_file_cache = FileCache(cache_dir=settings.ROOT_DIR / "cache")
 
 
 def cached_completion(messages: List[dict], api_key: Optional[str] = None, **kw) -> str:
@@ -141,7 +140,9 @@ def cached_completion(messages: List[dict], api_key: Optional[str] = None, **kw)
 
     cache_key = json.dumps({"messages": messages, **filtered_kw}, sort_keys=True)
     cache_path = (
-        ROOT_DIR / "cache" / f"{hashlib.md5(cache_key.encode()).hexdigest()}.json"
+        settings.ROOT_DIR
+        / "cache"
+        / f"{hashlib.md5(cache_key.encode()).hexdigest()}.json"
     )
     if cache_path.exists():
         return cache_path.read_text(encoding="utf-8")

@@ -91,8 +91,8 @@ async def transcribe_and_hint(
     request: TranscribeAndHintRequest,
 ) -> TranscribeAndHintResponse:
     """Transcribe audio and generate hints for the conversation in a single model call"""
-    source_language = LANGUAGES[request.source_language]
-    target_language = LANGUAGES[request.target_language]
+    practice_language = LANGUAGES[request.practice_language]
+    native_language = LANGUAGES[request.native_language]
     client = genai.Client(
         api_key=settings.GEMINI_API_KEY,
         http_options={"api_version": settings.GEMINI_API_VERSION},
@@ -113,10 +113,9 @@ async def transcribe_and_hint(
 
     # Format system prompt
     system_prompt = TRANSCRIBE_AND_HINT_PROMPT.format(
-        practice_language=source_language.name,
         today=datetime.date.today().strftime("%Y-%m-%d"),
-        source_language=source_language,
-        target_language=target_language,
+        native_language=native_language,
+        practice_language=practice_language,
     )
 
     user_content: List[genai_types.ContentUnion] = [
