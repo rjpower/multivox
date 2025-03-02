@@ -55,17 +55,19 @@ export const useLanguages = () => {
 export const useVocabulary = () => {
   const [items, setItems] = useAtom(vocabularyItemsAtom);
 
-  const add = (item: VocabularyEntry) => {
-    if (!items.some((i) => i.source_text === item.source_text)) {
-      const newItem = { ...item };
-      const newItems = [...items, newItem];
-      newItems.sort((a, b) => a.source_text.localeCompare(b.source_text));
-      setItems(newItems);
-    }
+  const addAll = (newItems: VocabularyEntry[]) => {
+    const existingItems = items.map((item) => item.source_text);
+    const filteredItems = newItems.filter(
+      (item) => !existingItems.includes(item.source_text)
+    );
+    const updatedItems = [...items, ...filteredItems];
+    updatedItems.sort((a, b) => a.source_text.localeCompare(b.source_text));
+    setItems(updatedItems);
   };
 
-  const remove = (term: string) => {
-    const newItems = items.filter((item) => item.source_text !== term);
+  const removeAll = (terms: string[]) => {
+    const newItems = items.filter((item) => !terms.includes(item.source_text));
+    console.log("removeAll", items.length, newItems.length, terms.length);
     setItems(newItems);
   };
 
@@ -76,9 +78,7 @@ export const useVocabulary = () => {
   const exists = (term: string) =>
     items.some((item) => item.source_text === term);
 
-  const getAll = () => items;
-
-  return { items, add, remove, clear, exists, getAll };
+  return { items, addAll, removeAll, clear, exists };
 };
 
 export const AppInitializer = () => {

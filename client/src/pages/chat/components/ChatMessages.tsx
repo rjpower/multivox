@@ -87,7 +87,7 @@ const TranscriptionChunk = ({
   const translation = dictionary[term];
 
   if (!translation) {
-    return <span className="badge badge-lg badge-neutral">{term}</span>;
+    return <span className="badge badge-lg">{term}</span>;
   }
 
   return (
@@ -95,7 +95,6 @@ const TranscriptionChunk = ({
       className={`
         badge badge-lg
         cursor-pointer 
-        ${isOpen ? "badge-primary" : "badge-secondary"}
         relative
         transition-all duration-200
       `}

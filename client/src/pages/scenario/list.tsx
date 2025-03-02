@@ -25,7 +25,7 @@ const ScenarioList = ({
             <Link to={`/practice/${scenario.id}`} className="flex-grow group">
               <div className="flex items-center">
                 <div>
-                  <div className="text-base-content group-hover:text-primary font-medium">
+                  <div className="text-base-content font-medium">
                     {scenario.title}
                   </div>
                 </div>

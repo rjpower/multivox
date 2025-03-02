@@ -50,7 +50,7 @@ const RequireReady = ({ children }: RequireApiKeyProps) => {
         <div className="max-w-md">
           <h2 className="text-2xl font-bold">Configuration Required</h2>
           <p className="py-6">
-            Please configure your API key and language settings to continue
+            Configure your native and practice language to try this feature.
           </p>
           <Link to="/config" className="btn btn-primary">
             Go to Configuration
@@ -66,11 +66,11 @@ const RequireReady = ({ children }: RequireApiKeyProps) => {
 // Component to scroll to top when route changes
 const ScrollToTop = () => {
   const { pathname } = useLocation();
-  
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
-  
+
   return null;
 };
 
@@ -99,68 +99,70 @@ const App = () => {
                     </PageWrapper>
                   }
                 />
-            <Route
-              path="/scenarios"
-              element={
-                <RequireReady>
-                  <PageWrapper>
-                    <ScenarioSelect />
-                  </PageWrapper>
-                </RequireReady>
-              }
-            />
-            <Route
-              path="/practice/:scenarioId"
-              element={
-                <RequireReady>
-                  <PageWrapper>
-                    <ScenarioPreview />
-                  </PageWrapper>
-                </RequireReady>
-              }
-            />
-            <Route
-              path="/practice/chat"
-              element={
-                <RequireReady>
-                  <PageWrapper>
-                    <Chat />
-                  </PageWrapper>
-                </RequireReady>
-              }
-            />
-            <Route
-              path="/translate"
-              element={
-                <PageWrapper>
-                  <Translate />
-                </PageWrapper>
-              }
-            />
-            <Route
-              path="/config"
-              element={
-                <PageWrapper>
-                  <Config />
-                </PageWrapper>
-              }
-            />
-            <Route
-              path="/vocabulary"
-              element={
-                <PageWrapper>
-                  <VocabularyList />
-                </PageWrapper>
-              }
-            />
-            <Route
-              path="/flashcards"
-              element={
-                <PageWrapper>
-                  <FlashcardGenerator />
-                </PageWrapper>
-              }
-            />
+                <Route
+                  path="/scenarios"
+                  element={
+                    <RequireReady>
+                      <PageWrapper>
+                        <ScenarioSelect />
+                      </PageWrapper>
+                    </RequireReady>
+                  }
+                />
+                <Route
+                  path="/practice/:scenarioId"
+                  element={
+                    <RequireReady>
+                      <PageWrapper>
+                        <ScenarioPreview />
+                      </PageWrapper>
+                    </RequireReady>
+                  }
+                />
+                <Route
+                  path="/practice/chat"
+                  element={
+                    <RequireReady>
+                      <PageWrapper>
+                        <Chat />
+                      </PageWrapper>
+                    </RequireReady>
+                  }
+                />
+                <Route
+                  path="/translate"
+                  element={
+                    <PageWrapper>
+                      <Translate />
+                    </PageWrapper>
+                  }
+                />
+                <Route
+                  path="/config"
+                  element={
+                    <PageWrapper>
+                      <Config />
+                    </PageWrapper>
+                  }
+                />
+                <Route
+                  path="/vocabulary"
+                  element={
+                    <PageWrapper>
+                      <VocabularyList />
+                    </PageWrapper>
+                  }
+                />
+                <Route
+                  path="/flashcards"
+                  element={
+                    <RequireReady>
+                      <PageWrapper>
+                        <FlashcardGenerator />
+                      </PageWrapper>
+                    </RequireReady>
+                  }
+                />
               </Routes>
             </div>
           </AppLayout>

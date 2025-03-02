@@ -34,7 +34,7 @@ const exportToCsv = (items: any[]) => {
 };
 
 export const VocabularyList = () => {
-  const { items, clear, remove } = useVocabulary();
+  const { items, clear, removeAll } = useVocabulary();
 
   if (items.length === 0) {
     return (
@@ -90,7 +90,7 @@ export const VocabularyList = () => {
                     key={item.source_text}
                     entry={item}
                     mode="review"
-                    onDelete={() => remove(item.source_text)}
+                    onDelete={() => removeAll([item.source_text])}
                   />
                 ))}
               </tbody>

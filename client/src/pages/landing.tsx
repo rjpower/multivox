@@ -8,17 +8,11 @@ interface ToolLinkProps {
   isLastItem?: boolean;
 }
 
-const ToolLink = ({
-  to,
-  title,
-  description,
-}: ToolLinkProps) => {
+const ToolLink = ({ to, title, description }: ToolLinkProps) => {
   return (
-    <div
-      className={`flex flex-col md:flex-row`}
-    >
+    <div className={`flex flex-col md:flex-row`}>
       <div className="md:w-1/3 font-bold mb-2 md:mb-0">
-        <Link to={to} className="text-primary hover:underline text-lg">
+        <Link to={to} className="hover:underline text-lg">
           {title}
         </Link>
       </div>
@@ -57,10 +51,7 @@ const Landing = () => {
 
             <p className="text-2xl md:text-3xl mb-10 text-white/90 font-light leading-relaxed drop-shadow-md">
               Practice real conversation with{" "}
-              <span className="font-semibold text-primary-content">
-                live hints
-              </span>{" "}
-              and{" "}
+              <span className="font-semibold">live hints</span> and{" "}
               <span className="font-semibold text-secondary-content">
                 translation
               </span>
@@ -116,19 +107,25 @@ const Landing = () => {
         <h2 className="text-3xl font-bold mb-8 text-center">About MultiVox</h2>
         <div className="max-w-3xl mx-auto leading-relaxed">
           <p className="mb-4 text-lg">
-            Practicing language on your own is frustrating, especially when
-            you're early in the journey. It can be hard to think through good
-            responses to situations while you're trying to get a handle on new
-            vocabulary at the same time.
+            The tools here are ostensibly for language learning, but I'll be
+            honest, they were also a test for how well Aider/Claude can do
+            frontend development. It turns out... not too poorly? The LLMs
+            definitely start to hit a wall as things scale up, and web
+            development still feels like a bit of a mess, but the LLMs
+            understand e.g. the CSS box model amazingly well, making layout
+            changes much less painful.
           </p>
-
           <p className="mb-4 text-lg">
-            LLMs can be good for practice, but I've personally struggled with
-            them in a bilingual context, and it can be frustrating to get
-            "stuck" without knowing how to move the conversation forward. Since
-            the LLM knows what a good response is anyway, why not have it
-            provide some hints along the way? And if we're doing that, we might
-            as well provide translations and a dictionary to help you as you go.
+            Practicing language on your own is frustrating, especially when
+            you're early in the journey. Even with tools like LLMs, I found it
+            hard to know the right response for simple questions. LLMs can be
+            good for practice, but I've personally struggled with them in a
+            bilingual context -- they like to randomly switch languages on you
+            -- and it can be frustrating to get "stuck" without knowing how to
+            move the conversation forward. Since the LLM knows what a good
+            response is anyway, why not have it provide some hints along the
+            way? And if we're doing that, we might as well provide translations
+            and a dictionary to help you as you go.
           </p>
 
           <p className="mb-4 text-lg">
@@ -136,22 +133,20 @@ const Landing = () => {
             a more interactive experience. Unfortunately I ran into too many
             rate limits to make that feasible. Instead I wired up the usual API
             with a voice-activity detector to give a similar, but slightly
-            crappier, experience.
-          </p>
-
-          <p className="mb-4 text-lg">
-            I've found it's a fun way to explore conversation paths, practice
-            conversation, and discover new vocabulary and terms as I go. I hope
-            you like it!
+            crappier, experience. Still I've found it's a fun way to explore
+            conversation paths, practice conversation, and discover new
+            vocabulary and terms as I go.
           </p>
 
           <p className="text-lg">
-            I ended up making a few more tools along the way — including a
-            <Link to="/flashcards" className="text-primary hover:underline">
+            Quite possibly more useful for most folks is the
+            <Link to="/flashcards" className="underline">
               {" "}
               flashcard generator
             </Link>{" "}
-            that you may find useful as well.
+            which lets you build paper or Anki flashcards from a list of words,
+            and automatically handles audio, translations and context sentence
+            generation.
           </p>
         </div>
       </div>

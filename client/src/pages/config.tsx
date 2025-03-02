@@ -165,8 +165,8 @@ export const Config = () => {
               <button
                 type="button"
                 onClick={() => {
-                  showToast({ message: "All settings will be reset", type: "warning" });
-                  setTimeout(reset, 1500);
+                  reset();
+                  showToast({ message: "All settings reset", type: "warning" });
                 }}
                 className="btn btn-error btn-outline gap-2"
               >

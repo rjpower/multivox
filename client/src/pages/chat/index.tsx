@@ -1,14 +1,15 @@
 import { BookOpenIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useAtomValue, useSetAtom } from "jotai";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { LoadingModal } from "../../components/LoadingModal";
 import { nativeLanguageAtom, practiceLanguageAtom } from "../../stores/app";
 import { ChatControls } from "./components/ChatControls";
 import { ChatMessages } from "./components/ChatMessages";
-import { PracticeVocabulary } from "./components/PracticeVocabulary";
+import { PracticeVocabulary } from "../../components/PracticeVocabulary";
 import { chatHistoryAtom, useConnect, useReset } from "./store";
+import { VocabularyEntry } from "../../types";
 
 export const Chat = () => {
   const [isVocabVisible, setIsVocabVisible] = useState(false);
@@ -90,6 +91,36 @@ export const Chat = () => {
     modalityParam,
   ]);
 
+  const vocabulary = useMemo(() => {
+    const vocabMap = new Map<string, VocabularyEntry>();
+
+    chatHistory.forEach((msg) => {
+      if (msg.type === "transcription" && msg.dictionary) {
+        Object.entries(msg.dictionary).forEach(([term, entry]) => {
+          vocabMap.set(term, {
+            ...entry,
+            context_source: msg.source_text,
+            context_translated: msg.translated_text,
+          });
+        });
+      }
+      if (msg.type === "translation" && msg.dictionary) {
+        Object.entries(msg.dictionary).forEach(([term, entry]) => {
+          vocabMap.set(term, {
+            ...entry,
+            context_source: msg.source_text,
+            context_translated: msg.translated_text,
+          });
+        });
+      }
+    });
+
+    // Convert to sorted array
+    return Array.from(vocabMap.values()).sort((a, b) =>
+      a.source_text.localeCompare(b.source_text)
+    );
+  }, [chatHistory]);
+
   return (
     <ErrorBoundary>
       <LoadingModal isOpen={isLoading} message={loadingMessage} />
@@ -138,7 +169,7 @@ export const Chat = () => {
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
-            <PracticeVocabulary messages={chatHistory} />
+            <PracticeVocabulary wordList={vocabulary} />
           </div>
         </div>
       </div>
