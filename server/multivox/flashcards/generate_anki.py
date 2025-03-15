@@ -8,7 +8,7 @@ from typing import Callable, List, Sequence
 import genanki
 from multivox.flashcards.schema import FlashCard, VocabItem
 from multivox.tts import TTSAudio, generate_tts_audio_sync
-from multivox.types import LANGUAGES, Language
+from multivox.types import Language
 
 # Fixed Model IDs
 DEFAULT_MODEL_ID = 1607392319
@@ -101,7 +101,8 @@ class AudioData:
 
 def generate_audio_for_cards(
     items: Sequence[FlashCard],
-    language: Language,
+    source_language: Language,
+    target_language: Language,
     logger: Callable[[str], None],
     max_workers: int = 16,
 ) -> dict[str, AudioData]:
@@ -112,10 +113,10 @@ def generate_audio_for_cards(
     for item in items:
         if item.front:
             items_to_process.append(
-                (item.front_sub if item.front_sub else item.front, language)
+                (item.front_sub if item.front_sub else item.front, source_language)
             )
         if item.back:
-            items_to_process.append((item.back, LANGUAGES["en"]))
+            items_to_process.append((item.back, target_language))
 
     total = len(items_to_process)
     completed = 0
@@ -148,8 +149,8 @@ def create_anki_package(
     vocab_items: List[VocabItem],
     deck_name: str,
     audio_mapping: dict[str, AudioData],
+    source_language: Language,
     target_language: Language,
-    source_language: Language = LANGUAGES["en"],
     logger: Callable[[str], None] = print,
 ) -> genanki.Package:
     # Initialize models with fixed IDs
@@ -167,7 +168,7 @@ def create_anki_package(
         ],
         templates=[
             {
-                "name": f"{target_language} to {source_language}",
+                "name": f"{source_language} to {target_language}",
                 "qfmt": """
                     <div class="term">{{Term}}</div>
                     {{TermAudio}}
@@ -183,7 +184,7 @@ def create_anki_package(
                 """,
             },
             {
-                "name": f"{source_language} to {target_language}",
+                "name": f"{target_language} to {source_language}",
                 "qfmt": """
                     <div class="meaning">{{Meaning}}</div>
                     {{MeaningAudio}}

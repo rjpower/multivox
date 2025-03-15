@@ -114,47 +114,55 @@ def _infer_missing_fields_chunk(
 
     items_data = [item.model_dump(exclude_unset=False) for item in incomplete_records]
 
-    prompt = f"""Given these vocabulary items, infer missing fields.
+    prompt = f"""
+<instructions>
+Given the vocabulary items in the <input> section below, infer any missing fields.
+Description of each field:
 
-Fields:
-
-- term: the native language term
+- term: the original term - this is always provided by the user
 - reading: the phonetic reading of the term if relevant -- use Hiragana or Katakana for Japanese, Pinyin for Chinese.
 - meaning: meaning of the term in English, if multiple meanings are common, separate with commas
-- context_native: a sentence in the native language using `term`. 
-  this should be a simple sentence, but one that displays natural grammar.
-  for Chinese and Japanese, use Ruby annotations for word pronunciation in the appropriate format (e.g. Hiragana, Katakana, Pinyin).
-- context_en: English translation of the example sentence.
+- context_native: a sentence in the native language using the vocabulary from the `term` field.
+  This should be a complete sentence that uses the term in context.
+  For Chinese and Japanese, use Ruby annotations for word pronunciation in the appropriate format (e.g. Hiragana, Katakana, Pinyin).
+- context_en: Translation of the example sentence into English
 
-Example output:
-[
-  {{
-      "term": "図書館",
-      "reading": "としょかん",
-      "meaning": "library",
-      "context_native": "<ruby>図書館<rt>としょかん</rt>から<ruby>本<rt>ほん</rt></ruby>を<ruby>借<rt>か</rt></ruby>りました。",
-      "context_en": "I borrowed a book from the library."
-  }},
-  {{
-      "term": "病院",
-      "reading": "びょういん",
-      "meaning": "hospital",
-      "context_native": "<ruby>病院<rt>びょういん</rt></ruby>に行きました。",
-      "context_en": "I went to the hospital."
-  }}
-]
+Output only JSON.
+Output a single JSON object with a key "items" containing an array of objects.
 
-Inputs:
+{{
+  "items": [
+    {{
+        "term": "図書館",
+        "reading": "としょかん",
+        "meaning": "library",
+        "context_native": "<ruby>図書館<rt>としょかん</rt>から<ruby>本<rt>ほん</rt></ruby>を<ruby>借<rt>か</rt></ruby>りました。",
+        "context_en": "I borrowed a book from the library."
+    }},
+    {{
+        "term": "病院",
+        "reading": "びょういん",
+        "meaning": "hospital",
+        "context_native": "<ruby>病院<rt>びょういん</rt></ruby>に行きました。",
+        "context_en": "I went to the hospital."
+    }}
+  ]
+}}
+</instructions>
+
+<input>
 {json.dumps(items_data, ensure_ascii=False, sort_keys=True)}
+</input>
+"""
 
-Return only valid JSON array with complete items in same format."""
-
-    completed_items = json.loads(
-        cached_completion(
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-        )
+    result = cached_completion(
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
     )
+    try:
+        completed_items = json.loads(result)["items"]
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to decode JSON response from {result}: {str(e)}")
 
     assert isinstance(completed_items, list), completed_items
 
@@ -218,7 +226,10 @@ def process_srt(config: SRTProcessConfig):
     if config.include_audio:
         config.progress_logger("Generating audio files")
         audio_mapping = generate_audio_for_cards(
-            vocab_items, language=config.target_language, logger=config.progress_logger
+            vocab_items,
+            source_language=config.source_language,
+            target_language=config.target_language,
+            logger=config.progress_logger,
         )
 
     config.progress_logger(f"Exporting to {config.output_format}")
@@ -229,6 +240,7 @@ def process_srt(config: SRTProcessConfig):
             vocab_items,
             config.deck_name or clean_filename(config.srt_path.name),
             audio_mapping=audio_mapping,
+            source_language=config.source_language,
             target_language=config.target_language,
             logger=config.progress_logger,
         )
@@ -255,7 +267,10 @@ def process_csv(config: CSVProcessConfig):
 
     if config.include_audio:
         audio_mapping = generate_audio_for_cards(
-            vocab_items, language=config.target_language, logger=config.progress_logger
+            vocab_items,
+            source_language=config.source_language,
+            target_language=config.target_language,
+            logger=config.progress_logger,
         )
     else:
         audio_mapping = {}
@@ -269,6 +284,7 @@ def process_csv(config: CSVProcessConfig):
             vocab_items,
             config.deck_name or "csv_import_deck",
             audio_mapping=audio_mapping,
+            source_language=config.source_language,
             target_language=config.target_language,
         )
     else:
