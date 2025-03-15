@@ -10,9 +10,7 @@ from multivox.flashcards.schema import FlashCard, VocabItem
 from multivox.tts import TTSAudio, generate_tts_audio_sync
 from multivox.types import Language
 
-# Fixed Model IDs
-DEFAULT_MODEL_ID = 1607392319
-
+ANKI_MODEL_ID = 1607392319
 
 def _id_from_name(name: str) -> int:
     # Use first 8 chars of md5 as hex, convert to int
@@ -155,8 +153,8 @@ def create_anki_package(
 ) -> genanki.Package:
     # Initialize models with fixed IDs
     default_model = genanki.Model(
-        DEFAULT_MODEL_ID,
-        f"{target_language} Vocabulary",
+        ANKI_MODEL_ID,
+        f"{source_language.name} Vocabulary",
         fields=[
             {"name": "Term"},
             {"name": "Reading"},
@@ -168,7 +166,7 @@ def create_anki_package(
         ],
         templates=[
             {
-                "name": f"{source_language} to {target_language}",
+                "name": f"{source_language.name} to {target_language.name}",
                 "qfmt": """
                     <div class="term">{{Term}}</div>
                     {{TermAudio}}
@@ -184,7 +182,7 @@ def create_anki_package(
                 """,
             },
             {
-                "name": f"{target_language} to {source_language}",
+                "name": f"{target_language.name} to {source_language.name}",
                 "qfmt": """
                     <div class="meaning">{{Meaning}}</div>
                     {{MeaningAudio}}
@@ -203,9 +201,7 @@ def create_anki_package(
         css=ANKI_CARD_CSS,
     )
 
-    default_deck = genanki.Deck(
-        deck_id=_id_from_name(f"{deck_name}::Default"), name=f"{deck_name}::Default"
-    )
+    default_deck = genanki.Deck(deck_id=_id_from_name(deck_name), name=deck_name)
 
     media_files = []
 
