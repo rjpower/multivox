@@ -76,6 +76,9 @@ export const NavBar = ({ pageTitle }: NavBarProps) => {
               <Link to="/translate" className="btn btn-ghost btn-sm">
                 Translate
               </Link>
+              <Link to="/journal" className="btn btn-ghost btn-sm">
+                Journal
+              </Link>
             </>
           )}
           <Link to="/config" className="btn btn-ghost btn-sm">

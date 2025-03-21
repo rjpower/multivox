@@ -39,12 +39,11 @@ def languages() -> tuple[Language, Language]:
 @pytest.mark.asyncio
 async def test_transcribe_and_hint_conversation_flow(
     namae_wa: genai_types.Blob,
+    practice_lang: Language,
+    native_lang: Language,
     checkin: genai_types.Blob,
-    languages: tuple[Language, Language],
 ) -> None:
     """Test transcribe_and_hint in a conversation flow"""
-    source_lang, target_lang = languages
-
     # Initial scenario
     scenario = "You are checking into a hotel in Japan"
     history = ""
@@ -59,8 +58,8 @@ async def test_transcribe_and_hint_conversation_flow(
             history=history,
             audio=base64.b64encode(checkin.data),
             mime_type=checkin.mime_type,
-            source_language=source_lang.abbreviation,
-            target_language=target_lang.abbreviation,
+            practice_language=practice_lang.abbreviation,
+            native_language=native_lang.abbreviation,
         )
     )
 
@@ -83,8 +82,8 @@ async def test_transcribe_and_hint_conversation_flow(
             history=history,
             audio=base64.b64encode(namae_wa.data),
             mime_type=namae_wa.mime_type,
-            source_language=source_lang.abbreviation,
-            target_language=target_lang.abbreviation,
+            practice_language=practice_lang.abbreviation,
+            native_language=native_lang.abbreviation,
         )
     )
 

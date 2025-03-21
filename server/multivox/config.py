@@ -27,6 +27,7 @@ class Settings(BaseSettings):
 
     LIVE_MODEL_ID: str = "gemini-2.0-flash-exp"
     TRANSCRIBE_AND_HINT_MODEL_ID: str = "gemini-2.0-flash"
+    JOURNAL_MODEL_ID: str = "gemini-2.0-flash"
     TRANSCRIPTION_MODEL_ID: str = "openai/whisper-1"
     TRANSLATION_MODEL_ID: str = "gemini/gemini-2.0-flash"
     HINT_MODEL_ID: str = "openai/gpt-4o-mini"

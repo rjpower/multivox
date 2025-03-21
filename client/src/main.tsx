@@ -9,6 +9,7 @@ import { Footer } from "./components/Footer";
 import { AppLayout } from "./layouts/AppLayout";
 import { Chat } from "./pages/chat";
 import { FlashcardGenerator } from "./pages/flashcards";
+import Journal from "./pages/journal";
 import { ScenarioPreview } from "./pages/scenario";
 import { ScenarioSelect } from "./pages/scenario/list";
 import { Translate } from "./pages/translate";
@@ -161,6 +162,14 @@ const App = () => {
                         <FlashcardGenerator />
                       </PageWrapper>
                     </RequireReady>
+                  }
+                />
+                <Route
+                  path="/journal"
+                  element={
+                    <PageWrapper>
+                      <Journal />
+                    </PageWrapper>
                   }
                 />
               </Routes>

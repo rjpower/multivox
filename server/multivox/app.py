@@ -26,6 +26,7 @@ from multivox import prompts
 from multivox.cache import default_file_cache
 from multivox.config import settings
 from multivox.flashcards.api import router as flashcard_router
+from multivox.journal import router as journal_router
 from multivox.message_socket import TypedWebSocket
 from multivox.scenarios import (
     get_scenario,
@@ -82,6 +83,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 app.include_router(flashcard_router)
+app.include_router(journal_router)
 app.mount(
     "/downloads",
     staticfiles.StaticFiles(directory=settings.DOWNLOAD_DIR, check_dir=False),

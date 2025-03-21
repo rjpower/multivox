@@ -11,6 +11,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     "/": "Home",
     "/config": "Configuration",
     "/flashcards": "Flashcard Generator",
+    "/journal": "Language Journal",
     "/practice": "Conversation Practice",
     "/scenarios": "Practice Scenarios",
     "/translate": "Translation Tool",
