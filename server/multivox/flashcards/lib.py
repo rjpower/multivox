@@ -423,6 +423,7 @@ def read_csv(file_content: str) -> tuple[str, pd.DataFrame]:
 
     # Read preview with best separator
     df = pd.read_csv(io.StringIO(file_content), sep=best_separator, dtype=str)
+    df = df.fillna("")
 
     # Generate column letters (A, B, C, etc.)
     num_cols = len(df.columns)
