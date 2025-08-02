@@ -20,7 +20,8 @@ export class AudioPlayer {
   ): Promise<AudioBuffer> {
     try {
       // Use the Web Audio API's decodeAudioData to handle various formats
-      const arrayBuffer = audioData.buffer;
+      const arrayBuffer = audioData.buffer.slice(0);
+      // @ts-ignore - ArrayBufferLike compatibility issue
       return await this.audioContext.decodeAudioData(arrayBuffer);
     } catch (error) {
       console.error("Error decoding audio data:", error);

@@ -27,9 +27,9 @@
   "scripts": {
     "build:ts": "NODE_ENV=production node build.js",
     "build:ts:watch": "node build.js --watch",
-    "build": "npm run build:ts",
+    "build": "pnpm run build:ts",
     "typecheck": "tsc --noEmit",
-    "server": "cd ../server && uv run uvicorn multivox.app:app --reload --workers 1 --limit-concurrency 1000 --backlog 2048 --timeout-keep-alive 60",
-    "dev-server": "concurrently \"npm run build:ts:watch\" \"npm run server\" \"open http://localhost:8000\""
+    "server": "cd ../server && uv run uvicorn multivox.app:app --reload --workers 1 --limit-concurrency 100 --backlog 512 --timeout-keep-alive 60",
+    "dev-server": "concurrently \"pnpm run build:ts:watch\" \"pnpm run server\" \"open http://localhost:8000\""
   }
 }
