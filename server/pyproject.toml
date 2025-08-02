@@ -26,6 +26,7 @@ dependencies = [
     "torch==2.6.0",
     "torchaudio==2.6.0",
     "typer>=0.15.1",
+    "typst>=0.13.4",
     "uvicorn>=0.34.0",
     "websockets>=14.2",
 ]

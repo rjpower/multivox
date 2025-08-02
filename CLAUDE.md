@@ -1,11 +1,11 @@
 # MULTIVOX DEVELOPMENT GUIDE
 
 ## COMMANDS
-- **Server**: `uv run uvicorn multivox.app:app --reload --workers 1`
-- **Client**: `cd client && npm run dev-server`
+- **Server**: `uv run uvicorn multivox.app:app --reload --workers 1 --limit-concurrency 100 --backlog 512`
+- **Client**: `cd client && pnpm run dev-server`
 - **Tests**: `cd server && pytest` or `cd server && pytest tests/test_file.py::test_name`
-- **Typecheck**: `cd client && npm run typecheck`
-- **Build**: `cd client && npm run build`
+- **Typecheck**: `cd client && pnpm run typecheck`
+- **Build**: `cd client && pnpm run build`
 
 ## CODE STYLE
 ### TypeScript
