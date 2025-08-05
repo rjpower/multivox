@@ -38,7 +38,6 @@ class SRTProcessConfig(BaseModel):
 
 
 class CSVProcessConfig(BaseModel):
-
     class Config:
         arbitrary_types_allowed = True
 
@@ -75,9 +74,7 @@ def load_csv_items(
             "term": row.get(mapping.term, "") if mapping.term else "",
             "reading": row.get(mapping.reading, "") if mapping.reading else "",
             "meaning": row.get(mapping.meaning, "") if mapping.meaning else "",
-            "context_native": (
-                row.get(mapping.context_native) if mapping.context_native else ""
-            ),
+            "context_native": (row.get(mapping.context_native) if mapping.context_native else ""),
             "context_en": row.get(mapping.context_en) if mapping.context_en else "",
             "source": "csv_import",
         }
@@ -89,6 +86,10 @@ def load_csv_items(
     return rows
 
 
+class VocabItems(BaseModel):
+    items: List[VocabItem]
+
+
 def _infer_missing_fields_chunk(
     chunk: Sequence[VocabItem],
     progress_logger: ProgressLogger = logging.info,
@@ -97,20 +98,14 @@ def _infer_missing_fields_chunk(
     complete_records = [
         item
         for item in chunk
-        if item.term
-        and item.reading
-        and item.meaning
-        and item.context_native
-        and item.context_en
+        if item.term and item.reading and item.meaning and item.context_native and item.context_en
     ]
     incomplete_records = [item for item in chunk if item not in complete_records]
 
     if not incomplete_records:
         return complete_records
 
-    progress_logger(
-        f"Inferring missing fields for {len(incomplete_records)} incomplete records"
-    )
+    progress_logger(f"Inferring missing fields for {len(incomplete_records)} incomplete records")
 
     items_data = [item.model_dump(exclude_unset=False) for item in incomplete_records]
 
@@ -155,26 +150,13 @@ Output a single JSON object with a key "items" containing an array of objects.
 </input>
 """
 
-    result = cached_completion(
-        messages=[{"role": "user", "content": prompt}],
-        response_format={"type": "json_object"},
+    result = VocabItems.model_validate_json(
+        cached_completion(
+            messages=[{"role": "user", "content": prompt}], response_format=VocabItems
+        )
     )
-    try:
-        completed_items = json.loads(result)["items"]
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Failed to decode JSON response from {result}: {str(e)}")
 
-    assert isinstance(completed_items, list), completed_items
-
-    for item in completed_items:
-        try:
-            VocabItem.model_validate(item)
-        except Exception as e:
-            progress_logger(f"Failed to validate item: {str(e)}, {item}")
-
-    return complete_records + [
-        VocabItem.model_validate(item) for item in completed_items
-    ]
+    return complete_records + result.items
 
 
 def infer_missing_fields(
@@ -184,9 +166,7 @@ def infer_missing_fields(
 ):
     """Process vocabulary items in parallel chunks with progress tracking"""
     # Split into chunks
-    chunks = [
-        rows[i : i + infer_chunk_size] for i in range(0, len(rows), infer_chunk_size)
-    ]
+    chunks = [rows[i : i + infer_chunk_size] for i in range(0, len(rows), infer_chunk_size)]
     total = len(chunks)
     completed = 0
     all_results = []
@@ -200,9 +180,7 @@ def infer_missing_fields(
         # Process completed chunks as they finish
         for future in as_completed(future_to_chunk):
             completed += 1
-            progress_logger(
-                f"Processed chunk {completed}/{total} ({completed/total*100:.1f}%)"
-            )
+            progress_logger(f"Processed chunk {completed}/{total} ({completed/total*100:.1f}%)")
 
             try:
                 chunk_results = future.result()
@@ -261,9 +239,7 @@ def process_csv(config: CSVProcessConfig):
     vocab_items = infer_missing_fields(vocab_items, config.progress_logger)
     config.progress_logger(f"{len(vocab_items)} vocabulary items after inference.")
     vocab_items = remove_duplicate_terms(vocab_items)
-    config.progress_logger(
-        f"{len(vocab_items)} vocabulary items after filtering and dedup."
-    )
+    config.progress_logger(f"{len(vocab_items)} vocabulary items after filtering and dedup.")
 
     if config.include_audio:
         audio_mapping = generate_audio_for_cards(
@@ -434,13 +410,13 @@ def read_csv(file_content: str) -> tuple[str, pd.DataFrame]:
     return best_separator, df
 
 
-def infer_field_mapping(df: pd.DataFrame, source_language: Language, target_language: Language) -> dict:
+def infer_field_mapping(
+    df: pd.DataFrame, source_language: Language, target_language: Language
+) -> dict:
     """Get LLM suggestions for CSV field mapping using column letters"""
     logging.debug("Inferring field mapping for CSV data")
     preview_rows = df.head(25).fillna("").astype(str).values.tolist()
-    sample_data = "\n".join(
-        [",".join(df.columns), *[",".join(row) for row in preview_rows]]
-    )
+    sample_data = "\n".join([",".join(df.columns), *[",".join(row) for row in preview_rows]])
 
     prompt = f"""Analyze this CSV data and suggest mappings for a vocabulary flashcard system.
 The system has the following fields:

@@ -1,5 +1,5 @@
 # Client build stage
-FROM node:22-slim AS client-builder
+FROM node:24.5-alpine AS client-builder
 RUN corepack enable pnpm
 WORKDIR /app/client
 COPY client/package.json client/pnpm-lock.yaml ./
@@ -16,7 +16,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 ENV UV_LINK_MODE=copy
 COPY server/pyproject.toml server/uv.lock server/README.md ./
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen
+RUN --mount=type=cache,target=/app/.cache/uv uv sync --frozen
 RUN uv run playwright install chromium
 
 COPY server/ ./
@@ -29,4 +29,4 @@ EXPOSE 8000
 
 ENV ROOT_DIR=/app
 ENV SECRETS_DIR=/run/secrets
-CMD ["uv", "run", "uvicorn", "multivox.app:app", "--workers=2", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*"]
+CMD ["uv", "run", "--offline", "uvicorn", "multivox.app:app", "--workers=2", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*"]

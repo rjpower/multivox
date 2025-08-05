@@ -13,8 +13,8 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 # Model configuration
-CHAPTER_LIST_MODEL_ID = "gemini/gemini-2.0-flash"
-CHAPTER_GEN_MODEL_ID = "gemini/gemini-2.0-flash"
+CHAPTER_LIST_MODEL_ID = "gemini/gemini-2.5-flash"
+CHAPTER_GEN_MODEL_ID = "gemini/gemini-2.5-flash"
 # CHAPTER_GEN_MODEL_ID = "openai/gpt-4o"
 
 file_cache = default_file_cache

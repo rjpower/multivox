@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, List, Optional, cast
 
 import litellm
+from pydantic import BaseModel
 
 from multivox.config import settings
 
@@ -120,7 +121,12 @@ class FileCache:
 default_file_cache = FileCache(cache_dir=settings.ROOT_DIR / "cache")
 
 
-def cached_completion(messages: List[dict], api_key: Optional[str] = None, **kw) -> str:
+def cached_completion(
+    messages: List[dict],
+    api_key: Optional[str] = None,
+    response_format: type[BaseModel] | None = None,
+    **kw,
+) -> str:
     """Execute LLM completion with caching
 
     Args:
@@ -152,7 +158,8 @@ def cached_completion(messages: List[dict], api_key: Optional[str] = None, **kw)
         model=settings.COMPLETION_MODEL_ID,
         messages=messages,
         api_key=api_key,
-        **kw
+        response_format=response_format,
+        **kw,
     )
 
     result = response.choices[0].message.content  # type: ignore

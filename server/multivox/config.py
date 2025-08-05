@@ -25,15 +25,15 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str
     OPENAI_API_KEY: str
 
-    LIVE_MODEL_ID: str = "gemini-2.0-flash-exp"
-    TRANSCRIBE_AND_HINT_MODEL_ID: str = "gemini-2.0-flash"
-    JOURNAL_MODEL_ID: str = "gemini-2.0-flash"
+    LIVE_MODEL_ID: str = "gemini-2.5-flash-exp"
+    TRANSCRIBE_AND_HINT_MODEL_ID: str = "gemini-2.5-flash"
+    JOURNAL_MODEL_ID: str = "gemini-2.5-flash"
     TRANSCRIPTION_MODEL_ID: str = "openai/whisper-1"
-    TRANSLATION_MODEL_ID: str = "gemini/gemini-2.0-flash"
+    TRANSLATION_MODEL_ID: str = "gemini/gemini-2.5-flash"
     HINT_MODEL_ID: str = "openai/gpt-4o-mini"
-    COMPLETION_MODEL_ID: str = "gemini/gemini-2.0-flash"
+    COMPLETION_MODEL_ID: str = "gemini/gemini-2.5-flash"
 
-    GEMINI_MODEL_ID: str = "gemini/gemini-2.0-flash"
+    GEMINI_MODEL_ID: str = "gemini/gemini-2.5-flash"
 
     CLIENT_SAMPLE_RATE: int = 16000
     SERVER_SAMPLE_RATE: int = 24000
